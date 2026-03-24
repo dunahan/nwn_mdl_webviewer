@@ -44,16 +44,6 @@ mv c_dragon_d.mdl c_dragon_ascii.mdl
 
 ---
 
-## Method 3 — Via NWN:EE Toolset (Windows)
-
-The NWN:EE Aurora Toolset includes MDL export functionality:
-
-1. Open the Aurora Toolset (from Steam or GOG)
-2. Open a module that contains your model
-3. Use the built-in model viewer/exporter
-
----
-
 ## Where are the MDL files?
 
 ### Steam (Windows)
