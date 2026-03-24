@@ -72,7 +72,6 @@ python -m nwn.mdl decompile c_dragon.mdl -o c_dragon_ascii.mdl
 |------|----------|-------|
 | [NWNExplorer](https://github.com/virusman/nwnexplorer) | Windows | GUI, can export ASCII MDL |
 | [nwnmdlcomp](https://github.com/nwneetools/nwneetools) | Win/Linux/Mac | CLI, official EE tool |
-| [nwn-lib](https://rubygems.org/gems/nwn-lib) | Ruby | `nwn-gff`, also handles MDL |
 
 ---
 
