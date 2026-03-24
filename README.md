@@ -61,10 +61,10 @@ nwnmdlcomp -d c_dragon.mdl
 
 **Using `cleanmodels`:**
 
+```bash
 # Download from:
 # https://github.com/plenarius/cleanmodels/releases/tag/latest
 
-```bash
 <has to come!> decompile c_dragon.mdl -o c_dragon_ascii.mdl
 ```
 
