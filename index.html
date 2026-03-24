@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NWN1 EE — MDL Viewer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #0a0c0f;
+    --panel:    #10141a;
+    --border:   #2a3040;
+    --gold:     #c8a44a;
+    --gold2:    #e8c870;
+    --amber:    #f08030;
+    --text:     #d0c8b8;
+    --muted:    #6a7080;
+    --mesh:     #4a90c0;
+    --dummy:    #70b870;
+    --skin:     #c070c0;
+    --emitter:  #f0a030;
+    --red:      #c04040;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: 'Share Tech Mono', monospace; font-size: 13px; }
+
+  #app { display: flex; width: 100%; height: 100%; }
+
+  /* ── Sidebar ── */
+  #sidebar {
+    width: 280px; min-width: 280px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    z-index: 10;
+  }
+  #logo {
+    padding: 18px 16px 14px;
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+  }
+  #logo h1 {
+    font-family: 'Cinzel', serif;
+    font-size: 15px; letter-spacing: 3px;
+    color: var(--gold);
+    text-transform: uppercase;
+  }
+  #logo p { font-size: 10px; color: var(--muted); margin-top: 3px; letter-spacing: 2px; }
+
+  #drop-zone {
+    margin: 12px;
+    border: 1px dashed var(--border);
+    border-radius: 4px;
+    padding: 18px 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.6;
+  }
+  #drop-zone:hover, #drop-zone.drag-over {
+    border-color: var(--gold);
+    color: var(--gold2);
+    background: rgba(200,164,74,0.05);
+  }
+  #drop-zone .icon { font-size: 26px; margin-bottom: 6px; display: block; }
+  #file-input { display: none; }
+
+  #model-info {
+    margin: 0 12px 8px;
+    padding: 8px 10px;
+    background: rgba(200,164,74,0.06);
+    border: 1px solid rgba(200,164,74,0.2);
+    border-radius: 3px;
+    font-size: 11px;
+    line-height: 1.8;
+    display: none;
+  }
+  #model-info .info-name { color: var(--gold2); font-family: 'Cinzel', serif; font-size: 13px; }
+  #model-info .info-row { display: flex; justify-content: space-between; color: var(--muted); }
+  #model-info .info-val { color: var(--text); }
+
+  #section-title {
+    padding: 6px 12px;
+    font-size: 10px; letter-spacing: 2px;
+    color: var(--muted); text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+
+  #node-list {
+    flex: 1; overflow-y: auto;
+    padding: 4px 0;
+  }
+  #node-list::-webkit-scrollbar { width: 4px; }
+  #node-list::-webkit-scrollbar-track { background: transparent; }
+  #node-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .node-item {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 12px 4px;
+    cursor: pointer; transition: background 0.1s;
+    border-left: 2px solid transparent;
+    font-size: 11px;
+  }
+  .node-item:hover { background: rgba(255,255,255,0.04); }
+  .node-item.selected { background: rgba(200,164,74,0.08); border-left-color: var(--gold); }
+  .node-item.hidden { opacity: 0.35; }
+  .node-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .node-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .node-type-badge {
+    font-size: 9px; padding: 1px 4px;
+    border-radius: 2px; opacity: 0.8;
+    text-transform: uppercase; letter-spacing: 1px;
+    flex-shrink: 0;
+  }
+  .vis-toggle { cursor: pointer; font-size: 12px; color: var(--muted); flex-shrink: 0; }
+  .vis-toggle:hover { color: var(--gold); }
+
+  .type-trimesh  { background: rgba(74,144,192,0.25); color: var(--mesh); }
+  .type-skin     { background: rgba(192,112,192,0.25); color: var(--skin); }
+  .type-dummy    { background: rgba(112,184,112,0.2);  color: var(--dummy); }
+  .type-emitter  { background: rgba(240,160,48,0.2);   color: var(--emitter); }
+  .type-aabb     { background: rgba(200,64,64,0.2);    color: var(--red); }
+  .dot-trimesh   { background: var(--mesh); }
+  .dot-skin      { background: var(--skin); }
+  .dot-dummy     { background: var(--dummy); }
+  .dot-emitter   { background: var(--emitter); }
+  .dot-aabb      { background: var(--red); }
+  .dot-other     { background: var(--muted); }
+
+  #controls-panel {
+    border-top: 1px solid var(--border);
+    padding: 10px 12px;
+  }
+  .ctrl-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 11px; color: var(--muted); }
+  .ctrl-row:last-child { margin-bottom: 0; }
+  .ctrl-label { width: 80px; flex-shrink: 0; }
+  input[type=range] {
+    flex: 1; height: 3px; accent-color: var(--gold);
+    background: var(--border); border-radius: 2px; outline: none; border: none; cursor: pointer;
+  }
+  .ctrl-val { width: 36px; text-align: right; color: var(--text); }
+  .toggle-btn {
+    flex: 1; padding: 4px 8px; background: transparent;
+    border: 1px solid var(--border); color: var(--muted);
+    border-radius: 3px; cursor: pointer; font-family: 'Share Tech Mono', monospace;
+    font-size: 10px; letter-spacing: 1px; transition: all 0.15s;
+    text-transform: uppercase;
+  }
+  .toggle-btn:hover { border-color: var(--gold); color: var(--gold); }
+  .toggle-btn.active { border-color: var(--gold); color: var(--gold); background: rgba(200,164,74,0.08); }
+
+  /* ── Canvas area ── */
+  #viewport { flex: 1; position: relative; overflow: hidden; }
+  #canvas { display: block; width: 100%; height: 100%; }
+
+  /* ── Overlay HUD ── */
+  #hud {
+    position: absolute; top: 12px; right: 12px;
+    background: rgba(10,12,15,0.85); backdrop-filter: blur(4px);
+    border: 1px solid var(--border); border-radius: 4px;
+    padding: 8px 12px; font-size: 10px; color: var(--muted);
+    line-height: 1.8; pointer-events: none;
+  }
+  #hud span { color: var(--text); }
+
+  #node-detail {
+    position: absolute; bottom: 12px; right: 12px;
+    background: rgba(10,12,15,0.9); backdrop-filter: blur(4px);
+    border: 1px solid var(--border); border-radius: 4px;
+    padding: 10px 14px; font-size: 10px; min-width: 180px;
+    display: none;
+  }
+  #node-detail .nd-title { color: var(--gold); font-family: 'Cinzel', serif; font-size: 12px; margin-bottom: 6px; }
+  #node-detail .nd-row { display: flex; justify-content: space-between; gap: 16px; color: var(--muted); line-height: 1.7; }
+  #node-detail .nd-val { color: var(--text); }
+
+  /* ── Empty state ── */
+  #empty-state {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: var(--muted); pointer-events: none;
+    gap: 12px;
+  }
+  #empty-state .es-icon { font-size: 60px; opacity: 0.15; }
+  #empty-state p { font-size: 12px; letter-spacing: 2px; opacity: 0.4; text-transform: uppercase; }
+  #empty-state small { font-size: 10px; opacity: 0.3; }
+
+  /* ── Axes helper label ── */
+  .axes-label {
+    position: absolute; bottom: 16px; left: 16px;
+    display: flex; gap: 10px; font-size: 10px; pointer-events: none;
+    opacity: 0.5;
+  }
+  .ax { display: flex; align-items: center; gap: 4px; }
+  .ax-dot { width: 8px; height: 3px; border-radius: 1px; }
+
+  /* ── Status bar ── */
+  #statusbar {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 22px; background: rgba(10,12,15,0.9);
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; gap: 16px;
+    padding: 0 12px; font-size: 10px; color: var(--muted);
+    pointer-events: none;
+  }
+  #statusbar span { color: var(--text); }
+
+  /* Scrollbar for sidebar */
+  #sidebar ::-webkit-scrollbar { width: 4px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- ── Sidebar ── -->
+  <div id="sidebar">
+    <div id="logo">
+      <h1>NWN MDL Viewer</h1>
+      <p>Neverwinter Nights 1 · Enhanced Edition</p>
+    </div>
+
+    <div id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <span class="icon">⬡</span>
+      <strong>.MDL Datei ablegen</strong><br>
+      oder klicken zum Öffnen<br>
+      <small style="color:var(--muted)">(ASCII / decompiliertes Format)</small>
+    </div>
+    <input type="file" id="file-input" accept=".mdl,.txt">
+
+    <div id="model-info"></div>
+
+    <div id="section-title">Szenen-Graph</div>
+    <div id="node-list"><div style="padding:20px;color:var(--muted);font-size:11px;text-align:center;">Keine Datei geladen</div></div>
+
+    <div id="controls-panel">
+      <div class="ctrl-row">
+        <span class="ctrl-label">Gitterlinien</span>
+        <input type="range" id="wire-opacity" min="0" max="100" value="0" oninput="updateWireframe(this.value)">
+        <span class="ctrl-val" id="wire-val">0%</span>
+      </div>
+      <div class="ctrl-row">
+        <span class="ctrl-label">Beleuchtung</span>
+        <input type="range" id="light-intensity" min="0" max="200" value="100" oninput="updateLight(this.value)">
+        <span class="ctrl-val" id="light-val">100%</span>
+      </div>
+      <div class="ctrl-row" style="gap:6px">
+        <button class="toggle-btn active" id="btn-normals" onclick="toggleNormals()">Normalen</button>
+        <button class="toggle-btn active" id="btn-grid"    onclick="toggleGrid()">Raster</button>
+        <button class="toggle-btn"        id="btn-bbox"    onclick="toggleBBox()">BBox</button>
+        <button class="toggle-btn"        id="btn-rotate"  onclick="toggleAutoRotate()">Rotation</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Viewport ── -->
+  <div id="viewport">
+    <canvas id="canvas"></canvas>
+
+    <div id="empty-state">
+      <div class="es-icon">⬡</div>
+      <p>MDL Datei laden</p>
+      <small>Drag &amp; Drop · ASCII-Format · Decompiliert</small>
+    </div>
+
+    <div id="hud">
+      Kamera&nbsp;|&nbsp;LMB Orbit&nbsp;·&nbsp;RMB/Rad Zoom&nbsp;·&nbsp;MMB Pan<br>
+      Vertices:&nbsp;<span id="stat-verts">—</span>&nbsp;·&nbsp;
+      Faces:&nbsp;<span id="stat-faces">—</span>&nbsp;·&nbsp;
+      Nodes:&nbsp;<span id="stat-nodes">—</span>
+    </div>
+
+    <div id="node-detail"></div>
+
+    <div class="axes-label">
+      <div class="ax"><div class="ax-dot" style="background:#e04040"></div>X</div>
+      <div class="ax"><div class="ax-dot" style="background:#40c040"></div>Y (oben)</div>
+      <div class="ax"><div class="ax-dot" style="background:#4080e0"></div>Z</div>
+    </div>
+
+    <div id="statusbar">
+      Status:&nbsp;<span id="status-msg">Bereit — Datei ablegen oder öffnen</span>
+    </div>
+  </div>
+</div>
+
+<!-- Three.js r128 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ─────────────────────────────────────────────
+//  NWN MDL Parser
+// ─────────────────────────────────────────────
+function parseMDL(text) {
+  // Normalize line endings
+  const rawLines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  // Strip inline comments (# ...)
+  const lines = rawLines.map(l => { const c = l.indexOf('#'); return c >= 0 ? l.substring(0, c) : l; });
+
+  const model = { name: '', supermodel: '', classification: 'unknown', nodes: [], animCount: 0 };
+  let i = 0;
+
+  function tok(idx) {
+    const parts = lines[idx].trim().split(/\s+/);
+    return parts.filter(p => p.length > 0);
+  }
+  function key(idx) { return (tok(idx)[0] || '').toLowerCase(); }
+
+  while (i < lines.length) {
+    const k = key(i);
+    const t = tok(i);
+    if (k === 'newmodel')       model.name = t[1] || 'unknown';
+    else if (k === 'setsupermodel') model.supermodel = t[2] || '';
+    else if (k === 'classification') model.classification = t[1] || 'unknown';
+    else if (k === 'beginmodelgeom') {
+      i++;
+      while (i < lines.length && key(i) !== 'endmodelgeom') {
+        if (key(i) === 'node') {
+          const result = parseNode(lines, i);
+          model.nodes.push(result.node);
+          i = result.next;
+          continue;
+        }
+        i++;
+      }
+    } else if (k === 'newanim') {
+      model.animCount++;
+    }
+    i++;
+  }
+  return model;
+}
+
+function parseNode(lines, start) {
+  const hdr = lines[start].trim().split(/\s+/);
+  const node = {
+    type: (hdr[1] || 'dummy').toLowerCase(),
+    name: hdr[2] || 'node',
+    parent: 'NULL',
+    position: [0, 0, 0],
+    orientation: [0, 0, 0, 1],  // quaternion x y z w
+    scale: 1,
+    bitmap: '',
+    verts: [], tverts: [], normals: [], faces: [],
+    ambient: [0.2, 0.2, 0.2],
+    diffuse: [0.8, 0.8, 0.8],
+    specular: [0, 0, 0],
+    shininess: 0,
+    render: 1,
+    alpha: 1.0,
+    tilefade: 0,
+  };
+
+  function tok(idx) { return lines[idx].trim().split(/\s+/).filter(x => x.length > 0); }
+  function num(s) { const v = parseFloat(s); return isNaN(v) ? 0 : v; }
+
+  let i = start + 1;
+  while (i < lines.length) {
+    const raw = lines[i].trim();
+    if (raw === '' || raw.startsWith('#')) { i++; continue; }
+    if (raw.toLowerCase() === 'endnode') return { node, next: i + 1 };
+
+    const t = tok(i);
+    const k = (t[0] || '').toLowerCase();
+
+    if      (k === 'parent')      node.parent = t[1] || 'NULL';
+    else if (k === 'position')    node.position = [num(t[1]), num(t[2]), num(t[3])];
+    else if (k === 'orientation') node.orientation = [num(t[1]), num(t[2]), num(t[3]), num(t[4])];
+    else if (k === 'scale')       node.scale = num(t[1]) || 1;
+    else if (k === 'bitmap')      node.bitmap = (t[1] || '').toLowerCase();
+    else if (k === 'ambient')     node.ambient = [num(t[1]), num(t[2]), num(t[3])];
+    else if (k === 'diffuse')     node.diffuse = [num(t[1]), num(t[2]), num(t[3])];
+    else if (k === 'specular')    node.specular = [num(t[1]), num(t[2]), num(t[3])];
+    else if (k === 'shininess')   node.shininess = num(t[1]);
+    else if (k === 'render')      node.render = parseInt(t[1]) || 0;
+    else if (k === 'alpha')       node.alpha = num(t[1]);
+    else if (k === 'tilefade')    node.tilefade = parseInt(t[1]) || 0;
+    else if (k === 'verts') {
+      const count = parseInt(t[1]) || 0;
+      for (let j = 0; j < count; j++) {
+        i++;
+        if (i >= lines.length) break;
+        const vt = tok(i);
+        if (vt.length >= 3) node.verts.push([num(vt[0]), num(vt[1]), num(vt[2])]);
+      }
+    } else if (k === 'tverts') {
+      const count = parseInt(t[1]) || 0;
+      for (let j = 0; j < count; j++) {
+        i++;
+        if (i >= lines.length) break;
+        const vt = tok(i);
+        if (vt.length >= 2) node.tverts.push([num(vt[0]), num(vt[1])]);
+      }
+    } else if (k === 'normals') {
+      const count = parseInt(t[1]) || 0;
+      for (let j = 0; j < count; j++) {
+        i++;
+        if (i >= lines.length) break;
+        const vt = tok(i);
+        if (vt.length >= 3) node.normals.push([num(vt[0]), num(vt[1]), num(vt[2])]);
+      }
+    } else if (k === 'faces') {
+      const count = parseInt(t[1]) || 0;
+      for (let j = 0; j < count; j++) {
+        i++;
+        if (i >= lines.length) break;
+        const ft = tok(i);
+        if (ft.length >= 7) {
+          node.faces.push({
+            v:  [parseInt(ft[0]), parseInt(ft[1]), parseInt(ft[2])],
+            sg: parseInt(ft[3]) || 0,
+            t:  [parseInt(ft[4]), parseInt(ft[5]), parseInt(ft[6])],
+            sm: parseInt(ft[7]) || 0
+          });
+        }
+      }
+    }
+    i++;
+  }
+  return { node, next: i };
+}
+
+// ─────────────────────────────────────────────
+//  Three.js scene
+// ─────────────────────────────────────────────
+const canvas   = document.getElementById('canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.setClearColor(0x0a0c0f);
+
+const scene  = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 5000);
+camera.position.set(2, 2, 4);
+camera.lookAt(0, 0, 0);
+
+// Lights
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.35);
+scene.add(ambientLight);
+
+const dirLight = new THREE.DirectionalLight(0xfff0d0, 1.0);
+dirLight.position.set(5, 10, 8);
+dirLight.castShadow = true;
+scene.add(dirLight);
+
+const dirLight2 = new THREE.DirectionalLight(0xd0e0ff, 0.4);
+dirLight2.position.set(-6, 3, -5);
+scene.add(dirLight2);
+
+// Grid
+const gridHelper = new THREE.GridHelper(10, 20, 0x2a3040, 0x1a2030);
+scene.add(gridHelper);
+
+// Axes
+const axesHelper = new THREE.AxesHelper(0.5);
+scene.add(axesHelper);
+
+// Wireframe overlay mesh
+let wireGroup = null;
+
+// Scene group for loaded model
+let modelGroup = null;
+let bboxHelper = null;
+let autoRotate = false;
+let currentModel = null;
+let nodeObjects = {};    // name -> THREE.Object3D
+let selectedNodeName = null;
+let wireOpacity = 0;
+
+// ─────────────────────────────────────────────
+//  Orbit Controls (custom, minimal)
+// ─────────────────────────────────────────────
+const orbit = {
+  theta: 0.5, phi: 1.1, radius: 5,
+  target: new THREE.Vector3(0, 0, 0),
+  dragging: false, panning: false,
+  lastX: 0, lastY: 0,
+  panStart: null,
+};
+
+function updateCamera() {
+  orbit.phi = Math.max(0.05, Math.min(Math.PI - 0.05, orbit.phi));
+  orbit.radius = Math.max(0.1, Math.min(500, orbit.radius));
+  const x = orbit.radius * Math.sin(orbit.phi) * Math.sin(orbit.theta);
+  const y = orbit.radius * Math.cos(orbit.phi);
+  const z = orbit.radius * Math.sin(orbit.phi) * Math.cos(orbit.theta);
+  camera.position.set(
+    orbit.target.x + x,
+    orbit.target.y + y,
+    orbit.target.z + z
+  );
+  camera.lookAt(orbit.target);
+}
+
+canvas.addEventListener('mousedown', e => {
+  if (e.button === 0) { orbit.dragging = true; }
+  if (e.button === 1 || e.button === 2) { orbit.panning = true; }
+  orbit.lastX = e.clientX; orbit.lastY = e.clientY;
+});
+window.addEventListener('mouseup', () => { orbit.dragging = false; orbit.panning = false; });
+window.addEventListener('mousemove', e => {
+  const dx = e.clientX - orbit.lastX;
+  const dy = e.clientY - orbit.lastY;
+  orbit.lastX = e.clientX; orbit.lastY = e.clientY;
+  if (orbit.dragging) {
+    orbit.theta -= dx * 0.007;
+    orbit.phi   += dy * 0.007;
+    updateCamera();
+  }
+  if (orbit.panning) {
+    const right = new THREE.Vector3();
+    const up = new THREE.Vector3();
+    camera.getWorldDirection(new THREE.Vector3());
+    right.crossVectors(camera.getWorldDirection(new THREE.Vector3()), camera.up).normalize();
+    up.copy(camera.up);
+    const speed = orbit.radius * 0.001;
+    orbit.target.addScaledVector(right, -dx * speed);
+    orbit.target.addScaledVector(up, dy * speed);
+    updateCamera();
+  }
+});
+canvas.addEventListener('wheel', e => {
+  orbit.radius *= 1 + e.deltaY * 0.001;
+  updateCamera();
+  e.preventDefault();
+}, { passive: false });
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+// Touch support
+let touches = {};
+canvas.addEventListener('touchstart', e => {
+  for (const t of e.changedTouches) touches[t.identifier] = { x: t.clientX, y: t.clientY };
+  if (e.touches.length === 1) { orbit.dragging = true; orbit.lastX = e.touches[0].clientX; orbit.lastY = e.touches[0].clientY; }
+}, { passive: true });
+canvas.addEventListener('touchend', e => {
+  for (const t of e.changedTouches) delete touches[t.identifier];
+  if (e.touches.length === 0) orbit.dragging = false;
+}, { passive: true });
+canvas.addEventListener('touchmove', e => {
+  if (e.touches.length === 1 && orbit.dragging) {
+    const dx = e.touches[0].clientX - orbit.lastX;
+    const dy = e.touches[0].clientY - orbit.lastY;
+    orbit.lastX = e.touches[0].clientX; orbit.lastY = e.touches[0].clientY;
+    orbit.theta -= dx * 0.007; orbit.phi += dy * 0.007; updateCamera();
+  }
+  e.preventDefault();
+}, { passive: false });
+
+// ─────────────────────────────────────────────
+//  Build scene from parsed model
+// ─────────────────────────────────────────────
+const NODE_COLORS = {
+  trimesh: 0x4a90c0, skin: 0xc070c0, dummy: 0x70b870,
+  emitter: 0xf0a030, aabb: 0xc04040, light: 0xf8f050, reference: 0x80c0e0,
+};
+function nodeColor(type) { return NODE_COLORS[type] || 0x808080; }
+
+function buildScene(model) {
+  // Clear previous
+  if (modelGroup) scene.remove(modelGroup);
+  if (bboxHelper) scene.remove(bboxHelper);
+  if (wireGroup)  scene.remove(wireGroup);
+  nodeObjects = {};
+
+  modelGroup = new THREE.Group();
+  wireGroup  = new THREE.Group();
+  scene.add(modelGroup);
+  scene.add(wireGroup);
+
+  const nodeMap = {};
+  for (const n of model.nodes) nodeMap[n.name] = n;
+
+  // Build Three.js objects
+  const objects = {};
+  let totalVerts = 0, totalFaces = 0;
+
+  for (const node of model.nodes) {
+    let obj;
+
+    if ((node.type === 'trimesh' || node.type === 'skin') && node.faces.length > 0 && node.verts.length > 0) {
+      // Explode geometry: 3 verts per face (separate UV / normal per-face-vertex)
+      const positions = new Float32Array(node.faces.length * 9);
+      const uvs       = new Float32Array(node.faces.length * 6);
+      const normals   = new Float32Array(node.faces.length * 9);
+      let hasNormals  = node.normals.length > 0;
+
+      for (let fi = 0; fi < node.faces.length; fi++) {
+        const face = node.faces[fi];
+        for (let k = 0; k < 3; k++) {
+          const vi = face.v[k]; const ti = face.t[k];
+          const v  = node.verts[vi] || [0, 0, 0];
+          positions[fi * 9 + k * 3 + 0] = v[0];
+          positions[fi * 9 + k * 3 + 1] = v[1];
+          positions[fi * 9 + k * 3 + 2] = v[2];
+          const uv = (node.tverts[ti]) || [0, 0];
+          uvs[fi * 6 + k * 2 + 0] = uv[0];
+          uvs[fi * 6 + k * 2 + 1] = 1 - uv[1]; // flip V
+          if (hasNormals) {
+            const nm = node.normals[vi] || [0, 1, 0];
+            normals[fi * 9 + k * 3 + 0] = nm[0];
+            normals[fi * 9 + k * 3 + 1] = nm[1];
+            normals[fi * 9 + k * 3 + 2] = nm[2];
+          }
+        }
+      }
+
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geo.setAttribute('uv',       new THREE.BufferAttribute(uvs, 2));
+      if (hasNormals) geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+      else geo.computeVertexNormals();
+
+      const d = node.diffuse;
+      const mat = new THREE.MeshPhongMaterial({
+        color:     new THREE.Color(d[0], d[1], d[2]),
+        specular:  new THREE.Color(node.specular[0], node.specular[1], node.specular[2]),
+        shininess: node.shininess * 128,
+        side:      THREE.DoubleSide,
+        transparent: node.alpha < 0.99,
+        opacity:   node.alpha,
+      });
+
+      // Slight fallback if diffuse is black
+      if (d[0] === 0 && d[1] === 0 && d[2] === 0) mat.color.set(0x888888);
+      if (node.bitmap) mat.color.set(nodeColor(node.type)); // placeholder; real texture needs TGA/DDS loader
+
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      obj = mesh;
+
+      // Wireframe overlay
+      const wireMat = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0 });
+      const wireMesh = new THREE.Mesh(geo, wireMat);
+      wireGroup.add(wireMesh);
+      obj.userData.wireMesh = wireMesh;
+
+      totalVerts += node.verts.length;
+      totalFaces += node.faces.length;
+    } else {
+      // Dummy / emitter / etc → small sphere marker
+      const geo = new THREE.SphereGeometry(0.04, 6, 6);
+      const mat = new THREE.MeshBasicMaterial({ color: nodeColor(node.type) });
+      obj = new THREE.Mesh(geo, mat);
+    }
+
+    // Apply local transform
+    const [ox, oy, oz, ow] = node.orientation;
+    const quat = new THREE.Quaternion(ox, oy, oz, ow);
+    if (quat.lengthSq() < 0.01) quat.set(0, 0, 0, 1);
+    quat.normalize();
+    obj.quaternion.copy(quat);
+    obj.position.set(...node.position);
+    obj.scale.setScalar(node.scale);
+
+    obj.name = node.name;
+    obj.userData.nodeData = node;
+
+    objects[node.name] = obj;
+    nodeObjects[node.name] = obj;
+  }
+
+  // Build hierarchy
+  for (const node of model.nodes) {
+    const obj = objects[node.name];
+    if (!obj) continue;
+    const parentName = node.parent;
+    if (parentName && parentName !== 'NULL' && objects[parentName]) {
+      objects[parentName].add(obj);
+      // Also reparent wire mesh
+      if (obj.userData.wireMesh) {
+        const parentWireObj = objects[parentName].userData.wireMesh;
+        wireGroup.add(obj.userData.wireMesh); // Keep flat in wireGroup for now
+      }
+    } else {
+      modelGroup.add(obj);
+    }
+  }
+
+  // Fit camera to model
+  const box = new THREE.Box3().setFromObject(modelGroup);
+  if (!box.isEmpty()) {
+    const center = box.getCenter(new THREE.Vector3());
+    const size   = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    orbit.target.copy(center);
+    orbit.radius = maxDim * 2.2;
+    orbit.theta  = 0.5; orbit.phi = 1.1;
+    updateCamera();
+
+    // BBox helper
+    bboxHelper = new THREE.Box3Helper(box, new THREE.Color(0xc8a44a));
+    bboxHelper.visible = document.getElementById('btn-bbox').classList.contains('active');
+    scene.add(bboxHelper);
+  }
+
+  // Update stats
+  document.getElementById('stat-verts').textContent = totalVerts.toLocaleString('de');
+  document.getElementById('stat-faces').textContent = totalFaces.toLocaleString('de');
+  document.getElementById('stat-nodes').textContent = model.nodes.length;
+  document.getElementById('empty-state').style.display = 'none';
+  setStatus('Modell geladen: ' + model.name + ' (' + model.classification + ')');
+
+  currentModel = model;
+  buildNodeList(model);
+  showModelInfo(model, totalVerts, totalFaces);
+}
+
+// ─────────────────────────────────────────────
+//  Sidebar node list
+// ─────────────────────────────────────────────
+function buildNodeList(model) {
+  const list = document.getElementById('node-list');
+  list.innerHTML = '';
+  for (const node of model.nodes) {
+    const item = document.createElement('div');
+    item.className = 'node-item';
+    item.dataset.name = node.name;
+
+    const typeClass = ['trimesh','skin','dummy','emitter','aabb'].includes(node.type) ? node.type : 'other';
+    const dot = document.createElement('div');
+    dot.className = `node-dot dot-${typeClass}`;
+    item.appendChild(dot);
+
+    const name = document.createElement('span');
+    name.className = 'node-name';
+    name.textContent = node.name;
+    item.appendChild(name);
+
+    const badge = document.createElement('span');
+    badge.className = `node-type-badge type-${typeClass}`;
+    badge.textContent = node.type;
+    item.appendChild(badge);
+
+    if (node.type === 'trimesh' || node.type === 'skin') {
+      const vis = document.createElement('span');
+      vis.className = 'vis-toggle';
+      vis.textContent = '⬡';
+      vis.title = 'Sichtbarkeit umschalten';
+      vis.onclick = (e) => { e.stopPropagation(); toggleNodeVisibility(node.name, item, vis); };
+      item.appendChild(vis);
+    }
+
+    item.onclick = () => selectNode(node.name);
+    list.appendChild(item);
+  }
+}
+
+function toggleNodeVisibility(name, item, btn) {
+  const obj = nodeObjects[name];
+  if (!obj) return;
+  obj.visible = !obj.visible;
+  item.classList.toggle('hidden', !obj.visible);
+  btn.textContent = obj.visible ? '⬡' : '○';
+}
+
+function selectNode(name) {
+  selectedNodeName = name;
+  document.querySelectorAll('.node-item').forEach(el => el.classList.remove('selected'));
+  const el = document.querySelector(`.node-item[data-name="${CSS.escape(name)}"]`);
+  if (el) { el.classList.add('selected'); el.scrollIntoView({ block: 'nearest' }); }
+
+  const obj = nodeObjects[name];
+  if (!obj || !obj.userData.nodeData) { document.getElementById('node-detail').style.display = 'none'; return; }
+  const n = obj.userData.nodeData;
+
+  const detail = document.getElementById('node-detail');
+  detail.style.display = 'block';
+  detail.innerHTML = `
+    <div class="nd-title">${n.name}</div>
+    <div class="nd-row"><span>Typ</span><span class="nd-val">${n.type}</span></div>
+    <div class="nd-row"><span>Eltern</span><span class="nd-val">${n.parent}</span></div>
+    <div class="nd-row"><span>Vertices</span><span class="nd-val">${n.verts.length}</span></div>
+    <div class="nd-row"><span>Faces</span><span class="nd-val">${n.faces.length}</span></div>
+    <div class="nd-row"><span>Bitmap</span><span class="nd-val">${n.bitmap || '—'}</span></div>
+    <div class="nd-row"><span>Position</span><span class="nd-val">${n.position.map(v=>v.toFixed(3)).join(', ')}</span></div>
+    <div class="nd-row"><span>Diffuse</span><span class="nd-val">${n.diffuse.map(v=>v.toFixed(2)).join(', ')}</span></div>
+    <div class="nd-row"><span>Alpha</span><span class="nd-val">${n.alpha.toFixed(2)}</span></div>
+  `;
+}
+
+function showModelInfo(model, verts, faces) {
+  const el = document.getElementById('model-info');
+  el.style.display = 'block';
+  const meshCount = model.nodes.filter(n => n.type === 'trimesh' || n.type === 'skin').length;
+  el.innerHTML = `
+    <div class="info-name">${model.name}</div>
+    <div class="info-row"><span>Supermodel</span><span class="info-val">${model.supermodel || '—'}</span></div>
+    <div class="info-row"><span>Klasse</span><span class="info-val">${model.classification}</span></div>
+    <div class="info-row"><span>Nodes</span><span class="info-val">${model.nodes.length} (${meshCount} Meshes)</span></div>
+    <div class="info-row"><span>Vertices</span><span class="info-val">${verts.toLocaleString('de')}</span></div>
+    <div class="info-row"><span>Dreiecke</span><span class="info-val">${faces.toLocaleString('de')}</span></div>
+    <div class="info-row"><span>Animationen</span><span class="info-val">${model.animCount}</span></div>
+  `;
+}
+
+// ─────────────────────────────────────────────
+//  UI Controls
+// ─────────────────────────────────────────────
+function updateWireframe(val) {
+  wireOpacity = val / 100;
+  document.getElementById('wire-val').textContent = val + '%';
+  if (wireGroup) {
+    wireGroup.traverse(child => {
+      if (child.isMesh) child.material.opacity = wireOpacity;
+    });
+    wireGroup.visible = wireOpacity > 0;
+  }
+}
+
+function updateLight(val) {
+  document.getElementById('light-val').textContent = val + '%';
+  dirLight.intensity   = (val / 100) * 1.0;
+  dirLight2.intensity  = (val / 100) * 0.4;
+  ambientLight.intensity = (val / 100) * 0.35;
+}
+
+function toggleNormals() {
+  const btn = document.getElementById('btn-normals');
+  btn.classList.toggle('active');
+  const on = btn.classList.contains('active');
+  if (modelGroup) {
+    modelGroup.traverse(child => {
+      if (child.isMesh && child.material.isMeshPhongMaterial) {
+        child.material.flatShading = !on;
+        child.material.needsUpdate = true;
+      }
+    });
+  }
+}
+
+function toggleGrid() {
+  const btn = document.getElementById('btn-grid');
+  btn.classList.toggle('active');
+  gridHelper.visible = btn.classList.contains('active');
+}
+
+function toggleBBox() {
+  const btn = document.getElementById('btn-bbox');
+  btn.classList.toggle('active');
+  if (bboxHelper) bboxHelper.visible = btn.classList.contains('active');
+}
+
+function toggleAutoRotate() {
+  const btn = document.getElementById('btn-rotate');
+  btn.classList.toggle('active');
+  autoRotate = btn.classList.contains('active');
+}
+
+function setStatus(msg) { document.getElementById('status-msg').textContent = msg; }
+
+// ─────────────────────────────────────────────
+//  File loading
+// ─────────────────────────────────────────────
+function loadFile(file) {
+  if (!file) return;
+  setStatus('Lese Datei: ' + file.name + ' …');
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      setStatus('Parse MDL …');
+      const model = parseMDL(e.target.result);
+      if (!model.nodes.length) throw new Error('Keine Nodes gefunden. Ist die Datei im ASCII-Format?');
+      buildScene(model);
+    } catch (err) {
+      setStatus('Fehler: ' + err.message);
+      console.error(err);
+      alert('Fehler beim Parsen:\n' + err.message + '\n\nStellen Sie sicher, dass es sich um eine decompilierte ASCII .mdl Datei handelt.');
+    }
+  };
+  reader.onerror = () => setStatus('Fehler beim Lesen der Datei.');
+  reader.readAsText(file);
+}
+
+// Drag & Drop
+const dropZone = document.getElementById('drop-zone');
+const viewport = document.getElementById('viewport');
+
+function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
+['dragenter','dragover','dragleave','drop'].forEach(ev => {
+  document.addEventListener(ev, preventDefaults);
+});
+['dragenter','dragover'].forEach(ev => {
+  viewport.addEventListener(ev, () => dropZone.classList.add('drag-over'));
+  dropZone.addEventListener(ev, () => dropZone.classList.add('drag-over'));
+});
+['dragleave','drop'].forEach(ev => {
+  viewport.addEventListener(ev, () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener(ev, () => dropZone.classList.remove('drag-over'));
+});
+viewport.addEventListener('drop', e => { loadFile(e.dataTransfer.files[0]); });
+dropZone.addEventListener('drop', e => { loadFile(e.dataTransfer.files[0]); });
+document.getElementById('file-input').addEventListener('change', e => { loadFile(e.target.files[0]); });
+
+// ─────────────────────────────────────────────
+//  Render loop
+// ─────────────────────────────────────────────
+function resize() {
+  const vp = document.getElementById('viewport');
+  const w = vp.clientWidth, h = vp.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+
+window.addEventListener('resize', resize);
+resize();
+updateCamera();
+
+let lastTime = 0;
+function animate(time) {
+  requestAnimationFrame(animate);
+  const dt = (time - lastTime) * 0.001;
+  lastTime = time;
+  if (autoRotate && modelGroup) {
+    orbit.theta += dt * 0.4;
+    updateCamera();
+  }
+  renderer.render(scene, camera);
+}
+animate(0);
+</script>
+</body>
+</html>
