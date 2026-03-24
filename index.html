@@ -422,6 +422,21 @@ function parseNode(lines, start) {
 }
 
 // ─────────────────────────────────────────────
+//  NWN Orientation: Achse-Winkel → Quaternion
+//  NWN speichert (axis_x, axis_y, axis_z, winkel_rad)
+//  NICHT als Quaternion-XYZW!
+// ─────────────────────────────────────────────
+function axisAngleToQuat(ax, ay, az, angle) {
+  const len = Math.sqrt(ax*ax + ay*ay + az*az);
+  if (len < 1e-6 || Math.abs(angle) < 1e-6) {
+    return new THREE.Quaternion(0, 0, 0, 1); // Identität
+  }
+  const half = angle / 2;
+  const s = Math.sin(half) / len;
+  return new THREE.Quaternion(ax * s, ay * s, az * s, Math.cos(half));
+}
+
+// ─────────────────────────────────────────────
 //  Three.js scene
 // ─────────────────────────────────────────────
 const canvas   = document.getElementById('canvas');
@@ -566,6 +581,13 @@ function buildScene(model) {
 
   modelGroup = new THREE.Group();
   wireGroup  = new THREE.Group();
+
+  // NWN verwendet Z-Up Koordinatensystem, Three.js erwartet Y-Up.
+  // Rotation um -90° an der X-Achse: NWN-Z wird zu Three.js-Y (oben).
+  const NWN_TO_THREEJS = -Math.PI / 2;
+  modelGroup.rotation.x = NWN_TO_THREEJS;
+  wireGroup.rotation.x  = NWN_TO_THREEJS;
+
   scene.add(modelGroup);
   scene.add(wireGroup);
 
@@ -647,10 +669,9 @@ function buildScene(model) {
     }
 
     // Apply local transform
-    const [ox, oy, oz, ow] = node.orientation;
-    const quat = new THREE.Quaternion(ox, oy, oz, ow);
-    if (quat.lengthSq() < 0.01) quat.set(0, 0, 0, 1);
-    quat.normalize();
+    // NWN-Format: orientation = (axis_x, axis_y, axis_z, winkel_radiant) — Achse-Winkel, KEIN Quaternion!
+    const [ax, ay, az, angle] = node.orientation;
+    const quat = axisAngleToQuat(ax, ay, az, angle);
     obj.quaternion.copy(quat);
     obj.position.set(...node.position);
     obj.scale.setScalar(node.scale);
