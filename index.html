@@ -326,10 +326,87 @@ function parseMDL(text) {
       }
     } else if (k === 'newanim') {
       model.animCount++;
+      // Parse first animation to get rest pose (time=0 keyframes).
+      // In NWN, the first keyframe of the first animation defines the display pose.
+      if (model.animCount === 1) {
+        const animName = t[1] || '';
+        i++;
+        while (i < lines.length) {
+          const ak = key(i);
+          if (ak === 'doneanim') break;
+          if (ak === 'node') {
+            const result = parseAnimNode(lines, i);
+            // Only store rest pose if this node has a keyframe
+            if (result.restOrientation) {
+              if (!model.restPose) model.restPose = {};
+              model.restPose[result.name] = {
+                orientation: result.restOrientation,
+                position:    result.restPosition || null,
+              };
+            }
+            i = result.next;
+            continue;
+          }
+          i++;
+        }
+      }
     }
     i++;
   }
+  if (!model.restPose) model.restPose = {};
   return model;
+}
+
+// Parse an animation node block; extract name and time=0 keyframes only.
+function parseAnimNode(lines, start) {
+  const hdr = lines[start].trim().split(/\s+/);
+  const name = hdr[2] || '';
+  let restOrientation = null;
+  let restPosition    = null;
+  let i = start + 1;
+
+  function tok(idx) { return lines[idx].trim().split(/\s+/).filter(x => x.length > 0); }
+  function num(s)   { const v = parseFloat(s); return isNaN(v) ? 0 : v; }
+
+  while (i < lines.length) {
+    const raw = lines[i].trim().toLowerCase();
+    if (raw === 'endnode') return { name, restOrientation, restPosition, next: i + 1 };
+
+    if (raw === 'orientationkey') {
+      i++;
+      // Read all keyframe lines until 'endlist'; pick the one closest to time=0
+      let bestTime = Infinity;
+      while (i < lines.length) {
+        const t2 = tok(i);
+        if ((t2[0] || '').toLowerCase() === 'endlist') break;
+        if (t2.length >= 5) {
+          const time = parseFloat(t2[0]);
+          if (!isNaN(time) && time < bestTime) {
+            bestTime = time;
+            restOrientation = [num(t2[1]), num(t2[2]), num(t2[3]), num(t2[4])];
+          }
+        }
+        i++;
+      }
+    } else if (raw === 'positionkey') {
+      i++;
+      let bestTime = Infinity;
+      while (i < lines.length) {
+        const t2 = tok(i);
+        if ((t2[0] || '').toLowerCase() === 'endlist') break;
+        if (t2.length >= 4) {
+          const time = parseFloat(t2[0]);
+          if (!isNaN(time) && time < bestTime) {
+            bestTime = time;
+            restPosition = [num(t2[1]), num(t2[2]), num(t2[3])];
+          }
+        }
+        i++;
+      }
+    }
+    i++;
+  }
+  return { name, restOrientation, restPosition, next: i };
 }
 
 function parseNode(lines, start) {
@@ -668,9 +745,12 @@ function buildScene(model) {
       obj = new THREE.Mesh(geo, mat);
     }
 
-    // Apply local transform
+    // Apply local transform.
+    // Priority: animation time=0 keyframe (rest pose) > geometry orientation.
     // NWN-Format: orientation = (axis_x, axis_y, axis_z, winkel_radiant) — Achse-Winkel, KEIN Quaternion!
-    const [ax, ay, az, angle] = node.orientation;
+    const restPose = model.restPose && model.restPose[node.name];
+    const oriSrc   = (restPose && restPose.orientation) ? restPose.orientation : node.orientation;
+    const [ax, ay, az, angle] = oriSrc;
     const quat = axisAngleToQuat(ax, ay, az, angle);
     obj.quaternion.copy(quat);
     obj.position.set(...node.position);
