@@ -224,11 +224,16 @@
 
     <div id="drop-zone" onclick="document.getElementById('file-input').click()">
       <span class="icon">⬡</span>
-      <strong>.MDL Datei ablegen</strong><br>
+      <strong>MDL + TGA ablegen</strong><br>
       oder klicken zum Öffnen<br>
-      <small style="color:var(--muted)">(ASCII / decompiliertes Format)</small>
+      <small style="color:var(--muted)">Mehrere Dateien gleichzeitig möglich</small>
     </div>
-    <input type="file" id="file-input" accept=".mdl,.txt">
+    <input type="file" id="file-input" accept=".mdl,.tga,.dds,.png,.jpg,.txt" multiple>
+
+    <div id="texture-status" style="margin:0 12px 8px;display:none;">
+      <div style="font-size:10px;color:var(--muted);padding:4px 0 2px;letter-spacing:1px;text-transform:uppercase;">Texturen</div>
+      <div id="texture-list" style="font-size:11px;line-height:1.8;"></div>
+    </div>
 
     <div id="model-info"></div>
 
@@ -712,8 +717,12 @@ function buildScene(model) {
       else geo.computeVertexNormals();
 
       const d = node.diffuse;
+      const bitmapKey = node.bitmap ? node.bitmap.toLowerCase() : '';
+      const tex = bitmapKey ? (textureCache[bitmapKey] || null) : null;
+
       const mat = new THREE.MeshPhongMaterial({
-        color:     new THREE.Color(d[0], d[1], d[2]),
+        color:     tex ? new THREE.Color(1, 1, 1) : new THREE.Color(d[0] || 0.8, d[1] || 0.8, d[2] || 0.8),
+        map:       tex || null,
         specular:  new THREE.Color(node.specular[0], node.specular[1], node.specular[2]),
         shininess: node.shininess * 128,
         side:      THREE.DoubleSide,
@@ -721,9 +730,10 @@ function buildScene(model) {
         opacity:   node.alpha,
       });
 
-      // Slight fallback if diffuse is black
-      if (d[0] === 0 && d[1] === 0 && d[2] === 0) mat.color.set(0x888888);
-      if (node.bitmap) mat.color.set(nodeColor(node.type)); // placeholder; real texture needs TGA/DDS loader
+      // Fallback-Farbe wenn kein Bitmap und diffuse ist schwarz
+      if (!tex && d[0] === 0 && d[1] === 0 && d[2] === 0) mat.color.set(0x888888);
+      // Wenn Bitmap referenziert aber Textur noch nicht geladen: Hinweis-Farbe
+      if (node.bitmap && !tex) mat.color.set(nodeColor(node.type));
 
       const mesh = new THREE.Mesh(geo, mat);
       mesh.castShadow = true;
@@ -953,18 +963,255 @@ function toggleAutoRotate() {
 function setStatus(msg) { document.getElementById('status-msg').textContent = msg; }
 
 // ─────────────────────────────────────────────
-//  File loading
+//  Textur-Cache  (key = basename lowercase, kein extension)
 // ─────────────────────────────────────────────
-function loadFile(file) {
-  if (!file) return;
-  setStatus('Lese Datei: ' + file.name + ' …');
+const textureCache = {};   // 'c_badger' → THREE.Texture
+
+function basename(filename) {
+  return filename.replace(/\.[^.]+$/, '').toLowerCase();
+}
+
+// ─────────────────────────────────────────────
+//  TGA-Parser  (Type 2 uncompressed + Type 10 RLE, 16/24/32 bit)
+// ─────────────────────────────────────────────
+function parseTGA(buffer) {
+  const data = new Uint8Array(buffer);
+  const idLen       = data[0];
+  const colorMapType= data[1];
+  const imgType     = data[2];
+  // color map fields: 3-7
+  const xOrigin     = data[8]  | (data[9]  << 8);
+  const yOrigin     = data[10] | (data[11] << 8);
+  const width       = data[12] | (data[13] << 8);
+  const height      = data[14] | (data[15] << 8);
+  const bpp         = data[16];   // bits per pixel: 16, 24, 32
+  const imgDesc     = data[17];
+  const topToBottom = !!(imgDesc & 0x20);  // bit 5
+
+  if (width === 0 || height === 0) throw new Error('TGA: ungültige Größe');
+
+  // Supported types: 2 = uncompressed true-color, 10 = RLE true-color, 3 = grey
+  if (![2, 3, 10, 11].includes(imgType)) {
+    throw new Error(`TGA: Bildtyp ${imgType} nicht unterstützt`);
+  }
+
+  // Skip header + ID + colormap
+  const colorMapSize = colorMapType === 1 ? ((data[5] | (data[6] << 8)) * Math.ceil(data[7] / 8)) : 0;
+  let offset = 18 + idLen + colorMapSize;
+
+  const bytesPerPixel = Math.ceil(bpp / 8);
+  const pixels = new Uint8ClampedArray(width * height * 4);
+
+  function readPixel(off) {
+    let r, g, b, a = 255;
+    if (bpp === 32) {
+      b = data[off]; g = data[off+1]; r = data[off+2]; a = data[off+3];
+    } else if (bpp === 24) {
+      b = data[off]; g = data[off+1]; r = data[off+2];
+    } else if (bpp === 16) {
+      const v = data[off] | (data[off+1] << 8);
+      r = ((v >> 10) & 0x1F) * 8;
+      g = ((v >> 5)  & 0x1F) * 8;
+      b = ( v        & 0x1F) * 8;
+    } else if (bpp === 8) {  // greyscale
+      r = g = b = data[off];
+    } else {
+      r = g = b = 0;
+    }
+    return [r, g, b, a];
+  }
+
+  let pixelIndex = 0;
+
+  if (imgType === 2 || imgType === 3) {
+    // Uncompressed
+    for (let p = 0; p < width * height; p++) {
+      const [r, g, b, a] = readPixel(offset);
+      pixels[p * 4]     = r;
+      pixels[p * 4 + 1] = g;
+      pixels[p * 4 + 2] = b;
+      pixels[p * 4 + 3] = a;
+      offset += bytesPerPixel;
+    }
+  } else {
+    // RLE compressed (type 10/11)
+    let p = 0;
+    while (p < width * height) {
+      const rep = data[offset++];
+      if (rep & 0x80) {
+        // Run-length packet
+        const count = (rep & 0x7F) + 1;
+        const [r, g, b, a] = readPixel(offset);
+        offset += bytesPerPixel;
+        for (let k = 0; k < count && p < width * height; k++, p++) {
+          pixels[p * 4]     = r;
+          pixels[p * 4 + 1] = g;
+          pixels[p * 4 + 2] = b;
+          pixels[p * 4 + 3] = a;
+        }
+      } else {
+        // Raw packet
+        const count = rep + 1;
+        for (let k = 0; k < count && p < width * height; k++, p++) {
+          const [r, g, b, a] = readPixel(offset);
+          pixels[p * 4]     = r;
+          pixels[p * 4 + 1] = g;
+          pixels[p * 4 + 2] = b;
+          pixels[p * 4 + 3] = a;
+          offset += bytesPerPixel;
+        }
+      }
+    }
+  }
+
+  // TGA stores bottom-to-top by default; flip unless top-to-bottom flag is set
+  if (!topToBottom) {
+    const rowBytes = width * 4;
+    const tmp = new Uint8ClampedArray(rowBytes);
+    for (let row = 0; row < (height >> 1); row++) {
+      const top = row * rowBytes;
+      const bot = (height - 1 - row) * rowBytes;
+      tmp.set(pixels.subarray(top, top + rowBytes));
+      pixels.copyWithin(top, bot, bot + rowBytes);
+      pixels.set(tmp, bot);
+    }
+  }
+
+  // Build canvas → THREE.CanvasTexture
+  const cvs = document.createElement('canvas');
+  cvs.width = width; cvs.height = height;
+  const ctx = cvs.getContext('2d');
+  ctx.putImageData(new ImageData(pixels, width, height), 0, 0);
+
+  const tex = new THREE.CanvasTexture(cvs);
+  tex.flipY = false;  // wir haben bereits korrekt geflippt
+  tex.needsUpdate = true;
+  return tex;
+}
+
+// ─────────────────────────────────────────────
+//  Textur nachträglich auf geladenes Modell anwenden
+// ─────────────────────────────────────────────
+function applyTexturesToScene() {
+  if (!currentModel) return;
+  let applied = 0;
+  for (const node of currentModel.nodes) {
+    if (!node.bitmap) continue;
+    const key = node.bitmap.toLowerCase();
+    const tex = textureCache[key];
+    if (!tex) continue;
+    const obj = nodeObjects[node.name];
+    if (!obj || !obj.material) continue;
+    obj.material.map = tex;
+    obj.material.color.set(0xffffff);   // Farbe auf weiß zurücksetzen, Textur übernimmt
+    obj.material.needsUpdate = true;
+    applied++;
+  }
+  return applied;
+}
+
+// ─────────────────────────────────────────────
+//  Textur-Sidebar aktualisieren
+// ─────────────────────────────────────────────
+function updateTextureUI() {
+  const keys = Object.keys(textureCache);
+  const panel = document.getElementById('texture-status');
+  const list  = document.getElementById('texture-list');
+  if (keys.length === 0) { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+  list.innerHTML = keys.map(k =>
+    `<span style="color:var(--gold2)">✓</span> <span style="color:var(--text)">${k}</span>`
+  ).join('<br>');
+}
+
+// ─────────────────────────────────────────────
+//  Multi-File Loader  (MDL + TGA/PNG gleichzeitig)
+// ─────────────────────────────────────────────
+function loadFiles(fileList) {
+  if (!fileList || fileList.length === 0) return;
+
+  const files = Array.from(fileList);
+  const mdlFiles = files.filter(f => f.name.toLowerCase().endsWith('.mdl') || f.name.toLowerCase().endsWith('.txt'));
+  const texFiles = files.filter(f => /\.(tga|png|jpg|jpeg|dds)$/i.test(f.name));
+
+  if (mdlFiles.length === 0 && texFiles.length === 0) {
+    setStatus('Keine .mdl oder .tga Dateien erkannt.');
+    return;
+  }
+
+  setStatus(`Lade ${files.length} Datei(en)…`);
+
+  // 1. Alle Texturen laden
+  let texPending = texFiles.length;
+  let texLoaded  = 0;
+
+  function onAllTexReady() {
+    updateTextureUI();
+    // 2. MDL laden falls vorhanden
+    if (mdlFiles.length > 0) {
+      loadMDLFile(mdlFiles[0]);
+    } else if (currentModel) {
+      // Nur neue Texturen auf bereits geladenes Modell anwenden
+      const n = applyTexturesToScene();
+      setStatus(`${n} Textur(en) auf bestehendes Modell angewendet.`);
+    }
+  }
+
+  if (texPending === 0) {
+    onAllTexReady();
+    return;
+  }
+
+  for (const file of texFiles) {
+    const key = basename(file.name);
+    const ext = file.name.split('.').pop().toLowerCase();
+
+    if (ext === 'tga') {
+      const reader = new FileReader();
+      reader.onload = ev => {
+        try {
+          textureCache[key] = parseTGA(ev.target.result);
+          texLoaded++;
+          setStatus(`Textur geladen: ${file.name} (${texLoaded}/${texFiles.length})`);
+        } catch(err) {
+          console.warn('TGA Fehler:', file.name, err.message);
+          setStatus(`TGA-Fehler: ${file.name} — ${err.message}`);
+        }
+        texPending--;
+        if (texPending === 0) onAllTexReady();
+      };
+      reader.onerror = () => { texPending--; if (texPending === 0) onAllTexReady(); };
+      reader.readAsArrayBuffer(file);
+    } else {
+      // PNG/JPG: Browser kann das nativ
+      const url = URL.createObjectURL(file);
+      const loader = new THREE.TextureLoader();
+      loader.load(url, tex => {
+        tex.flipY = false;
+        textureCache[key] = tex;
+        texLoaded++;
+        setStatus(`Textur geladen: ${file.name} (${texLoaded}/${texFiles.length})`);
+        texPending--;
+        if (texPending === 0) onAllTexReady();
+      }, undefined, () => {
+        texPending--;
+        if (texPending === 0) onAllTexReady();
+      });
+    }
+  }
+}
+
+function loadMDLFile(file) {
+  setStatus('Parse MDL: ' + file.name + ' …');
   const reader = new FileReader();
   reader.onload = e => {
     try {
-      setStatus('Parse MDL …');
       const model = parseMDL(e.target.result);
       if (!model.nodes.length) throw new Error('Keine Nodes gefunden. Ist die Datei im ASCII-Format?');
       buildScene(model);
+      // Textures anwenden falls bereits geladen
+      const n = applyTexturesToScene();
+      if (n > 0) setStatus(`Modell geladen: ${model.name} — ${n} Textur(en) angewendet.`);
     } catch (err) {
       setStatus('Fehler: ' + err.message);
       console.error(err);
@@ -975,14 +1222,14 @@ function loadFile(file) {
   reader.readAsText(file);
 }
 
-// Drag & Drop
+// ─────────────────────────────────────────────
+//  Drag & Drop  (Multi-File)
+// ─────────────────────────────────────────────
 const dropZone = document.getElementById('drop-zone');
 const viewport = document.getElementById('viewport');
 
 function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
-['dragenter','dragover','dragleave','drop'].forEach(ev => {
-  document.addEventListener(ev, preventDefaults);
-});
+['dragenter','dragover','dragleave','drop'].forEach(ev => document.addEventListener(ev, preventDefaults));
 ['dragenter','dragover'].forEach(ev => {
   viewport.addEventListener(ev, () => dropZone.classList.add('drag-over'));
   dropZone.addEventListener(ev, () => dropZone.classList.add('drag-over'));
@@ -991,9 +1238,9 @@ function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
   viewport.addEventListener(ev, () => dropZone.classList.remove('drag-over'));
   dropZone.addEventListener(ev, () => dropZone.classList.remove('drag-over'));
 });
-viewport.addEventListener('drop', e => { loadFile(e.dataTransfer.files[0]); });
-dropZone.addEventListener('drop', e => { loadFile(e.dataTransfer.files[0]); });
-document.getElementById('file-input').addEventListener('change', e => { loadFile(e.target.files[0]); });
+viewport.addEventListener('drop', e => { loadFiles(e.dataTransfer.files); });
+dropZone.addEventListener('drop', e => { loadFiles(e.dataTransfer.files); });
+document.getElementById('file-input').addEventListener('change', e => { loadFiles(e.target.files); e.target.value=''; });
 
 // ─────────────────────────────────────────────
 //  Render loop
