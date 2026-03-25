@@ -3,7 +3,7 @@
 A browser-based 3D model viewer for **Neverwinter Nights 1: Enhanced Edition** decompiled ASCII `.mdl` files.  
 No installation, no server — just open `index.html` locally or use it directly via **GitHub Pages**.
 
-🌐 **Live Demo:** `https://<your-username>.github.io/nwn-mdl-viewer/`
+🌐 **Live Demo:** `https://dunahan.github.io/nwn-mdl-webviewer/`
 
 ---
 
@@ -27,12 +27,12 @@ No installation, no server — just open `index.html` locally or use it directly
 
 1. Fork or clone this repository
 2. Go to **Settings → Pages → Source → Deploy from branch → `main` / `(root)`**
-3. Visit `https://<your-username>.github.io/nwn-mdl-viewer/`
+3. Visit `https://<your-username>.github.io/nwn-mdl-webviewer/`
 
 ### Option B — Local use
 
 ```bash
-git clone https://github.com/<your-username>/nwn-mdl-viewer.git
+git clone https://github.com/dunahan/nwn-mdl-webviewer.git
 cd nwn-mdl-viewer
 # Simply open index.html in any modern browser:
 open index.html          # macOS
@@ -52,26 +52,27 @@ This viewer requires the **decompiled ASCII format**.
 **Using `nwnmdlcomp`** (official NWN:EE tool):
 
 ```bash
-# Install via NWN:EE Toolset or download from:
-# https://github.com/nwneetools/nwneetools
+# Download from:
+# https://neverwintervault.org/project/nwn1/other/tool/nwnmdlcomp-nwn-model-compiler
 
 nwnmdlcomp -d c_dragon.mdl
 # → outputs c_dragon_ascii.mdl  (or similar name)
 ```
 
-**Using `nwn-lib` (Python):**
+**Using `cleanmodels`:**
 
 ```bash
-pip install nwn
-python -m nwn.mdl decompile c_dragon.mdl -o c_dragon_ascii.mdl
+# Download from:
+# https://github.com/plenarius/cleanmodels/releases/tag/latest
+
+<has to come!> decompile c_dragon.mdl -o c_dragon_ascii.mdl
 ```
 
-**Using older tools:**
+**Using other tools:**
 
 | Tool | Platform | Notes |
 |------|----------|-------|
 | [NWNExplorer](https://github.com/virusman/nwnexplorer) | Windows | GUI, can export ASCII MDL |
-| [nwnmdlcomp](https://github.com/nwneetools/nwneetools) | Win/Linux/Mac | CLI, official EE tool |
 
 ---
 
