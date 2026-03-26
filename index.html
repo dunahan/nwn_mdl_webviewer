@@ -120,11 +120,13 @@
   .vis-toggle:hover { color: var(--gold); }
 
   .type-trimesh  { background: rgba(74,144,192,0.25); color: var(--mesh); }
+  .type-danglymesh { background: rgba(80,184,208,0.2); color: #50b8d0; }
   .type-skin     { background: rgba(192,112,192,0.25); color: var(--skin); }
   .type-dummy    { background: rgba(112,184,112,0.2);  color: var(--dummy); }
   .type-emitter  { background: rgba(240,160,48,0.2);   color: var(--emitter); }
   .type-aabb     { background: rgba(200,64,64,0.2);    color: var(--red); }
   .dot-trimesh   { background: var(--mesh); }
+  .dot-danglymesh{ background: #50b8d0; }
   .dot-skin      { background: var(--skin); }
   .dot-dummy     { background: var(--dummy); }
   .dot-emitter   { background: var(--emitter); }
@@ -363,6 +365,9 @@ function parseMDL(text) {
 }
 
 // Parse an animation node block; extract name and time=0 keyframes only.
+// NWN verwendet zwei verschiedene Keyframe-Formate:
+//   Format A (Mod-Modelle):  "orientationkey\n  t x y z w\n  ...\nendlist"
+//   Format B (Spieldateien): "orientationkey 17\n  t x y z w\n  ..."  (Count, kein endlist)
 function parseAnimNode(lines, start) {
   const hdr = lines[start].trim().split(/\s+/);
   const name = hdr[2] || '';
@@ -373,41 +378,51 @@ function parseAnimNode(lines, start) {
   function tok(idx) { return lines[idx].trim().split(/\s+/).filter(x => x.length > 0); }
   function num(s)   { const v = parseFloat(s); return isNaN(v) ? 0 : v; }
 
-  while (i < lines.length) {
-    const raw = lines[i].trim().toLowerCase();
-    if (raw === 'endnode') return { name, restOrientation, restPosition, next: i + 1 };
+  // Liest Keyframes in beiden Formaten; gibt den Index nach dem letzten gelesenen zurück.
+  // minCols: Mindestanzahl Felder pro Keyframe-Zeile (ohne Zeitstempel)
+  function readKeyframes(startIdx, minCols, count) {
+    let best = { time: Infinity, vals: null };
+    let j = startIdx;
+    let read = 0;
+    while (j < lines.length) {
+      const t2 = tok(j);
+      const k0 = (t2[0] || '').toLowerCase();
+      if (k0 === 'endlist') { j++; break; }
+      // Stopp bei nächstem Keyword (für Format B ohne endlist)
+      if (k0 === 'endnode' || k0 === 'node' || k0 === 'orientationkey' ||
+          k0 === 'positionkey' || k0 === 'scalekey') break;
+      if (t2.length >= minCols + 1) {
+        const time = parseFloat(t2[0]);
+        if (!isNaN(time) && time < best.time) {
+          best.time = time;
+          best.vals = t2.slice(1, minCols + 1).map(num);
+        }
+        read++;
+        if (count > 0 && read >= count) { j++; break; }
+      }
+      j++;
+    }
+    return { vals: best.vals, next: j };
+  }
 
-    if (raw === 'orientationkey') {
-      i++;
-      // Read all keyframe lines until 'endlist'; pick the one closest to time=0
-      let bestTime = Infinity;
-      while (i < lines.length) {
-        const t2 = tok(i);
-        if ((t2[0] || '').toLowerCase() === 'endlist') break;
-        if (t2.length >= 5) {
-          const time = parseFloat(t2[0]);
-          if (!isNaN(time) && time < bestTime) {
-            bestTime = time;
-            restOrientation = [num(t2[1]), num(t2[2]), num(t2[3]), num(t2[4])];
-          }
-        }
-        i++;
-      }
-    } else if (raw === 'positionkey') {
-      i++;
-      let bestTime = Infinity;
-      while (i < lines.length) {
-        const t2 = tok(i);
-        if ((t2[0] || '').toLowerCase() === 'endlist') break;
-        if (t2.length >= 4) {
-          const time = parseFloat(t2[0]);
-          if (!isNaN(time) && time < bestTime) {
-            bestTime = time;
-            restPosition = [num(t2[1]), num(t2[2]), num(t2[3])];
-          }
-        }
-        i++;
-      }
+  while (i < lines.length) {
+    const t = tok(i);
+    const k = (t[0] || '').toLowerCase();
+    if (k === 'endnode') return { name, restOrientation, restPosition, next: i + 1 };
+
+    if (k === 'orientationkey') {
+      // t[1] ist entweder undefined (Format A) oder eine Zahl/Count (Format B)
+      const count = (t.length > 1 && !isNaN(parseInt(t[1]))) ? parseInt(t[1]) : 0;
+      const result = readKeyframes(i + 1, 4, count);  // 4 Felder: x y z w
+      if (result.vals) restOrientation = result.vals;
+      i = result.next;
+      continue;
+    } else if (k === 'positionkey') {
+      const count = (t.length > 1 && !isNaN(parseInt(t[1]))) ? parseInt(t[1]) : 0;
+      const result = readKeyframes(i + 1, 3, count);  // 3 Felder: x y z
+      if (result.vals) restPosition = result.vals;
+      i = result.next;
+      continue;
     }
     i++;
   }
@@ -496,6 +511,13 @@ function parseNode(lines, start) {
             sm: parseInt(ft[7]) || 0
           });
         }
+      }
+    } else if (k === 'constraints') {
+      // danglymesh: ein Constraint-Wert pro Zeile (0=starr, 255=frei) — nur überspringen
+      const count = parseInt(t[1]) || 0;
+      for (let j = 0; j < count; j++) {
+        i++;
+        if (i >= lines.length) break;
       }
     }
     i++;
@@ -647,6 +669,7 @@ canvas.addEventListener('touchmove', e => {
 // ─────────────────────────────────────────────
 const NODE_COLORS = {
   trimesh: 0x4a90c0, skin: 0xc070c0, dummy: 0x70b870,
+  danglymesh: 0x50b8d0,
   emitter: 0xf0a030, aabb: 0xc04040, light: 0xf8f050, reference: 0x80c0e0,
 };
 function nodeColor(type) { return NODE_COLORS[type] || 0x808080; }
@@ -674,7 +697,7 @@ function buildScene(model) {
   for (const node of model.nodes) {
     let obj;
 
-    if ((node.type === 'trimesh' || node.type === 'skin') && node.faces.length > 0 && node.verts.length > 0) {
+    if ((node.type === 'trimesh' || node.type === 'skin' || node.type === 'danglymesh') && node.faces.length > 0 && node.verts.length > 0) {
       // Explode geometry: 3 verts per face (separate UV / normal per-face-vertex)
       const positions = new Float32Array(node.faces.length * 9);
       const uvs       = new Float32Array(node.faces.length * 6);
@@ -821,7 +844,7 @@ function buildNodeList(model) {
     item.className = 'node-item';
     item.dataset.name = node.name;
 
-    const typeClass = ['trimesh','skin','dummy','emitter','aabb'].includes(node.type) ? node.type : 'other';
+    const typeClass = ['trimesh','skin','dummy','emitter','aabb','danglymesh'].includes(node.type) ? node.type : 'other';
     const dot = document.createElement('div');
     dot.className = `node-dot dot-${typeClass}`;
     item.appendChild(dot);
@@ -836,7 +859,7 @@ function buildNodeList(model) {
     badge.textContent = node.type;
     item.appendChild(badge);
 
-    if (node.type === 'trimesh' || node.type === 'skin') {
+    if (node.type === 'trimesh' || node.type === 'skin' || node.type === 'danglymesh') {
       const vis = document.createElement('span');
       vis.className = 'vis-toggle';
       vis.textContent = '⬡';
@@ -870,23 +893,31 @@ function selectNode(name) {
 
   const detail = document.getElementById('node-detail');
   detail.style.display = 'block';
-  detail.innerHTML = `
-    <div class="nd-title">${n.name}</div>
-    <div class="nd-row"><span>Typ</span><span class="nd-val">${n.type}</span></div>
-    <div class="nd-row"><span>Eltern</span><span class="nd-val">${n.parent}</span></div>
-    <div class="nd-row"><span>Vertices</span><span class="nd-val">${n.verts.length}</span></div>
-    <div class="nd-row"><span>Faces</span><span class="nd-val">${n.faces.length}</span></div>
-    <div class="nd-row"><span>Bitmap</span><span class="nd-val">${n.bitmap || '—'}</span></div>
-    <div class="nd-row"><span>Position</span><span class="nd-val">${n.position.map(v=>v.toFixed(3)).join(', ')}</span></div>
-    <div class="nd-row"><span>Diffuse</span><span class="nd-val">${n.diffuse.map(v=>v.toFixed(2)).join(', ')}</span></div>
-    <div class="nd-row"><span>Alpha</span><span class="nd-val">${n.alpha.toFixed(2)}</span></div>
-  `;
+
+  // Zusatzzeilen für danglymesh — als einfacher String, KEIN verschachteltes Template-Literal
+  let extraRows = '';
+  if (n.type === 'danglymesh') {
+    extraRows =
+      '<div class="nd-row"><span>Typ-Info</span><span class="nd-val">Physik-Mesh</span></div>';
+  }
+
+  detail.innerHTML =
+    '<div class="nd-title">' + n.name + '</div>' +
+    '<div class="nd-row"><span>Typ</span><span class="nd-val">' + n.type + '</span></div>' +
+    '<div class="nd-row"><span>Eltern</span><span class="nd-val">' + n.parent + '</span></div>' +
+    '<div class="nd-row"><span>Vertices</span><span class="nd-val">' + n.verts.length + '</span></div>' +
+    '<div class="nd-row"><span>Faces</span><span class="nd-val">' + n.faces.length + '</span></div>' +
+    '<div class="nd-row"><span>Bitmap</span><span class="nd-val">' + (n.bitmap || '—') + '</span></div>' +
+    '<div class="nd-row"><span>Position</span><span class="nd-val">' + n.position.map(v=>v.toFixed(3)).join(', ') + '</span></div>' +
+    '<div class="nd-row"><span>Diffuse</span><span class="nd-val">' + n.diffuse.map(v=>v.toFixed(2)).join(', ') + '</span></div>' +
+    '<div class="nd-row"><span>Alpha</span><span class="nd-val">' + n.alpha.toFixed(2) + '</span></div>' +
+    extraRows;
 }
 
 function showModelInfo(model, verts, faces) {
   const el = document.getElementById('model-info');
   el.style.display = 'block';
-  const meshCount = model.nodes.filter(n => n.type === 'trimesh' || n.type === 'skin').length;
+  const meshCount = model.nodes.filter(n => n.type === 'trimesh' || n.type === 'skin' || n.type === 'danglymesh').length;
   el.innerHTML = `
     <div class="info-name">${model.name}</div>
     <div class="info-row"><span>Supermodel</span><span class="info-val">${model.supermodel || '—'}</span></div>
