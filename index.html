@@ -555,9 +555,6 @@ scene.add(gridHelper);
 const axesHelper = new THREE.AxesHelper(0.5);
 scene.add(axesHelper);
 
-// Wireframe overlay mesh
-let wireGroup = null;
-
 // Scene group for loaded model
 let modelGroup = null;
 let bboxHelper = null;
@@ -655,23 +652,17 @@ const NODE_COLORS = {
 function nodeColor(type) { return NODE_COLORS[type] || 0x808080; }
 
 function buildScene(model) {
-  // Clear previous
-  if (modelGroup) scene.remove(modelGroup);
-  if (bboxHelper) scene.remove(bboxHelper);
-  if (wireGroup)  scene.remove(wireGroup);
-  nodeObjects = {};
+  // modelGroup/wireGroup/bboxHelper wurden bereits durch clearSession() bereinigt.
+  // (clearSession wird vor jedem MDL-Ladevorgang aufgerufen)
 
   modelGroup = new THREE.Group();
-  wireGroup  = new THREE.Group();
 
   // NWN verwendet Z-Up Koordinatensystem, Three.js erwartet Y-Up.
   // Rotation um -90° an der X-Achse: NWN-Z wird zu Three.js-Y (oben).
   const NWN_TO_THREEJS = -Math.PI / 2;
   modelGroup.rotation.x = NWN_TO_THREEJS;
-  wireGroup.rotation.x  = NWN_TO_THREEJS;
 
   scene.add(modelGroup);
-  scene.add(wireGroup);
 
   const nodeMap = {};
   for (const n of model.nodes) nodeMap[n.name] = n;
@@ -740,11 +731,16 @@ function buildScene(model) {
       mesh.receiveShadow = true;
       obj = mesh;
 
-      // Wireframe overlay
-      const wireMat = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0 });
+      // Wireframe-Overlay: als Kind des eigentlichen Mesh einhängen,
+      // damit es die komplette Transformations-Hierarchie automatisch erbt.
+      const wireMat = new THREE.MeshBasicMaterial({
+        color: 0xffffff, wireframe: true, transparent: true, opacity: wireOpacity,
+        depthBias: -0.0001,   // minimaler Offset verhindert Z-Fighting mit dem Basis-Mesh
+      });
       const wireMesh = new THREE.Mesh(geo, wireMat);
-      wireGroup.add(wireMesh);
-      obj.userData.wireMesh = wireMesh;
+      wireMesh.visible = wireOpacity > 0;
+      wireMesh.userData.isWireframe = true;
+      obj.add(wireMesh);   // ← Kind von obj, nicht von wireGroup
 
       totalVerts += node.verts.length;
       totalFaces += node.faces.length;
@@ -780,11 +776,6 @@ function buildScene(model) {
     const parentName = node.parent;
     if (parentName && parentName !== 'NULL' && objects[parentName]) {
       objects[parentName].add(obj);
-      // Also reparent wire mesh
-      if (obj.userData.wireMesh) {
-        const parentWireObj = objects[parentName].userData.wireMesh;
-        wireGroup.add(obj.userData.wireMesh); // Keep flat in wireGroup for now
-      }
     } else {
       modelGroup.add(obj);
     }
@@ -913,11 +904,13 @@ function showModelInfo(model, verts, faces) {
 function updateWireframe(val) {
   wireOpacity = val / 100;
   document.getElementById('wire-val').textContent = val + '%';
-  if (wireGroup) {
-    wireGroup.traverse(child => {
-      if (child.isMesh) child.material.opacity = wireOpacity;
+  if (modelGroup) {
+    modelGroup.traverse(child => {
+      if (child.isMesh && child.userData.isWireframe) {
+        child.material.opacity = wireOpacity;
+        child.visible = wireOpacity > 0;
+      }
     });
-    wireGroup.visible = wireOpacity > 0;
   }
 }
 
@@ -934,7 +927,7 @@ function toggleNormals() {
   const on = btn.classList.contains('active');
   if (modelGroup) {
     modelGroup.traverse(child => {
-      if (child.isMesh && child.material.isMeshPhongMaterial) {
+      if (child.isMesh && !child.userData.isWireframe && child.material.isMeshPhongMaterial) {
         child.material.flatShading = !on;
         child.material.needsUpdate = true;
       }
@@ -1090,8 +1083,58 @@ function parseTGA(buffer) {
 }
 
 // ─────────────────────────────────────────────
-//  Textur nachträglich auf geladenes Modell anwenden
+//  Session-Reset: GPU-Speicher, Texturen, Szene
+//  Muss vor jedem neuen Ladevorgang aufgerufen werden.
 // ─────────────────────────────────────────────
+function clearSession() {
+  // 1. Alle Geometrien und Materialien der alten Szene vom GPU freigeben
+  function disposeObject(obj) {
+    if (!obj) return;
+    obj.traverse(child => {
+      if (child.geometry) {
+        child.geometry.dispose();
+      }
+      if (child.material) {
+        const mats = Array.isArray(child.material) ? child.material : [child.material];
+        for (const mat of mats) {
+          // Alle Textur-Slots leeren (ohne .dispose() — Textur bleibt im Cache)
+          for (const key of ['map','normalMap','specularMap','emissiveMap','alphaMap','aoMap']) {
+            if (mat[key]) mat[key] = null;
+          }
+          mat.dispose();
+        }
+      }
+    });
+  }
+
+  if (modelGroup) { disposeObject(modelGroup); scene.remove(modelGroup); modelGroup = null; }
+  if (bboxHelper) { scene.remove(bboxHelper);  bboxHelper = null; }
+
+  // 2. Textur-Cache vom GPU entladen und leeren
+  for (const key of Object.keys(textureCache)) {
+    textureCache[key].dispose();
+    delete textureCache[key];
+  }
+
+  // 3. Interne Zustände zurücksetzen
+  nodeObjects        = {};
+  selectedNodeName   = null;
+  currentModel       = null;
+
+  // 4. UI zurücksetzen
+  document.getElementById('node-list').innerHTML =
+    '<div style="padding:20px;color:var(--muted);font-size:11px;text-align:center;">Keine Datei geladen</div>';
+  document.getElementById('model-info').style.display    = 'none';
+  document.getElementById('texture-status').style.display= 'none';
+  document.getElementById('texture-list').innerHTML      = '';
+  document.getElementById('node-detail').style.display   = 'none';
+  document.getElementById('empty-state').style.display   = 'flex';
+  document.getElementById('stat-verts').textContent = '—';
+  document.getElementById('stat-faces').textContent = '—';
+  document.getElementById('stat-nodes').textContent = '—';
+}
+
+
 function applyTexturesToScene() {
   if (!currentModel) return;
   let applied = 0;
@@ -1137,6 +1180,11 @@ function loadFiles(fileList) {
   if (mdlFiles.length === 0 && texFiles.length === 0) {
     setStatus('Keine .mdl oder .tga Dateien erkannt.');
     return;
+  }
+
+  // Wenn ein neues MDL geladen wird → komplette Session zurücksetzen
+  if (mdlFiles.length > 0) {
+    clearSession();
   }
 
   setStatus(`Lade ${files.length} Datei(en)…`);
