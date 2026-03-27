@@ -3,7 +3,7 @@
 A browser-based 3D model viewer for **Neverwinter Nights 1: Enhanced Edition** decompiled ASCII `.mdl` files.  
 No installation, no server — just open `index.html` locally or use it directly via **GitHub Pages**.
 
-🌐 **Live Demo:** `https://dunahan.github.io/nwn-mdl-webviewer/`
+🌐 **Live Demo:** `https://<your-username>.github.io/nwn-mdl-viewer/`
 
 ---
 
@@ -27,12 +27,12 @@ No installation, no server — just open `index.html` locally or use it directly
 
 1. Fork or clone this repository
 2. Go to **Settings → Pages → Source → Deploy from branch → `main` / `(root)`**
-3. Visit `https://<your-username>.github.io/nwn-mdl-webviewer/`
+3. Visit `https://<your-username>.github.io/nwn-mdl-viewer/`
 
 ### Option B — Local use
 
 ```bash
-git clone https://github.com/dunahan/nwn-mdl-webviewer.git
+git clone https://github.com/<your-username>/nwn-mdl-viewer.git
 cd nwn-mdl-viewer
 # Simply open index.html in any modern browser:
 open index.html          # macOS
@@ -52,32 +52,27 @@ This viewer requires the **decompiled ASCII format**.
 **Using `nwnmdlcomp`** (official NWN:EE tool):
 
 ```bash
-# Download from:
-# https://neverwintervault.org/project/nwn1/other/tool/nwnmdlcomp-nwn-model-compiler
+# Install via NWN:EE Toolset or download from:
+# https://github.com/nwneetools/nwneetools
 
 nwnmdlcomp -d c_dragon.mdl
 # → outputs c_dragon_ascii.mdl  (or similar name)
 ```
 
-**Using `cleanmodels`:**
+**Using `nwn-lib` (Python):**
 
 ```bash
-# Download from:
-# https://github.com/plenarius/cleanmodels/releases/tag/latest the client application and eventually
-# https://github.com/plenarius/cleanmodels-qt/releases/tag/latest for a gui
-# Now set up last_dirs.pl or use the gui for this. Create an in- and an out-directory where the cli is. (My suggestion: keep the directory structure simple.)
-# Instead you can use this command to convert a compiled model in the >/in< directory.
-
-cleanmodels-cli --decompile=true --pattern=*.mdl --indir=<PathToYourIn-Dir>/in --outdir=<PathToYourOut-Dir>/out
-
-# This will create a ASCII file in the >/out< folder.
+pip install nwn
+python -m nwn.mdl decompile c_dragon.mdl -o c_dragon_ascii.mdl
 ```
 
-**Using other tools:**
+**Using older tools:**
 
 | Tool | Platform | Notes |
 |------|----------|-------|
 | [NWNExplorer](https://github.com/virusman/nwnexplorer) | Windows | GUI, can export ASCII MDL |
+| [nwnmdlcomp](https://github.com/nwneetools/nwneetools) | Win/Linux/Mac | CLI, official EE tool |
+| [nwn-lib](https://rubygems.org/gems/nwn-lib) | Ruby | `nwn-gff`, also handles MDL |
 
 ---
 
@@ -89,10 +84,6 @@ nwn-mdl-viewer/
 ├── README.md               # This file
 ├── LICENSE                 # MIT License
 ├── .gitignore
-├── lang
-│   ├── de.json		    # German translation file
-│   ├── en.json             # English Translation file
-│   └── README.md	    # HowTo set up a new translation and integrate it
 ├── docs/
 │   ├── FORMAT.md           # NWN MDL format reference
 │   └── DECOMPILE.md        # Step-by-step decompilation guide
@@ -134,7 +125,7 @@ nwn-mdl-viewer/
 
 ## 🗺️ Roadmap
 
-- [ ] Texture loading (TGA via `tga.js`, DDS support)
+- [x] Texture loading (TGA via `tga.js`, DDS support)
 - [ ] Animation playback (keyframe interpolation)
 - [ ] Export to glTF/OBJ
 - [ ] Multiple file loading (supermodel chain)

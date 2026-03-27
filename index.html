@@ -1033,6 +1033,14 @@ function buildNodeList(model) {
       vis.title = L('vis_toggle_title');
       vis.onclick = (e) => { e.stopPropagation(); toggleNodeVisibility(node.name, item, vis); };
       item.appendChild(vis);
+    } else if (nodeObjects[node.name]) {
+      // Alle anderen sichtbaren Nodes (dummy, emitter, light …) ebenfalls umschaltbar
+      const vis = document.createElement('span');
+      vis.className = 'vis-toggle';
+      vis.textContent = '●';
+      vis.title = L('vis_toggle_title');
+      vis.onclick = (e) => { e.stopPropagation(); toggleNodeVisibility(node.name, item, vis, '●'); };
+      item.appendChild(vis);
     }
 
     item.onclick = () => selectNode(node.name);
@@ -1040,12 +1048,14 @@ function buildNodeList(model) {
   }
 }
 
-function toggleNodeVisibility(name, item, btn) {
+function toggleNodeVisibility(name, item, btn, visibleIcon) {
   const obj = nodeObjects[name];
   if (!obj) return;
   obj.visible = !obj.visible;
   item.classList.toggle('hidden', !obj.visible);
-  btn.textContent = obj.visible ? '⬡' : '○';
+  const onIcon  = visibleIcon || '⬡';
+  const offIcon = '○';
+  btn.textContent = obj.visible ? onIcon : offIcon;
 }
 
 function selectNode(name) {
