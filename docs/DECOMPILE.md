@@ -5,20 +5,40 @@ Here are step-by-step instructions for each platform.
 
 ---
 
-## Method 1 — nwnmdlcomp (Recommended, all platforms)
+## Method 1 — CleanModels EE (Bash/CLI-Application, Windows GUI) - Recommended, all platforms
 
-`nwnmdlcomp` is the official NWN:EE command-line tool from Beamdog.
+1. Download [CleanModelsEE]([https://github.com/virusman/nwnexplorer/releases](https://github.com/plenarius/cleanmodels/releases/tag/latest)
+   eventually download [Windows Gui](https://github.com/plenarius/cleanmodels-qt/releases/tag/latest)
+2. Setup last_dirs.pl or use commandline
+
+```bash
+cleanmodels-cli --decompile=true --pattern=*.mdl --indir=<PathToYourIn-Dir>/in --outdir=<PathToYourOut-Dir>/out
+```
+
+---
+
+## Method 2 — NWNExplorer (Windows GUI)
+
+1. Download [NWNExplorer](https://github.com/virusman/nwnexplorer/releases)
+2. Open NWNExplorer → File → Open NWN installation folder
+3. Navigate to `Models` section
+4. Right-click a model → **Export as ASCII MDL**
+5. Save the `.mdl` file
+
+---
+
+## Method 3 — nwnmdlcomp
+
+`nwnmdlcomp` is a NWN command-line tool.
 
 ### Install
 
-**Windows:** Download from the [NWN:EE Toolset](https://store.steampowered.com/app/704450/) or from  
-https://github.com/nwneetools/nwneetools/releases
+**Windows:** Download from  
+[neverwintervault.org](https://neverwintervault.org/project/nwn1/other/tool/nwnmdlcomp-nwn-model-compiler)
 
 **Linux / macOS:**
 ```bash
-git clone https://github.com/nwneetools/nwneetools.git
-cd nwneetools
-make
+# actually I don't have Linux installed, so I can't provide a way here. Will follow.
 ```
 
 ### Usage
@@ -34,16 +54,6 @@ mv c_dragon_d.mdl c_dragon_ascii.mdl
 
 ---
 
-## Method 2 — NWNExplorer (Windows GUI)
-
-1. Download [NWNExplorer](https://github.com/virusman/nwnexplorer/releases)
-2. Open NWNExplorer → File → Open NWN installation folder
-3. Navigate to `Models` section
-4. Right-click a model → **Export as ASCII MDL**
-5. Save the `.mdl` file
-
----
-
 ## Where are the MDL files?
 
 ### Steam (Windows)
@@ -51,6 +61,7 @@ mv c_dragon_d.mdl c_dragon_ascii.mdl
 C:\Program Files (x86)\Steam\steamapps\common\Neverwinter Nights Enhanced Edition\data\
 ```
 Models are packed inside `.bif` archives. Use NWNExplorer to extract them.
+You can also use the [neverwinter.nim](https://github.com/niv/neverwinter.nim/releases/tag/2.1.2) tools to extract those files.
 
 ### Steam (Linux)
 ```
@@ -65,10 +76,10 @@ C:\GOG Games\Neverwinter Nights Enhanced Edition\data\
 ### Key `.bif` archives containing models:
 | Archive | Contents |
 |---------|---------|
-| `models.bif` | Character models, creature models |
-| `tiles.bif` | Tileset geometry |
-| `placeables.bif` | Door/placeable models |
-| `items.bif` | Inventory item models |
+| `models_01/_02.bif, xp2_models.bif, os_models.bif` | Character models, creature models  and many more bifs|
+| `tileset_XXXX.bif, xp1_tiles.bif` | Tileset geometries, for example tileset_tin01.bif |
+| `models_XX.bif` | Placeable models etc |
+| `textures_XX.bif` | Textures |
 
 ---
 
@@ -90,7 +101,7 @@ If you see binary garbage, it's still in compiled format — decompile it first.
 
 ## Troubleshooting
 
-**"Keine Nodes gefunden" error in the viewer**  
+**"No nodes found"/"Keine Nodes gefunden" error in the viewer**  
 → File is still binary. Use one of the methods above to decompile.
 
 **Mesh appears but looks wrong / inside-out**  
