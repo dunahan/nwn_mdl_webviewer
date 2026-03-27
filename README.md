@@ -90,9 +90,9 @@ nwn-mdl-viewer/
 ├── LICENSE                 # MIT License
 ├── .gitignore
 ├── lang
-│   ├── de.json		    # German translation file
+│   ├── de.json             # German translation file
 │   ├── en.json             # English Translation file
-│   └── README.md	    # HowTo set up a new translation and integrate it
+│   └── README.md	         # HowTo set up a new translation and integrate it
 ├── docs/
 │   ├── FORMAT.md           # NWN MDL format reference
 │   └── DECOMPILE.md        # Step-by-step decompilation guide
@@ -125,7 +125,6 @@ nwn-mdl-viewer/
 
 ## ⚠️ Known Limitations
 
-- **Textures**: TGA/DDS textures are not loaded — geometry is shaded using diffuse colour values from the MDL
 - **Animations**: Keyframe animations defined in `newanim` blocks are parsed (count shown) but not yet played back
 - **Binary MDL**: Only ASCII/decompiled format is supported
 - **Walkmesh**: AABB nodes are shown as markers but walkmesh geometry is not rendered separately
