@@ -63,9 +63,14 @@ nwnmdlcomp -d c_dragon.mdl
 
 ```bash
 # Download from:
-# https://github.com/plenarius/cleanmodels/releases/tag/latest
+# https://github.com/plenarius/cleanmodels/releases/tag/latest the client application and eventually
+# https://github.com/plenarius/cleanmodels-qt/releases/tag/latest for a gui
+# Now set up last_dirs.pl or use the gui for this. Create an in- and an out-directory where the cli is. (My suggestion: keep the directory structure simple.)
+# Instead you can use this command to convert a compiled model in the >/in< directory.
 
-<has to come!> decompile c_dragon.mdl -o c_dragon_ascii.mdl
+cleanmodels-cli --decompile=true --pattern=*.mdl --indir=<PathToYourIn-Dir>/in --outdir=<PathToYourOut-Dir>/out
+
+# This will create a ASCII file in the >/out< folder.
 ```
 
 **Using other tools:**
@@ -84,6 +89,10 @@ nwn-mdl-viewer/
 ├── README.md               # This file
 ├── LICENSE                 # MIT License
 ├── .gitignore
+├── lang
+│   ├── de.json		    # German translation file
+│   ├── en.json             # English Translation file
+│   └── README.md	    # HowTo set up a new translation and integrate it
 ├── docs/
 │   ├── FORMAT.md           # NWN MDL format reference
 │   └── DECOMPILE.md        # Step-by-step decompilation guide

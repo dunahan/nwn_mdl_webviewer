@@ -48,6 +48,15 @@
     text-transform: uppercase;
   }
   #logo p { font-size: 10px; color: var(--muted); margin-top: 3px; letter-spacing: 2px; }
+  #lang-switcher { margin-top: 8px; }
+  #lang-select {
+    background: var(--panel); color: var(--muted);
+    border: 1px solid var(--border); border-radius: 3px;
+    font-family: 'Share Tech Mono', monospace; font-size: 10px;
+    padding: 2px 6px; cursor: pointer; outline: none;
+    letter-spacing: 1px; transition: border-color 0.15s, color 0.15s;
+  }
+  #lang-select:hover, #lang-select:focus { border-color: var(--gold); color: var(--gold); }
 
   #drop-zone {
     margin: 12px;
@@ -221,43 +230,49 @@
   <div id="sidebar">
     <div id="logo">
       <h1>NWN MDL Viewer</h1>
-      <p>Neverwinter Nights 1 · Enhanced Edition</p>
+      <p data-i18n="logo_subtitle">Neverwinter Nights 1 · Enhanced Edition</p>
+      <div id="lang-switcher">
+        <select id="lang-select" onchange="switchLanguage(this.value)" title="Language / Sprache">
+          <option value="en">English</option>
+          <option value="de">Deutsch</option>
+        </select>
+      </div>
     </div>
 
     <div id="drop-zone" onclick="document.getElementById('file-input').click()">
       <span class="icon">⬡</span>
-      <strong>MDL + TGA ablegen</strong><br>
-      oder klicken zum Öffnen<br>
-      <small style="color:var(--muted)">Mehrere Dateien gleichzeitig möglich</small>
+      <strong data-i18n="drop_title">MDL + TGA ablegen</strong><br>
+      <span data-i18n="drop_or">oder klicken zum Öffnen</span><br>
+      <small style="color:var(--muted)" data-i18n="drop_hint">Mehrere Dateien gleichzeitig möglich</small>
     </div>
     <input type="file" id="file-input" accept=".mdl,.tga,.dds,.png,.jpg,.txt" multiple>
 
     <div id="texture-status" style="margin:0 12px 8px;display:none;">
-      <div style="font-size:10px;color:var(--muted);padding:4px 0 2px;letter-spacing:1px;text-transform:uppercase;">Texturen</div>
+      <div data-i18n="textures_heading" style="font-size:10px;color:var(--muted);padding:4px 0 2px;letter-spacing:1px;text-transform:uppercase;">Texturen</div>
       <div id="texture-list" style="font-size:11px;line-height:1.8;"></div>
     </div>
 
     <div id="model-info"></div>
 
-    <div id="section-title">Szenen-Graph</div>
-    <div id="node-list"><div style="padding:20px;color:var(--muted);font-size:11px;text-align:center;">Keine Datei geladen</div></div>
+    <div id="section-title" data-i18n="scene_graph">Szenen-Graph</div>
+    <div id="node-list"><div style="padding:20px;color:var(--muted);font-size:11px;text-align:center;" data-i18n="no_file_loaded">Keine Datei geladen</div></div>
 
     <div id="controls-panel">
       <div class="ctrl-row">
-        <span class="ctrl-label">Gitterlinien</span>
+        <span class="ctrl-label" data-i18n="ctrl_wireframe">Gitterlinien</span>
         <input type="range" id="wire-opacity" min="0" max="100" value="0" oninput="updateWireframe(this.value)">
         <span class="ctrl-val" id="wire-val">0%</span>
       </div>
       <div class="ctrl-row">
-        <span class="ctrl-label">Beleuchtung</span>
+        <span class="ctrl-label" data-i18n="ctrl_lighting">Beleuchtung</span>
         <input type="range" id="light-intensity" min="0" max="200" value="100" oninput="updateLight(this.value)">
         <span class="ctrl-val" id="light-val">100%</span>
       </div>
       <div class="ctrl-row" style="gap:6px">
-        <button class="toggle-btn active" id="btn-normals" onclick="toggleNormals()">Normalen</button>
-        <button class="toggle-btn active" id="btn-grid"    onclick="toggleGrid()">Raster</button>
-        <button class="toggle-btn"        id="btn-bbox"    onclick="toggleBBox()">BBox</button>
-        <button class="toggle-btn"        id="btn-rotate"  onclick="toggleAutoRotate()">Rotation</button>
+        <button class="toggle-btn active" id="btn-normals" onclick="toggleNormals()" data-i18n="btn_normals">Normalen</button>
+        <button class="toggle-btn active" id="btn-grid"    onclick="toggleGrid()"    data-i18n="btn_grid">Raster</button>
+        <button class="toggle-btn"        id="btn-bbox"    onclick="toggleBBox()"    data-i18n="btn_bbox">BBox</button>
+        <button class="toggle-btn"        id="btn-rotate"  onclick="toggleAutoRotate()" data-i18n="btn_rotate">Rotation</button>
       </div>
     </div>
   </div>
@@ -268,27 +283,27 @@
 
     <div id="empty-state">
       <div class="es-icon">⬡</div>
-      <p>MDL Datei laden</p>
-      <small>Drag &amp; Drop · ASCII-Format · Decompiliert</small>
+      <p data-i18n="empty_title">MDL Datei laden</p>
+      <small data-i18n="empty_hint">Drag &amp; Drop · ASCII-Format · Decompiliert</small>
     </div>
 
     <div id="hud">
-      Kamera&nbsp;|&nbsp;LMB Orbit&nbsp;·&nbsp;RMB/Rad Zoom&nbsp;·&nbsp;MMB Pan<br>
-      Vertices:&nbsp;<span id="stat-verts">—</span>&nbsp;·&nbsp;
-      Faces:&nbsp;<span id="stat-faces">—</span>&nbsp;·&nbsp;
-      Nodes:&nbsp;<span id="stat-nodes">—</span>
+      <span data-i18n="hud_camera">Kamera</span>&nbsp;|&nbsp;<span data-i18n="hud_orbit">LMB Orbit</span>&nbsp;·&nbsp;<span data-i18n="hud_zoom">RMB/Rad Zoom</span>&nbsp;·&nbsp;<span data-i18n="hud_pan">MMB Pan</span><br>
+      <span data-i18n="hud_vertices">Vertices</span>:&nbsp;<span id="stat-verts">—</span>&nbsp;·&nbsp;
+      <span data-i18n="hud_faces">Faces</span>:&nbsp;<span id="stat-faces">—</span>&nbsp;·&nbsp;
+      <span data-i18n="hud_nodes">Nodes</span>:&nbsp;<span id="stat-nodes">—</span>
     </div>
 
     <div id="node-detail"></div>
 
     <div class="axes-label">
       <div class="ax"><div class="ax-dot" style="background:#e04040"></div>X</div>
-      <div class="ax"><div class="ax-dot" style="background:#40c040"></div>Y (oben)</div>
+      <div class="ax"><div class="ax-dot" style="background:#40c040"></div><span data-i18n="axis_up">Y (oben)</span></div>
       <div class="ax"><div class="ax-dot" style="background:#4080e0"></div>Z</div>
     </div>
 
     <div id="statusbar">
-      Status:&nbsp;<span id="status-msg">Bereit — Datei ablegen oder öffnen</span>
+      <span data-i18n="status_prefix">Status</span>:&nbsp;<span id="status-msg" data-i18n="status_ready">Bereit — Datei ablegen oder öffnen</span>
     </div>
   </div>
 </div>
@@ -297,8 +312,160 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 // ─────────────────────────────────────────────
-//  NWN MDL Parser
+//  i18n — Internationalisation
+//  - Beide Kernsprachen (en/de) sind eingebettet → funktioniert auch lokal (file://)
+//  - Weitere Sprachen per ?lang=fr laden (benötigt HTTP-Server oder GitHub Pages)
+//  - Sprachumschalter-Dropdown in der Sidebar
 // ─────────────────────────────────────────────
+
+const I18N_BUNDLE = {
+  en: {
+    _meta: { language: 'English', code: 'en' },
+    logo_subtitle:'Neverwinter Nights 1 · Enhanced Edition',
+    drop_title:'Drop MDL + TGA here', drop_or:'or click to open',
+    drop_hint:'Multiple files at once supported',
+    textures_heading:'Textures', scene_graph:'Scene Graph',
+    no_file_loaded:'No file loaded', ctrl_wireframe:'Wireframe',
+    ctrl_lighting:'Lighting', btn_normals:'Normals', btn_grid:'Grid',
+    btn_bbox:'BBox', btn_rotate:'Rotate', empty_title:'Load MDL File',
+    empty_hint:'Drag & Drop · ASCII Format · Decompiled',
+    hud_camera:'Camera', hud_orbit:'LMB Orbit', hud_zoom:'RMB/Wheel Zoom',
+    hud_pan:'MMB Pan', hud_vertices:'Vertices', hud_faces:'Faces',
+    hud_nodes:'Nodes', axis_up:'Y (up)',
+    status_ready:'Ready — drop or open a file', status_prefix:'Status',
+    nd_type:'Type', nd_parent:'Parent', nd_vertices:'Vertices',
+    nd_faces:'Faces', nd_bitmap:'Bitmap', nd_position:'Position',
+    nd_diffuse:'Diffuse', nd_alpha:'Alpha',
+    nd_dangle_info:'Physics Mesh', nd_dangle_info_label:'Type Info',
+    info_supermodel:'Supermodel', info_class:'Class', info_nodes:'Nodes',
+    info_vertices:'Vertices', info_faces:'Triangles', info_anims:'Animations',
+    info_meshes_suffix:'Meshes', vis_toggle_title:'Toggle visibility',
+    status_loading:'Loading {n} file(s)…',
+    status_tex_loaded:'Texture loaded: {name} ({n}/{total})',
+    status_tex_applied:'{n} texture(s) applied to existing model.',
+    status_model_loaded:'Model loaded: {name} ({cls})',
+    status_model_tex:'Model loaded: {name} — {n} texture(s) applied.',
+    status_parse:'Parsing MDL: {name} …',
+    status_no_files:'No .mdl or .tga files recognised.',
+    status_read_error:'Error reading file.',
+    status_tga_error:'TGA error: {name} — {msg}',
+    status_lang_loaded:'Language: {lang}',
+    status_lang_fallback:'Language file not found — using English.',
+    err_no_nodes:'No nodes found. Is this a decompiled ASCII file?',
+    err_parse_title:'Parse error:',
+    err_parse_hint:'Please make sure the file is a decompiled ASCII .mdl file.'
+  },
+  de: {
+    _meta: { language: 'Deutsch', code: 'de' },
+    logo_subtitle:'Neverwinter Nights 1 · Enhanced Edition',
+    drop_title:'MDL + TGA ablegen', drop_or:'oder klicken zum Öffnen',
+    drop_hint:'Mehrere Dateien gleichzeitig möglich',
+    textures_heading:'Texturen', scene_graph:'Szenen-Graph',
+    no_file_loaded:'Keine Datei geladen', ctrl_wireframe:'Gitterlinien',
+    ctrl_lighting:'Beleuchtung', btn_normals:'Normalen', btn_grid:'Raster',
+    btn_bbox:'BBox', btn_rotate:'Rotation', empty_title:'MDL Datei laden',
+    empty_hint:'Drag & Drop · ASCII-Format · Decompiliert',
+    hud_camera:'Kamera', hud_orbit:'LMB Orbit', hud_zoom:'RMB/Rad Zoom',
+    hud_pan:'MMB Pan', hud_vertices:'Vertices', hud_faces:'Faces',
+    hud_nodes:'Nodes', axis_up:'Y (oben)',
+    status_ready:'Bereit — Datei ablegen oder öffnen', status_prefix:'Status',
+    nd_type:'Typ', nd_parent:'Eltern', nd_vertices:'Vertices',
+    nd_faces:'Faces', nd_bitmap:'Bitmap', nd_position:'Position',
+    nd_diffuse:'Diffuse', nd_alpha:'Alpha',
+    nd_dangle_info:'Physik-Mesh', nd_dangle_info_label:'Typ-Info',
+    info_supermodel:'Supermodel', info_class:'Klasse', info_nodes:'Nodes',
+    info_vertices:'Vertices', info_faces:'Dreiecke', info_anims:'Animationen',
+    info_meshes_suffix:'Meshes', vis_toggle_title:'Sichtbarkeit umschalten',
+    status_loading:'Lade {n} Datei(en)…',
+    status_tex_loaded:'Textur geladen: {name} ({n}/{total})',
+    status_tex_applied:'{n} Textur(en) auf bestehendes Modell angewendet.',
+    status_model_loaded:'Modell geladen: {name} ({cls})',
+    status_model_tex:'Modell geladen: {name} — {n} Textur(en) angewendet.',
+    status_parse:'Parse MDL: {name} …',
+    status_no_files:'Keine .mdl oder .tga Dateien erkannt.',
+    status_read_error:'Fehler beim Lesen der Datei.',
+    status_tga_error:'TGA-Fehler: {name} — {msg}',
+    status_lang_loaded:'Sprache: {lang}',
+    status_lang_fallback:'Sprache nicht gefunden — Englisch als Fallback.',
+    err_no_nodes:'Keine Nodes gefunden. Ist die Datei im ASCII-Format?',
+    err_parse_title:'Fehler beim Parsen:',
+    err_parse_hint:'Stellen Sie sicher, dass es sich um eine decompilierte ASCII .mdl Datei handelt.'
+  }
+};
+
+// Englisch ist der eingebaute Fallback
+const I18N_FALLBACK = I18N_BUNDLE.en;
+let LANG = Object.assign({}, I18N_FALLBACK);
+let currentLangCode = 'en';
+
+function L(key)       { return LANG[key] || I18N_FALLBACK[key] || key; }
+function fmt(key, vars) {
+  let s = L(key);
+  for (const [k, v] of Object.entries(vars || {})) s = s.split('{'+k+'}').join(v);
+  return s;
+}
+
+function applyI18n() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const val = L(el.getAttribute('data-i18n'));
+    if (val) el.textContent = val;
+  });
+  // Dropdown-Auswahl synchron halten
+  const sel = document.getElementById('lang-select');
+  if (sel) sel.value = currentLangCode;
+}
+
+// Sprache wechseln — funktioniert immer (eingebettet oder per fetch)
+async function switchLanguage(code) {
+  // 1. Eingebettet vorhanden?
+  if (I18N_BUNDLE[code]) {
+    LANG = Object.assign({}, I18N_FALLBACK, I18N_BUNDLE[code]);
+    currentLangCode = code;
+    applyI18n();
+    setStatus(fmt('status_lang_loaded', { lang: I18N_BUNDLE[code]._meta.language }));
+    // URL-Parameter aktualisieren (ohne Seiten-Reload)
+    const url = new URL(window.location);
+    url.searchParams.set('lang', code);
+    history.replaceState(null, '', url);
+    return;
+  }
+  // 2. Externe JSON-Datei (für eigene Übersetzungen, benötigt HTTP-Server)
+  try {
+    const resp = await fetch('lang/' + code + '.json');
+    if (!resp.ok) throw new Error(resp.status);
+    const data = await resp.json();
+    LANG = Object.assign({}, I18N_FALLBACK, data);
+    currentLangCode = code;
+    // Dropdown mit neuer Option befüllen falls noch nicht vorhanden
+    const sel = document.getElementById('lang-select');
+    if (sel && !sel.querySelector('option[value="' + code + '"]')) {
+      const opt = document.createElement('option');
+      opt.value = code; opt.textContent = data._meta?.language || code;
+      sel.appendChild(opt);
+    }
+    applyI18n();
+    setStatus(fmt('status_lang_loaded', { lang: data._meta?.language || code }));
+    const url = new URL(window.location);
+    url.searchParams.set('lang', code);
+    history.replaceState(null, '', url);
+  } catch (e) {
+    setStatus(L('status_lang_fallback'));
+  }
+}
+
+// Beim Start: Sprache aus URL-Parameter oder Browser-Sprache ermitteln
+async function loadLanguage() {
+  const params = new URLSearchParams(window.location.search);
+  let code = params.get('lang');
+  // Kein Parameter → Browser-Sprache als Hinweis nutzen (nur wenn eingebettet)
+  if (!code) {
+    const browserLang = (navigator.language || 'en').slice(0, 2).toLowerCase();
+    code = I18N_BUNDLE[browserLang] ? browserLang : 'en';
+  }
+  await switchLanguage(code);
+}
+
+
 function parseMDL(text) {
   // Normalize line endings
   const rawLines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
@@ -826,7 +993,7 @@ function buildScene(model) {
   document.getElementById('stat-faces').textContent = totalFaces.toLocaleString('de');
   document.getElementById('stat-nodes').textContent = model.nodes.length;
   document.getElementById('empty-state').style.display = 'none';
-  setStatus('Modell geladen: ' + model.name + ' (' + model.classification + ')');
+  setStatus(fmt('status_model_loaded', { name: model.name, cls: model.classification }));
 
   currentModel = model;
   buildNodeList(model);
@@ -863,7 +1030,7 @@ function buildNodeList(model) {
       const vis = document.createElement('span');
       vis.className = 'vis-toggle';
       vis.textContent = '⬡';
-      vis.title = 'Sichtbarkeit umschalten';
+      vis.title = L('vis_toggle_title');
       vis.onclick = (e) => { e.stopPropagation(); toggleNodeVisibility(node.name, item, vis); };
       item.appendChild(vis);
     }
@@ -894,23 +1061,21 @@ function selectNode(name) {
   const detail = document.getElementById('node-detail');
   detail.style.display = 'block';
 
-  // Zusatzzeilen für danglymesh — als einfacher String, KEIN verschachteltes Template-Literal
   let extraRows = '';
   if (n.type === 'danglymesh') {
-    extraRows =
-      '<div class="nd-row"><span>Typ-Info</span><span class="nd-val">Physik-Mesh</span></div>';
+    extraRows = '<div class="nd-row"><span>' + L('nd_dangle_info_label') + '</span><span class="nd-val">' + L('nd_dangle_info') + '</span></div>';
   }
 
   detail.innerHTML =
     '<div class="nd-title">' + n.name + '</div>' +
-    '<div class="nd-row"><span>Typ</span><span class="nd-val">' + n.type + '</span></div>' +
-    '<div class="nd-row"><span>Eltern</span><span class="nd-val">' + n.parent + '</span></div>' +
-    '<div class="nd-row"><span>Vertices</span><span class="nd-val">' + n.verts.length + '</span></div>' +
-    '<div class="nd-row"><span>Faces</span><span class="nd-val">' + n.faces.length + '</span></div>' +
-    '<div class="nd-row"><span>Bitmap</span><span class="nd-val">' + (n.bitmap || '—') + '</span></div>' +
-    '<div class="nd-row"><span>Position</span><span class="nd-val">' + n.position.map(v=>v.toFixed(3)).join(', ') + '</span></div>' +
-    '<div class="nd-row"><span>Diffuse</span><span class="nd-val">' + n.diffuse.map(v=>v.toFixed(2)).join(', ') + '</span></div>' +
-    '<div class="nd-row"><span>Alpha</span><span class="nd-val">' + n.alpha.toFixed(2) + '</span></div>' +
+    '<div class="nd-row"><span>' + L('nd_type')     + '</span><span class="nd-val">' + n.type + '</span></div>' +
+    '<div class="nd-row"><span>' + L('nd_parent')   + '</span><span class="nd-val">' + n.parent + '</span></div>' +
+    '<div class="nd-row"><span>' + L('nd_vertices') + '</span><span class="nd-val">' + n.verts.length + '</span></div>' +
+    '<div class="nd-row"><span>' + L('nd_faces')    + '</span><span class="nd-val">' + n.faces.length + '</span></div>' +
+    '<div class="nd-row"><span>' + L('nd_bitmap')   + '</span><span class="nd-val">' + (n.bitmap || '—') + '</span></div>' +
+    '<div class="nd-row"><span>' + L('nd_position') + '</span><span class="nd-val">' + n.position.map(v=>v.toFixed(3)).join(', ') + '</span></div>' +
+    '<div class="nd-row"><span>' + L('nd_diffuse')  + '</span><span class="nd-val">' + n.diffuse.map(v=>v.toFixed(2)).join(', ') + '</span></div>' +
+    '<div class="nd-row"><span>' + L('nd_alpha')    + '</span><span class="nd-val">' + n.alpha.toFixed(2) + '</span></div>' +
     extraRows;
 }
 
@@ -918,15 +1083,14 @@ function showModelInfo(model, verts, faces) {
   const el = document.getElementById('model-info');
   el.style.display = 'block';
   const meshCount = model.nodes.filter(n => n.type === 'trimesh' || n.type === 'skin' || n.type === 'danglymesh').length;
-  el.innerHTML = `
-    <div class="info-name">${model.name}</div>
-    <div class="info-row"><span>Supermodel</span><span class="info-val">${model.supermodel || '—'}</span></div>
-    <div class="info-row"><span>Klasse</span><span class="info-val">${model.classification}</span></div>
-    <div class="info-row"><span>Nodes</span><span class="info-val">${model.nodes.length} (${meshCount} Meshes)</span></div>
-    <div class="info-row"><span>Vertices</span><span class="info-val">${verts.toLocaleString('de')}</span></div>
-    <div class="info-row"><span>Dreiecke</span><span class="info-val">${faces.toLocaleString('de')}</span></div>
-    <div class="info-row"><span>Animationen</span><span class="info-val">${model.animCount}</span></div>
-  `;
+  el.innerHTML =
+    '<div class="info-name">' + model.name + '</div>' +
+    '<div class="info-row"><span>' + L('info_supermodel') + '</span><span class="info-val">' + (model.supermodel || '—') + '</span></div>' +
+    '<div class="info-row"><span>' + L('info_class')      + '</span><span class="info-val">' + model.classification + '</span></div>' +
+    '<div class="info-row"><span>' + L('info_nodes')      + '</span><span class="info-val">' + model.nodes.length + ' (' + meshCount + ' ' + L('info_meshes_suffix') + ')</span></div>' +
+    '<div class="info-row"><span>' + L('info_vertices')   + '</span><span class="info-val">' + verts.toLocaleString() + '</span></div>' +
+    '<div class="info-row"><span>' + L('info_faces')      + '</span><span class="info-val">' + faces.toLocaleString() + '</span></div>' +
+    '<div class="info-row"><span>' + L('info_anims')      + '</span><span class="info-val">' + model.animCount + '</span></div>';
 }
 
 // ─────────────────────────────────────────────
@@ -1154,7 +1318,7 @@ function clearSession() {
 
   // 4. UI zurücksetzen
   document.getElementById('node-list').innerHTML =
-    '<div style="padding:20px;color:var(--muted);font-size:11px;text-align:center;">Keine Datei geladen</div>';
+    '<div style="padding:20px;color:var(--muted);font-size:11px;text-align:center;">' + L('no_file_loaded') + '</div>';
   document.getElementById('model-info').style.display    = 'none';
   document.getElementById('texture-status').style.display= 'none';
   document.getElementById('texture-list').innerHTML      = '';
@@ -1209,16 +1373,13 @@ function loadFiles(fileList) {
   const texFiles = files.filter(f => /\.(tga|png|jpg|jpeg|dds)$/i.test(f.name));
 
   if (mdlFiles.length === 0 && texFiles.length === 0) {
-    setStatus('Keine .mdl oder .tga Dateien erkannt.');
+    setStatus(L('status_no_files'));
     return;
   }
 
-  // Wenn ein neues MDL geladen wird → komplette Session zurücksetzen
-  if (mdlFiles.length > 0) {
-    clearSession();
-  }
+  if (mdlFiles.length > 0) { clearSession(); }
 
-  setStatus(`Lade ${files.length} Datei(en)…`);
+  setStatus(fmt('status_loading', { n: files.length }));
 
   // 1. Alle Texturen laden
   let texPending = texFiles.length;
@@ -1226,13 +1387,11 @@ function loadFiles(fileList) {
 
   function onAllTexReady() {
     updateTextureUI();
-    // 2. MDL laden falls vorhanden
     if (mdlFiles.length > 0) {
       loadMDLFile(mdlFiles[0]);
     } else if (currentModel) {
-      // Nur neue Texturen auf bereits geladenes Modell anwenden
       const n = applyTexturesToScene();
-      setStatus(`${n} Textur(en) auf bestehendes Modell angewendet.`);
+      setStatus(fmt('status_tex_applied', { n }));
     }
   }
 
@@ -1251,10 +1410,10 @@ function loadFiles(fileList) {
         try {
           textureCache[key] = parseTGA(ev.target.result);
           texLoaded++;
-          setStatus(`Textur geladen: ${file.name} (${texLoaded}/${texFiles.length})`);
+          setStatus(fmt('status_tex_loaded', { name: file.name, n: texLoaded, total: texFiles.length }));
         } catch(err) {
           console.warn('TGA Fehler:', file.name, err.message);
-          setStatus(`TGA-Fehler: ${file.name} — ${err.message}`);
+          setStatus(fmt('status_tga_error', { name: file.name, msg: err.message }));
         }
         texPending--;
         if (texPending === 0) onAllTexReady();
@@ -1269,7 +1428,7 @@ function loadFiles(fileList) {
         tex.flipY = false;
         textureCache[key] = tex;
         texLoaded++;
-        setStatus(`Textur geladen: ${file.name} (${texLoaded}/${texFiles.length})`);
+        setStatus(fmt('status_tex_loaded', { name: file.name, n: texLoaded, total: texFiles.length }));
         texPending--;
         if (texPending === 0) onAllTexReady();
       }, undefined, () => {
@@ -1281,23 +1440,22 @@ function loadFiles(fileList) {
 }
 
 function loadMDLFile(file) {
-  setStatus('Parse MDL: ' + file.name + ' …');
+  setStatus(fmt('status_parse', { name: file.name }));
   const reader = new FileReader();
   reader.onload = e => {
     try {
       const model = parseMDL(e.target.result);
-      if (!model.nodes.length) throw new Error('Keine Nodes gefunden. Ist die Datei im ASCII-Format?');
+      if (!model.nodes.length) throw new Error(L('err_no_nodes'));
       buildScene(model);
-      // Textures anwenden falls bereits geladen
       const n = applyTexturesToScene();
-      if (n > 0) setStatus(`Modell geladen: ${model.name} — ${n} Textur(en) angewendet.`);
+      if (n > 0) setStatus(fmt('status_model_tex', { name: model.name, n }));
     } catch (err) {
-      setStatus('Fehler: ' + err.message);
+      setStatus(L('status_prefix') + ': ' + err.message);
       console.error(err);
-      alert('Fehler beim Parsen:\n' + err.message + '\n\nStellen Sie sicher, dass es sich um eine decompilierte ASCII .mdl Datei handelt.');
+      alert(L('err_parse_title') + '\n' + err.message + '\n\n' + L('err_parse_hint'));
     }
   };
-  reader.onerror = () => setStatus('Fehler beim Lesen der Datei.');
+  reader.onerror = () => setStatus(L('status_read_error'));
   reader.readAsText(file);
 }
 
@@ -1335,6 +1493,7 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 updateCamera();
+loadLanguage();   // Sprache laden (async) — wendet data-i18n Attribute an
 
 let lastTime = 0;
 function animate(time) {
