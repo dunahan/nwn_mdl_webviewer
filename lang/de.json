@@ -1,0 +1,79 @@
+{
+  "_meta": {
+    "language": "Deutsch",
+    "code": "de",
+    "author": "",
+    "version": "1.0"
+  },
+
+  "logo_subtitle":        "Neverwinter Nights 1 · Enhanced Edition",
+
+  "drop_title":           "MDL + TGA ablegen",
+  "drop_or":              "oder klicken zum Öffnen",
+  "drop_hint":            "Mehrere Dateien gleichzeitig möglich",
+
+  "textures_heading":     "Texturen",
+
+  "scene_graph":          "Szenen-Graph",
+  "no_file_loaded":       "Keine Datei geladen",
+
+  "ctrl_wireframe":       "Gitterlinien",
+  "ctrl_lighting":        "Beleuchtung",
+  "btn_normals":          "Normalen",
+  "btn_grid":             "Raster",
+  "btn_bbox":             "BBox",
+  "btn_rotate":           "Rotation",
+
+  "empty_title":          "MDL Datei laden",
+  "empty_hint":           "Drag & Drop · ASCII-Format · Decompiliert",
+
+  "hud_camera":           "Kamera",
+  "hud_orbit":            "LMB Orbit",
+  "hud_zoom":             "RMB/Rad Zoom",
+  "hud_pan":              "MMB Pan",
+  "hud_vertices":         "Vertices",
+  "hud_faces":            "Faces",
+  "hud_nodes":            "Nodes",
+
+  "axis_up":              "Y (oben)",
+
+  "status_ready":         "Bereit — Datei ablegen oder öffnen",
+  "status_prefix":        "Status",
+
+  "nd_type":              "Typ",
+  "nd_parent":            "Eltern",
+  "nd_vertices":          "Vertices",
+  "nd_faces":             "Faces",
+  "nd_bitmap":            "Bitmap",
+  "nd_position":          "Position",
+  "nd_diffuse":           "Diffuse",
+  "nd_alpha":             "Alpha",
+  "nd_dangle_info":       "Physik-Mesh",
+  "nd_dangle_info_label": "Typ-Info",
+
+  "info_supermodel":      "Supermodel",
+  "info_class":           "Klasse",
+  "info_nodes":           "Nodes",
+  "info_vertices":        "Vertices",
+  "info_faces":           "Dreiecke",
+  "info_anims":           "Animationen",
+  "info_meshes_suffix":   "Meshes",
+
+  "vis_toggle_title":     "Sichtbarkeit umschalten",
+
+  "status_loading":       "Lade {n} Datei(en)…",
+  "status_tex_loaded":    "Textur geladen: {name} ({n}/{total})",
+  "status_tex_applied":   "{n} Textur(en) auf bestehendes Modell angewendet.",
+  "status_model_loaded":  "Modell geladen: {name} ({cls})",
+  "status_model_tex":     "Modell geladen: {name} — {n} Textur(en) angewendet.",
+  "status_parse":         "Parse MDL: {name} …",
+  "status_no_files":      "Keine .mdl oder .tga Dateien erkannt.",
+  "status_read_error":    "Fehler beim Lesen der Datei.",
+  "status_tga_error":     "TGA-Fehler: {name} — {msg}",
+  "status_lang_loaded":   "Sprache geladen: {lang}",
+  "status_lang_fallback": "Sprache nicht gefunden — Fallback auf Deutsch.",
+
+  "err_no_nodes":         "Keine Nodes gefunden. Ist die Datei im ASCII-Format?",
+  "err_parse_title":      "Fehler beim Parsen:",
+  "err_parse_hint":       "Stellen Sie sicher, dass es sich um eine decompilierte ASCII .mdl Datei handelt."
+}
