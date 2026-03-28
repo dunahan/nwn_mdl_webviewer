@@ -35,7 +35,45 @@
     display: flex; flex-direction: column;
     overflow: hidden;
     z-index: 10;
+    transition: width 0.25s ease, min-width 0.25s ease, border-color 0.25s ease;
   }
+  #sidebar.collapsed {
+    width: 0; min-width: 0;
+    border-right-color: transparent;
+  }
+  #sidebar.collapsed > * { opacity: 0; pointer-events: none; }
+  #sidebar > * { transition: opacity 0.15s ease; }
+
+  /* ── Sidebar Toggle Button ── */
+  #sidebar-toggle {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    left: 280px;
+    z-index: 20;
+    width: 20px; height: 48px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: none;
+    border-radius: 0 4px 4px 0;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted);
+    font-size: 10px;
+    transition: left 0.25s ease, color 0.15s, background 0.15s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #sidebar-toggle:hover { color: var(--gold); background: rgba(200,164,74,0.08); }
+  #sidebar-toggle.collapsed {
+    left: 0;
+    border-left: 1px solid var(--border);
+    border-radius: 0 4px 4px 0;
+    background: var(--panel);
+    box-shadow: 2px 0 8px rgba(0,0,0,0.4);
+  }
+  #sidebar-toggle .tog-icon { transition: transform 0.25s ease; line-height: 1; }
+  #sidebar-toggle.collapsed .tog-icon { transform: rotate(180deg); }
   #logo {
     padding: 18px 16px 14px;
     border-bottom: 1px solid var(--border);
@@ -226,6 +264,11 @@
 </head>
 <body>
 <div id="app">
+  <!-- ── Sidebar Toggle Button ── -->
+  <button id="sidebar-toggle" onclick="toggleSidebar()" title="Sidebar ein-/ausblenden" aria-label="Toggle Sidebar">
+    <span class="tog-icon">◀</span>
+  </button>
+
   <!-- ── Sidebar ── -->
   <div id="sidebar">
     <div id="logo">
@@ -1159,6 +1202,18 @@ function toggleAutoRotate() {
 }
 
 function setStatus(msg) { document.getElementById('status-msg').textContent = msg; }
+
+// ─────────────────────────────────────────────
+//  Sidebar Toggle
+// ─────────────────────────────────────────────
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const btn     = document.getElementById('sidebar-toggle');
+  const collapsed = sidebar.classList.toggle('collapsed');
+  btn.classList.toggle('collapsed', collapsed);
+  // Nach der CSS-Transition (250ms) den Canvas neu berechnen
+  setTimeout(resize, 260);
+}
 
 // ─────────────────────────────────────────────
 //  Textur-Cache  (key = basename lowercase, kein extension)
