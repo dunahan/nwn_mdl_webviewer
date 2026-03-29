@@ -260,6 +260,29 @@
 
   /* Scrollbar for sidebar */
   #sidebar ::-webkit-scrollbar { width: 4px; }
+
+  /* ── Einklappbarer Texturen-Abschnitt ── */
+  #texture-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 0 2px; cursor: pointer; user-select: none;
+  }
+  #texture-header:hover .tex-arrow { color: var(--gold); }
+  .tex-arrow {
+    color: var(--muted); font-size: 9px;
+    transition: transform 0.2s ease, color 0.15s;
+    display: inline-block;
+  }
+  .tex-arrow.open { transform: rotate(90deg); }
+  #texture-list {
+    overflow: hidden;
+    max-height: 300px;
+    transition: max-height 0.25s ease, opacity 0.2s ease;
+    opacity: 1;
+  }
+  #texture-list.collapsed {
+    max-height: 0;
+    opacity: 0;
+  }
 </style>
 </head>
 <body>
@@ -291,7 +314,10 @@
     <input type="file" id="file-input" accept=".mdl,.tga,.dds,.png,.jpg,.txt" multiple>
 
     <div id="texture-status" style="margin:0 12px 8px;display:none;">
-      <div data-i18n="textures_heading" style="font-size:10px;color:var(--muted);padding:4px 0 2px;letter-spacing:1px;text-transform:uppercase;">Texturen</div>
+      <div id="texture-header" onclick="toggleTextureList()">
+        <span data-i18n="textures_heading" style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">Texturen</span>
+        <span class="tex-arrow open">▶</span>
+      </div>
       <div id="texture-list" style="font-size:11px;line-height:1.8;"></div>
     </div>
 
@@ -1213,6 +1239,14 @@ function toggleSidebar() {
   btn.classList.toggle('collapsed', collapsed);
   // Nach der CSS-Transition (250ms) den Canvas neu berechnen
   setTimeout(resize, 260);
+}
+
+function toggleTextureList() {
+  const list  = document.getElementById('texture-list');
+  const arrow = document.querySelector('.tex-arrow');
+  const isOpen = !list.classList.contains('collapsed');
+  list.classList.toggle('collapsed', isOpen);
+  arrow.classList.toggle('open', !isOpen);
 }
 
 // ─────────────────────────────────────────────
