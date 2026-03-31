@@ -65,6 +65,8 @@
     -webkit-tap-highlight-color: transparent;
   }
   #sidebar-toggle:hover { color: var(--gold); background: rgba(200,164,74,0.08); }
+  #sidebar-toggle:focus { outline: none; background: var(--panel); }
+  #sidebar-toggle:focus:hover { background: rgba(200,164,74,0.08); }
   #sidebar-toggle.collapsed {
     left: 0;
     border-left: 1px solid var(--border);
@@ -171,13 +173,13 @@
   .type-skin     { background: rgba(192,112,192,0.25); color: var(--skin); }
   .type-dummy    { background: rgba(112,184,112,0.2);  color: var(--dummy); }
   .type-emitter  { background: rgba(240,160,48,0.2);   color: var(--emitter); }
-  .type-aabb     { background: rgba(200,64,64,0.2);    color: var(--red); }
+  .type-aabb     { background: rgba(232,160,32,0.2);   color: #e8a020; }
   .dot-trimesh   { background: var(--mesh); }
   .dot-danglymesh{ background: #50b8d0; }
   .dot-skin      { background: var(--skin); }
   .dot-dummy     { background: var(--dummy); }
   .dot-emitter   { background: var(--emitter); }
-  .dot-aabb      { background: var(--red); }
+  .dot-aabb      { background: #e8a020; }
   .dot-other     { background: var(--muted); }
 
   #controls-panel {
@@ -683,6 +685,7 @@ function parseNode(lines, start) {
     render: 1,
     alpha: 1.0,
     tilefade: 0,
+    transparencyhint: 0,  // 0 = opak, 1 = Textur-Alpha nutzen (Decals, Splotches)
   };
 
   function tok(idx) { return lines[idx].trim().split(/\s+/).filter(x => x.length > 0); }
@@ -709,6 +712,7 @@ function parseNode(lines, start) {
     else if (k === 'render')      node.render = parseInt(t[1]) || 0;
     else if (k === 'alpha')       node.alpha = num(t[1]);
     else if (k === 'tilefade')    node.tilefade = parseInt(t[1]) || 0;
+    else if (k === 'transparencyhint') node.transparencyhint = parseInt(t[1]) || 0;
     else if (k === 'verts') {
       const count = parseInt(t[1]) || 0;
       for (let j = 0; j < count; j++) {
@@ -906,7 +910,7 @@ canvas.addEventListener('touchmove', e => {
 const NODE_COLORS = {
   trimesh: 0x4a90c0, skin: 0xc070c0, dummy: 0x70b870,
   danglymesh: 0x50b8d0,
-  emitter: 0xf0a030, aabb: 0xc04040, light: 0xf8f050, reference: 0x80c0e0,
+  emitter: 0xf0a030, aabb: 0xe8a020, light: 0xf8f050, reference: 0x80c0e0,
 };
 function nodeColor(type) { return NODE_COLORS[type] || 0x808080; }
 
@@ -970,14 +974,22 @@ function buildScene(model) {
       const bitmapKey = node.bitmap ? node.bitmap.toLowerCase() : '';
       const tex = bitmapKey ? (textureCache[bitmapKey] || null) : null;
 
+      // transparencyhint 1 → Textur hat Alpha-Kanal (Decals, Splotches, Pflanzen).
+      // alphaTest schneidet transparente Pixel hart aus (wie NWN es rendert).
+      // node.alpha < 1 → ganzes Mesh ist teiltransparent (z.B. Geister, Glas).
+      const useTexAlpha = node.transparencyhint === 1;
+      const useMeshAlpha = node.alpha < 0.99;
+
       const mat = new THREE.MeshPhongMaterial({
-        color:     tex ? new THREE.Color(1, 1, 1) : new THREE.Color(d[0] || 0.8, d[1] || 0.8, d[2] || 0.8),
-        map:       tex || null,
-        specular:  new THREE.Color(node.specular[0], node.specular[1], node.specular[2]),
-        shininess: node.shininess * 128,
-        side:      THREE.DoubleSide,
-        transparent: node.alpha < 0.99,
-        opacity:   node.alpha,
+        color:       tex ? new THREE.Color(1, 1, 1) : new THREE.Color(d[0] || 0.8, d[1] || 0.8, d[2] || 0.8),
+        map:         tex || null,
+        specular:    new THREE.Color(node.specular[0], node.specular[1], node.specular[2]),
+        shininess:   node.shininess * 128,
+        side:        THREE.DoubleSide,
+        transparent: useMeshAlpha || useTexAlpha,
+        opacity:     node.alpha,
+        alphaTest:   useTexAlpha ? 0.1 : 0,  // Pixel mit Alpha < 10% werden verworfen
+        depthWrite:  !useTexAlpha,            // Decals schreiben nicht in den Tiefenpuffer
       });
 
       // Fallback-Farbe wenn kein Bitmap und diffuse ist schwarz
@@ -1003,6 +1015,51 @@ function buildScene(model) {
 
       totalVerts += node.verts.length;
       totalFaces += node.faces.length;
+    } else if (node.type === 'aabb' && node.faces.length > 0 && node.verts.length > 0) {
+      // ── Walkmesh (AABB) ───────────────────────────────────────────────
+      // Einfache Dreieck-Geometrie aus Verts + Faces (keine UVs/Normalen nötig).
+      // Darstellung: halbtransparente Füllung + Wireframe-Overlay in Amber.
+      const positions = new Float32Array(node.faces.length * 9);
+      for (let fi = 0; fi < node.faces.length; fi++) {
+        const face = node.faces[fi];
+        for (let k = 0; k < 3; k++) {
+          const v = node.verts[face.v[k]] || [0, 0, 0];
+          positions[fi * 9 + k * 3 + 0] = v[0];
+          positions[fi * 9 + k * 3 + 1] = v[1];
+          positions[fi * 9 + k * 3 + 2] = v[2];
+        }
+      }
+
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geo.computeVertexNormals();
+
+      // Halbtransparente Füllung
+      const fillMat = new THREE.MeshBasicMaterial({
+        color: 0xe8a020,
+        transparent: true,
+        opacity: 0.12,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      });
+      const fillMesh = new THREE.Mesh(geo, fillMat);
+
+      // Wireframe-Overlay
+      const wireMat = new THREE.MeshBasicMaterial({
+        color: 0xe8a020,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.7,
+      });
+      const wireMesh = new THREE.Mesh(geo, wireMat);
+      wireMesh.userData.isWireframe = true;
+
+      // Gruppe aus Füllung + Wireframe
+      obj = new THREE.Group();
+      obj.add(fillMesh);
+      obj.add(wireMesh);
+      obj.userData.isAABB = true;
+
     } else {
       // Dummy / emitter / etc → small sphere marker
       const geo = new THREE.SphereGeometry(0.04, 6, 6);
@@ -1368,7 +1425,10 @@ function parseNWNDDS(buffer) {
   cvs.width=w; cvs.height=h;
   cvs.getContext('2d').putImageData(new ImageData(pixels,w,h),0,0);
   const tex=new THREE.CanvasTexture(cvs);
-  tex.flipY=false; tex.needsUpdate=true;
+  tex.flipY=false;
+  tex.wrapS=THREE.RepeatWrapping;
+  tex.wrapT=THREE.RepeatWrapping;
+  tex.needsUpdate=true;
   return tex;
 }
 
@@ -1486,6 +1546,8 @@ function parseTGA(buffer) {
 
   const tex = new THREE.CanvasTexture(cvs);
   tex.flipY = false;  // wir haben bereits korrekt geflippt
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
   tex.needsUpdate = true;
   return tex;
 }
@@ -1553,9 +1615,16 @@ function applyTexturesToScene() {
     if (!tex) continue;
     const obj = nodeObjects[node.name];
     if (!obj || !obj.material) continue;
-    obj.material.map = tex;
-    obj.material.color.set(0xffffff);   // Farbe auf weiß zurücksetzen, Textur übernimmt
-    obj.material.needsUpdate = true;
+    const mat = obj.material;
+    mat.map = tex;
+    mat.color.set(0xffffff);
+    // transparencyhint nachträglich korrekt setzen
+    if (node.transparencyhint === 1) {
+      mat.transparent  = true;
+      mat.alphaTest    = 0.1;
+      mat.depthWrite   = false;
+    }
+    mat.needsUpdate = true;
     applied++;
   }
   return applied;
@@ -1656,6 +1725,8 @@ function loadFiles(fileList) {
       const loader = new THREE.TextureLoader();
       loader.load(url, tex => {
         tex.flipY = false;
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
         textureCache[key] = tex;
         texLoaded++;
         setStatus(fmt('status_tex_loaded', { name: file.name, n: texLoaded, total: texFiles.length }));
