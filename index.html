@@ -242,7 +242,7 @@
 
   /* ── Axes helper label ── */
   .axes-label {
-    position: absolute; bottom: 16px; left: 16px;
+    position: absolute; top: 12px; left: 12px;
     display: flex; gap: 10px; font-size: 10px; pointer-events: none;
     opacity: 0.5;
   }
@@ -1030,13 +1030,20 @@ function buildScene(model) {
       const mat = new THREE.MeshPhongMaterial({
         color:       tex ? new THREE.Color(1, 1, 1) : new THREE.Color(d[0] || 0.8, d[1] || 0.8, d[2] || 0.8),
         map:         tex || null,
-        specular:    new THREE.Color(node.specular[0], node.specular[1], node.specular[2]),
-        shininess:   node.shininess * 128,
+        // NWN nutzt ein einfaches diffuses Shading — Specular ist kaum sichtbar.
+        // node.shininess (z.B. 26) × 128 würde Hochglanz erzeugen; direkt nutzen ist korrekt.
+        // Specular-Farbe auf max. 0.15 begrenzen um ungewolltes Glänzen zu verhindern.
+        specular:    new THREE.Color(
+                       Math.min(node.specular[0], 0.15),
+                       Math.min(node.specular[1], 0.15),
+                       Math.min(node.specular[2], 0.15)
+                     ),
+        shininess:   node.shininess,   // direkt, ohne ×128
         side:        THREE.DoubleSide,
         transparent: useMeshAlpha || useTexAlpha,
         opacity:     node.alpha,
-        alphaTest:   useTexAlpha ? 0.1 : 0,  // Pixel mit Alpha < 10% werden verworfen
-        depthWrite:  !useTexAlpha,            // Decals schreiben nicht in den Tiefenpuffer
+        alphaTest:   useTexAlpha ? 0.1 : 0,
+        depthWrite:  !useTexAlpha,
       });
 
       // Fallback-Farbe wenn kein Bitmap und diffuse ist schwarz
