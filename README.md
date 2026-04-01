@@ -121,6 +121,25 @@ nwn-mdl-viewer/
 | Inspect node | Click sidebar item |
 | Toggle visibility | Click ⬡ icon next to node |
 
+### Error Log
+
+- A ▲ button with a counter badge appears on the right side of the status bar.
+
+- In case of an error, the panel opens automatically.
+
+- In case of a warning, the badge lights up orange, but it does not open automatically.
+
+- Clicking ▲/▼ manually opens/closes the panel.
+
+- When a new model is loaded, the log is automatically cleared.
+
+| Sign | Color | Hint |
+|--------|---------|--------|
+| $\textcolor{red}{\textsf{✕}}$ | Red | Error (TGA/DDS parse, MDL, file read) |
+| $\textcolor{orange}{\textsf{⚠}}$ | Orange | Warnung |
+| $\textcolor{darkgrey}{\textsf{·}}$ | Grey | Info |
+
+
 ---
 
 ## ⚠️ Known Limitations
