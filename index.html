@@ -975,9 +975,10 @@ function buildScene(model) {
       const tex = bitmapKey ? (textureCache[bitmapKey] || null) : null;
 
       // transparencyhint 1 → Textur hat Alpha-Kanal (Decals, Splotches, Pflanzen).
-      // alphaTest schneidet transparente Pixel hart aus (wie NWN es rendert).
-      // node.alpha < 1 → ganzes Mesh ist teiltransparent (z.B. Geister, Glas).
-      const useTexAlpha = node.transparencyhint === 1;
+      // Nur anwenden wenn die Textur auch wirklich einen Alpha-Kanal hat (DXT5/32-bit TGA/PNG).
+      // DXT1-Texturen haben keinen Alpha-Kanal — transparencyhint wäre ein Modellierfehler.
+      const texHasAlpha = tex ? (tex.userData.hasAlpha === true) : false;
+      const useTexAlpha  = node.transparencyhint === 1 && texHasAlpha;
       const useMeshAlpha = node.alpha < 0.99;
 
       const mat = new THREE.MeshPhongMaterial({
@@ -1006,7 +1007,6 @@ function buildScene(model) {
       // damit es die komplette Transformations-Hierarchie automatisch erbt.
       const wireMat = new THREE.MeshBasicMaterial({
         color: 0xffffff, wireframe: true, transparent: true, opacity: wireOpacity,
-        depthBias: -0.0001,   // minimaler Offset verhindert Z-Fighting mit dem Basis-Mesh
       });
       const wireMesh = new THREE.Mesh(geo, wireMat);
       wireMesh.visible = wireOpacity > 0;
@@ -1428,6 +1428,8 @@ function parseNWNDDS(buffer) {
   tex.flipY=false;
   tex.wrapS=THREE.RepeatWrapping;
   tex.wrapT=THREE.RepeatWrapping;
+  if (!tex.userData) tex.userData = {};
+  tex.userData.hasAlpha = (fmt === 'DXT5');
   tex.needsUpdate=true;
   return tex;
 }
@@ -1545,9 +1547,11 @@ function parseTGA(buffer) {
   ctx.putImageData(new ImageData(pixels, width, height), 0, 0);
 
   const tex = new THREE.CanvasTexture(cvs);
-  tex.flipY = false;  // wir haben bereits korrekt geflippt
+  tex.flipY = false;
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
+  if (!tex.userData) tex.userData = {};
+  tex.userData.hasAlpha = (bpp === 32);
   tex.needsUpdate = true;
   return tex;
 }
@@ -1556,7 +1560,7 @@ function parseTGA(buffer) {
 //  Session-Reset: GPU-Speicher, Texturen, Szene
 //  Muss vor jedem neuen Ladevorgang aufgerufen werden.
 // ─────────────────────────────────────────────
-function clearSession() {
+function clearSession(keepTextures = false) {
   // 1. Alle Geometrien und Materialien der alten Szene vom GPU freigeben
   function disposeObject(obj) {
     if (!obj) return;
@@ -1567,7 +1571,6 @@ function clearSession() {
       if (child.material) {
         const mats = Array.isArray(child.material) ? child.material : [child.material];
         for (const mat of mats) {
-          // Alle Textur-Slots leeren (ohne .dispose() — Textur bleibt im Cache)
           for (const key of ['map','normalMap','specularMap','emissiveMap','alphaMap','aoMap']) {
             if (mat[key]) mat[key] = null;
           }
@@ -1596,7 +1599,11 @@ function clearSession() {
     '<div style="padding:20px;color:var(--muted);font-size:11px;text-align:center;">' + L('no_file_loaded') + '</div>';
   document.getElementById('model-info').style.display    = 'none';
   document.getElementById('texture-status').style.display= 'none';
-  document.getElementById('texture-list').innerHTML      = '';
+  const texList  = document.getElementById('texture-list');
+  const texArrow = document.querySelector('.tex-arrow');
+  texList.innerHTML = '';
+  texList.classList.remove('collapsed');
+  if (texArrow) texArrow.classList.add('open');
   document.getElementById('node-detail').style.display   = 'none';
   document.getElementById('empty-state').style.display   = 'flex';
   document.getElementById('stat-verts').textContent = '—';
@@ -1618,8 +1625,9 @@ function applyTexturesToScene() {
     const mat = obj.material;
     mat.map = tex;
     mat.color.set(0xffffff);
-    // transparencyhint nachträglich korrekt setzen
-    if (node.transparencyhint === 1) {
+    // transparencyhint nachträglich korrekt setzen —
+    // aber nur wenn die Textur wirklich einen Alpha-Kanal hat.
+    if (node.transparencyhint === 1 && tex.userData.hasAlpha === true) {
       mat.transparent  = true;
       mat.alphaTest    = 0.1;
       mat.depthWrite   = false;
@@ -1659,6 +1667,7 @@ function loadFiles(fileList) {
     return;
   }
 
+  // Wenn ein neues MDL geladen wird → komplette Session zurücksetzen
   if (mdlFiles.length > 0) { clearSession(); }
 
   setStatus(fmt('status_loading', { n: files.length }));
@@ -1694,13 +1703,18 @@ function loadFiles(fileList) {
           texLoaded++;
           setStatus(fmt('status_tex_loaded', { name: file.name, n: texLoaded, total: texFiles.length }));
         } catch(err) {
-          console.warn('TGA Fehler:', file.name, err.message);
-          setStatus(fmt('status_tga_error', { name: file.name, msg: err.message }));
+          console.error('TGA Fehler:', file.name, err);
+          setStatus('⚠ ' + fmt('status_tga_error', { name: file.name, msg: err.message }));
         }
         texPending--;
         if (texPending === 0) onAllTexReady();
       };
-      reader.onerror = () => { texPending--; if (texPending === 0) onAllTexReady(); };
+      reader.onerror = () => {
+        console.error('FileReader Fehler:', file.name);
+        setStatus(fmt('status_read_error'));
+        texPending--;
+        if (texPending === 0) onAllTexReady();
+      };
       reader.readAsArrayBuffer(file);
     } else if (ext === 'dds') {
       // NWN/Bioware custom DDS (kein Standard-DDS-Header)
@@ -1711,13 +1725,18 @@ function loadFiles(fileList) {
           texLoaded++;
           setStatus(fmt('status_tex_loaded', { name: file.name, n: texLoaded, total: texFiles.length }));
         } catch(err) {
-          console.warn('DDS Fehler:', file.name, err.message);
-          setStatus(fmt('status_tga_error', { name: file.name, msg: err.message }));
+          console.error('DDS Fehler:', file.name, err);
+          setStatus('⚠ ' + fmt('status_tga_error', { name: file.name, msg: err.message }));
         }
         texPending--;
         if (texPending === 0) onAllTexReady();
       };
-      reader.onerror = () => { texPending--; if (texPending === 0) onAllTexReady(); };
+      reader.onerror = () => {
+        console.error('FileReader Fehler:', file.name);
+        setStatus(fmt('status_read_error'));
+        texPending--;
+        if (texPending === 0) onAllTexReady();
+      };
       reader.readAsArrayBuffer(file);
     } else {
       // PNG/JPG: Browser kann das nativ
@@ -1727,6 +1746,7 @@ function loadFiles(fileList) {
         tex.flipY = false;
         tex.wrapS = THREE.RepeatWrapping;
         tex.wrapT = THREE.RepeatWrapping;
+        tex.userData.hasAlpha = false;
         textureCache[key] = tex;
         texLoaded++;
         setStatus(fmt('status_tex_loaded', { name: file.name, n: texLoaded, total: texFiles.length }));
