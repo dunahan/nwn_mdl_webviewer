@@ -139,6 +139,7 @@ nwn-mdl-viewer/
 | $\textcolor{orange}{\textsf{⚠}}$ | Orange | Warnung |
 | $\textcolor{darkgrey}{\textsf{·}}$ | Grey | Info |
 
+All error sources now write to the panel: TGA, DDS, MDL and FileReader errors — with timestamp and filename.
 
 ---
 
