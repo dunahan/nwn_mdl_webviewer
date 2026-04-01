@@ -257,8 +257,46 @@
     display: flex; align-items: center; gap: 16px;
     padding: 0 12px; font-size: 10px; color: var(--muted);
     pointer-events: none;
+    z-index: 5;
   }
   #statusbar span { color: var(--text); }
+
+  /* ── Log-Panel ── */
+  #log-panel {
+    position: absolute; bottom: 22px; left: 0; right: 0;
+    background: rgba(10,12,15,0.95); backdrop-filter: blur(4px);
+    border-top: 1px solid var(--border);
+    max-height: 0; overflow: hidden;
+    transition: max-height 0.25s ease;
+    z-index: 4;
+  }
+  #log-panel.open { max-height: 180px; }
+  #log-entries {
+    overflow-y: auto; max-height: 180px;
+    padding: 6px 12px 8px; font-size: 10px; line-height: 1.8;
+  }
+  #log-entries::-webkit-scrollbar { width: 4px; }
+  #log-entries::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .log-entry { display: flex; gap: 8px; align-items: baseline; }
+  .log-entry.log-error .log-icon { color: #e05050; }
+  .log-entry.log-warn  .log-icon { color: #e0a030; }
+  .log-entry.log-info  .log-icon { color: var(--muted); }
+  .log-icon  { flex-shrink: 0; width: 10px; }
+  .log-msg   { color: var(--text); flex: 1; word-break: break-all; }
+  .log-time  { color: var(--muted); flex-shrink: 0; font-size: 9px; }
+
+  /* Log-Toggle-Button in Statusbar */
+  #log-toggle {
+    margin-left: auto; cursor: pointer; pointer-events: all;
+    display: flex; align-items: center; gap: 4px;
+    color: var(--muted); padding: 0 4px; border-radius: 2px;
+    transition: color 0.15s; user-select: none;
+    font-size: 10px;
+  }
+  #log-toggle:hover { color: var(--gold); }
+  #log-toggle.has-errors { color: #e05050; }
+  #log-toggle.has-warns  { color: #e0a030; }
+  #log-toggle .log-count { font-size: 9px; }
 
   /* Scrollbar for sidebar */
   #sidebar ::-webkit-scrollbar { width: 4px; }
@@ -375,6 +413,14 @@
 
     <div id="statusbar">
       <span data-i18n="status_prefix">Status</span>:&nbsp;<span id="status-msg" data-i18n="status_ready">Bereit — Datei ablegen oder öffnen</span>
+      <div id="log-toggle" onclick="toggleLogPanel()" title="Log ein-/ausblenden">
+        <span id="log-icon-sym">▲</span>
+        <span id="log-count-badge" class="log-count"></span>
+      </div>
+    </div>
+
+    <div id="log-panel">
+      <div id="log-entries"></div>
     </div>
   </div>
 </div>
@@ -1287,6 +1333,63 @@ function toggleAutoRotate() {
 function setStatus(msg) { document.getElementById('status-msg').textContent = msg; }
 
 // ─────────────────────────────────────────────
+//  Log-Panel
+// ─────────────────────────────────────────────
+let logOpen    = false;
+let logErrors  = 0;
+let logWarns   = 0;
+
+function logMsg(msg, level) {
+  // level: 'error' | 'warn' | 'info'
+  const entries = document.getElementById('log-entries');
+  const toggle  = document.getElementById('log-toggle');
+
+  const now = new Date();
+  const ts  = now.getHours().toString().padStart(2,'0') + ':'
+             + now.getMinutes().toString().padStart(2,'0') + ':'
+             + now.getSeconds().toString().padStart(2,'0');
+
+  const icons = { error: '✕', warn: '⚠', info: '·' };
+  const row = document.createElement('div');
+  row.className = 'log-entry log-' + level;
+  row.innerHTML = '<span class="log-icon">' + icons[level] + '</span>'
+                + '<span class="log-msg">'  + msg + '</span>'
+                + '<span class="log-time">' + ts  + '</span>';
+  entries.appendChild(row);
+  entries.scrollTop = entries.scrollHeight;
+
+  if (level === 'error') logErrors++;
+  if (level === 'warn')  logWarns++;
+
+  // Badge aktualisieren
+  const total = logErrors + logWarns;
+  document.getElementById('log-count-badge').textContent = total > 0 ? total : '';
+  toggle.className = logErrors > 0 ? 'has-errors' : (logWarns > 0 ? 'has-warns' : '');
+
+  // Bei Fehlern Panel automatisch öffnen
+  if (level === 'error' && !logOpen) toggleLogPanel();
+}
+
+function logError(msg) { console.error(msg); logMsg(msg, 'error'); }
+function logWarn(msg)  { console.warn(msg);  logMsg(msg, 'warn');  }
+function logInfo(msg)  { logMsg(msg, 'info'); }
+
+function toggleLogPanel() {
+  const panel  = document.getElementById('log-panel');
+  const icon   = document.getElementById('log-icon-sym');
+  logOpen = !logOpen;
+  panel.classList.toggle('open', logOpen);
+  icon.textContent = logOpen ? '▼' : '▲';
+}
+
+function clearLog() {
+  document.getElementById('log-entries').innerHTML = '';
+  document.getElementById('log-count-badge').textContent = '';
+  document.getElementById('log-toggle').className = '';
+  logErrors = 0; logWarns = 0;
+}
+
+// ─────────────────────────────────────────────
 //  Sidebar Toggle
 // ─────────────────────────────────────────────
 function toggleSidebar() {
@@ -1668,7 +1771,7 @@ function loadFiles(fileList) {
   }
 
   // Wenn ein neues MDL geladen wird → komplette Session zurücksetzen
-  if (mdlFiles.length > 0) { clearSession(); }
+  if (mdlFiles.length > 0) { clearSession(); clearLog(); }
 
   setStatus(fmt('status_loading', { n: files.length }));
 
@@ -1703,14 +1806,14 @@ function loadFiles(fileList) {
           texLoaded++;
           setStatus(fmt('status_tex_loaded', { name: file.name, n: texLoaded, total: texFiles.length }));
         } catch(err) {
-          console.error('TGA Fehler:', file.name, err);
-          setStatus('⚠ ' + fmt('status_tga_error', { name: file.name, msg: err.message }));
+          logError('TGA: ' + file.name + ' — ' + err.message);
+          setStatus(fmt('status_tga_error', { name: file.name, msg: err.message }));
         }
         texPending--;
         if (texPending === 0) onAllTexReady();
       };
       reader.onerror = () => {
-        console.error('FileReader Fehler:', file.name);
+        logError(file.name + ' — ' + L('status_read_error'));
         setStatus(fmt('status_read_error'));
         texPending--;
         if (texPending === 0) onAllTexReady();
@@ -1725,14 +1828,14 @@ function loadFiles(fileList) {
           texLoaded++;
           setStatus(fmt('status_tex_loaded', { name: file.name, n: texLoaded, total: texFiles.length }));
         } catch(err) {
-          console.error('DDS Fehler:', file.name, err);
-          setStatus('⚠ ' + fmt('status_tga_error', { name: file.name, msg: err.message }));
+          logError('DDS: ' + file.name + ' — ' + err.message);
+          setStatus(fmt('status_tga_error', { name: file.name, msg: err.message }));
         }
         texPending--;
         if (texPending === 0) onAllTexReady();
       };
       reader.onerror = () => {
-        console.error('FileReader Fehler:', file.name);
+        logError(file.name + ' — ' + L('status_read_error'));
         setStatus(fmt('status_read_error'));
         texPending--;
         if (texPending === 0) onAllTexReady();
@@ -1771,12 +1874,15 @@ function loadMDLFile(file) {
       const n = applyTexturesToScene();
       if (n > 0) setStatus(fmt('status_model_tex', { name: model.name, n }));
     } catch (err) {
+      logError('MDL: ' + err.message);
       setStatus(L('status_prefix') + ': ' + err.message);
-      console.error(err);
       alert(L('err_parse_title') + '\n' + err.message + '\n\n' + L('err_parse_hint'));
     }
   };
-  reader.onerror = () => setStatus(L('status_read_error'));
+  reader.onerror = () => {
+    logError(file.name + ' — ' + L('status_read_error'));
+    setStatus(L('status_read_error'));
+  };
   reader.readAsText(file);
 }
 
