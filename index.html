@@ -347,11 +347,11 @@
 
     <div id="drop-zone" onclick="document.getElementById('file-input').click()">
       <span class="icon">⬡</span>
-      <strong data-i18n="drop_title">MDL + TGA ablegen</strong><br>
+      <strong data-i18n="drop_title">MDL + TGA/DDS ablegen</strong><br>
       <span data-i18n="drop_or">oder klicken zum Öffnen</span><br>
       <small style="color:var(--muted)" data-i18n="drop_hint">Mehrere Dateien gleichzeitig möglich</small>
     </div>
-    <input type="file" id="file-input" accept=".mdl,.tga,.dds,.png,.jpg,.txt" multiple>
+    <input type="file" id="file-input" accept=".mdl,.tga,.dds,.txt" multiple>
 
     <div id="texture-status" style="margin:0 12px 8px;display:none;">
       <div id="texture-header" onclick="toggleTextureList()">
@@ -380,8 +380,12 @@
       <div class="ctrl-row" style="gap:6px">
         <button class="toggle-btn active" id="btn-normals" onclick="toggleNormals()" data-i18n="btn_normals">Normalen</button>
         <button class="toggle-btn active" id="btn-grid"    onclick="toggleGrid()"    data-i18n="btn_grid">Raster</button>
-        <button class="toggle-btn"        id="btn-bbox"    onclick="toggleBBox()"    data-i18n="btn_bbox">BBox</button>
+        <button class="toggle-btn active" id="btn-axes"    onclick="toggleAxes()"    data-i18n="btn_axes">Achsen</button>
+      </div>
+      <div class="ctrl-row" style="gap:6px">
+        <button class="toggle-btn"        id="btn-bbox"    onclick="toggleBBox()"       data-i18n="btn_bbox">BBox</button>
         <button class="toggle-btn"        id="btn-rotate"  onclick="toggleAutoRotate()" data-i18n="btn_rotate">Rotation</button>
+        <button class="toggle-btn"        id="btn-resetcam" onclick="resetCamera()"     data-i18n="btn_resetcam">↺ Kamera</button>
       </div>
     </div>
   </div>
@@ -439,12 +443,12 @@ const I18N_BUNDLE = {
   en: {
     _meta: { language: 'English', code: 'en' },
     logo_subtitle:'Neverwinter Nights 1 · Enhanced Edition',
-    drop_title:'Drop MDL + TGA here', drop_or:'or click to open',
+    drop_title:'Drop MDL + TGA/DDS here', drop_or:'or click to open',
     drop_hint:'Multiple files at once supported',
     textures_heading:'Textures', scene_graph:'Scene Graph',
     no_file_loaded:'No file loaded', ctrl_wireframe:'Wireframe',
     ctrl_lighting:'Lighting', btn_normals:'Normals', btn_grid:'Grid',
-    btn_bbox:'BBox', btn_rotate:'Rotate', empty_title:'Load MDL File',
+    btn_bbox:'BBox', btn_axes:'Axes', btn_rotate:'Rotate', btn_resetcam:'↺ Camera', empty_title:'Load MDL File',
     empty_hint:'Drag & Drop · ASCII Format · Decompiled',
     hud_camera:'Camera', hud_orbit:'LMB Orbit', hud_zoom:'RMB/Wheel Zoom',
     hud_pan:'MMB Pan', hud_vertices:'Vertices', hud_faces:'Faces',
@@ -475,12 +479,12 @@ const I18N_BUNDLE = {
   de: {
     _meta: { language: 'Deutsch', code: 'de' },
     logo_subtitle:'Neverwinter Nights 1 · Enhanced Edition',
-    drop_title:'MDL + TGA ablegen', drop_or:'oder klicken zum Öffnen',
+    drop_title:'MDL + TGA/DDS ablegen', drop_or:'oder klicken zum Öffnen',
     drop_hint:'Mehrere Dateien gleichzeitig möglich',
     textures_heading:'Texturen', scene_graph:'Szenen-Graph',
     no_file_loaded:'Keine Datei geladen', ctrl_wireframe:'Gitterlinien',
     ctrl_lighting:'Beleuchtung', btn_normals:'Normalen', btn_grid:'Raster',
-    btn_bbox:'BBox', btn_rotate:'Rotation', empty_title:'MDL Datei laden',
+    btn_bbox:'BBox', btn_axes:'Achsen', btn_rotate:'Rotation', btn_resetcam:'↺ Kamera', empty_title:'MDL Datei laden',
     empty_hint:'Drag & Drop · ASCII-Format · Decompiliert',
     hud_camera:'Kamera', hud_orbit:'LMB Orbit', hud_zoom:'RMB/Rad Zoom',
     hud_pan:'MMB Pan', hud_vertices:'Vertices', hud_faces:'Faces',
@@ -1161,6 +1165,12 @@ function buildScene(model) {
     orbit.theta  = 0.5; orbit.phi = 1.1;
     updateCamera();
 
+    // Initial-Kamera für Reset speichern
+    orbit.initTarget = center.clone();
+    orbit.initRadius = orbit.radius;
+    orbit.initTheta  = orbit.theta;
+    orbit.initPhi    = orbit.phi;
+
     // BBox helper
     bboxHelper = new THREE.Box3Helper(box, new THREE.Color(0xc8a44a));
     bboxHelper.visible = document.getElementById('btn-bbox').classList.contains('active');
@@ -1331,10 +1341,25 @@ function toggleBBox() {
   if (bboxHelper) bboxHelper.visible = btn.classList.contains('active');
 }
 
+function toggleAxes() {
+  const btn = document.getElementById('btn-axes');
+  btn.classList.toggle('active');
+  axesHelper.visible = btn.classList.contains('active');
+}
+
 function toggleAutoRotate() {
   const btn = document.getElementById('btn-rotate');
   btn.classList.toggle('active');
   autoRotate = btn.classList.contains('active');
+}
+
+function resetCamera() {
+  if (!orbit.initTarget) return;
+  orbit.target.copy(orbit.initTarget);
+  orbit.radius = orbit.initRadius;
+  orbit.theta  = orbit.initTheta;
+  orbit.phi    = orbit.initPhi;
+  updateCamera();
 }
 
 function setStatus(msg) { document.getElementById('status-msg').textContent = msg; }
