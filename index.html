@@ -304,12 +304,29 @@
   /* ── Animations-Panel ── */
   #anim-panel {
     border-top: 1px solid var(--border);
-    padding: 8px 12px 10px;
     display: none;
   }
-  #anim-panel .anim-header {
-    font-size: 10px; letter-spacing: 2px; color: var(--muted);
-    text-transform: uppercase; margin-bottom: 6px;
+  #anim-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 12px 2px; cursor: pointer; user-select: none;
+  }
+  #anim-header:hover .tex-arrow { color: var(--gold); }
+  .anim-header-title {
+    font-size: 10px; letter-spacing: 2px;
+    color: var(--muted); text-transform: uppercase;
+  }
+  #anim-body {
+    overflow: hidden;
+    max-height: 200px;
+    transition: max-height 0.25s ease, opacity 0.2s ease;
+    opacity: 1;
+    padding: 4px 12px 10px;
+  }
+  #anim-body.collapsed {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    padding-bottom: 0;
   }
   #anim-select {
     width: 100%; background: var(--bg); color: var(--text);
@@ -407,20 +424,25 @@
 
     <!-- ── Animations-Panel ── -->
     <div id="anim-panel">
-      <div class="anim-header" data-i18n="anim_heading">Animationen</div>
-      <select id="anim-select" onchange="onAnimSelect(this.value)"></select>
-      <div id="anim-controls">
-        <button id="btn-anim-play" onclick="toggleAnimPlay()" title="Play/Pause">▶</button>
-        <input type="range" id="anim-scrubber" min="0" max="1000" value="0"
-               oninput="onScrub(this.value)" onchange="onScrub(this.value)">
-        <span id="anim-time-display">0.00 / 0.00</span>
+      <div id="anim-header" onclick="toggleAnimPanel()">
+        <span class="anim-header-title" data-i18n="anim_heading">Animationen</span>
+        <span class="tex-arrow open">▶</span>
       </div>
-      <div id="anim-speed-row">
-        <span style="font-size:10px;color:var(--muted);margin-right:2px" data-i18n="anim_speed">Speed:</span>
-        <button class="speed-btn" onclick="setAnimSpeed(0.25)">¼×</button>
-        <button class="speed-btn" onclick="setAnimSpeed(0.5)">½×</button>
-        <button class="speed-btn active" onclick="setAnimSpeed(1)">1×</button>
-        <button class="speed-btn" onclick="setAnimSpeed(2)">2×</button>
+      <div id="anim-body">
+        <select id="anim-select" onchange="onAnimSelect(this.value)"></select>
+        <div id="anim-controls">
+          <button id="btn-anim-play" onclick="toggleAnimPlay()" title="Play/Pause">▶</button>
+          <input type="range" id="anim-scrubber" min="0" max="1000" value="0"
+                 oninput="onScrub(this.value)" onchange="onScrub(this.value)">
+          <span id="anim-time-display">0.00 / 0.00</span>
+        </div>
+        <div id="anim-speed-row">
+          <span style="font-size:10px;color:var(--muted);margin-right:2px" data-i18n="anim_speed">Speed:</span>
+          <button class="speed-btn" onclick="setAnimSpeed(0.25)">¼×</button>
+          <button class="speed-btn" onclick="setAnimSpeed(0.5)">½×</button>
+          <button class="speed-btn active" onclick="setAnimSpeed(1)">1×</button>
+          <button class="speed-btn" onclick="setAnimSpeed(2)">2×</button>
+        </div>
       </div>
     </div>
 
@@ -950,6 +972,8 @@ let currentModel = null;
 let nodeObjects = {};    // name -> THREE.Object3D
 let selectedNodeName = null;
 let wireOpacity = 0;
+// Name des Supermodells das noch erwartet wird (null = keins ausstehend)
+let pendingSupermodel = null;
 
 // ─────────────────────────────────────────────
 //  Orbit Controls (custom, minimal)
@@ -1512,10 +1536,18 @@ function toggleSidebar() {
 
 function toggleTextureList() {
   const list  = document.getElementById('texture-list');
-  const arrow = document.querySelector('.tex-arrow');
+  const arrow = document.querySelector('#texture-header .tex-arrow');
   const isOpen = !list.classList.contains('collapsed');
   list.classList.toggle('collapsed', isOpen);
-  arrow.classList.toggle('open', !isOpen);
+  if (arrow) arrow.classList.toggle('open', !isOpen);
+}
+
+function toggleAnimPanel() {
+  const body  = document.getElementById('anim-body');
+  const arrow = document.querySelector('#anim-header .tex-arrow');
+  const isOpen = !body.classList.contains('collapsed');
+  body.classList.toggle('collapsed', isOpen);
+  if (arrow) arrow.classList.toggle('open', !isOpen);
 }
 
 // ─────────────────────────────────────────────
@@ -1805,11 +1837,16 @@ function clearSession(keepTextures = false) {
   nodeObjects        = {};
   selectedNodeName   = null;
   currentModel       = null;
+  pendingSupermodel  = null;
   animState.current  = null;
   animState.playing  = false;
   animState.time     = 0;
   geometryPose       = {};
   document.getElementById('anim-panel').style.display = 'none';
+  const animBody  = document.getElementById('anim-body');
+  const animArrow = document.querySelector('#anim-header .tex-arrow');
+  animBody.classList.remove('collapsed');
+  if (animArrow) animArrow.classList.add('open');
 
   // 4. UI zurücksetzen
   document.getElementById('node-list').innerHTML =
@@ -1884,8 +1921,17 @@ function loadFiles(fileList) {
     return;
   }
 
-  // Wenn ein neues MDL geladen wird → komplette Session zurücksetzen
-  if (mdlFiles.length > 0) { clearSession(); clearLog(); }
+  // MDL laden:
+  // - Ist ein Supermodel ausstehend und passt eine der Dateien → nur Animationen laden
+  // - Sonst: neue Session starten
+  if (mdlFiles.length > 0) {
+    const isSupermodelLoad = pendingSupermodel && currentModel &&
+      mdlFiles.some(f => f.name.replace(/\.[^.]+$/, '').toLowerCase() === pendingSupermodel.toLowerCase());
+    if (!isSupermodelLoad) {
+      clearSession();
+      clearLog();
+    }
+  }
 
   setStatus(fmt('status_loading', { n: files.length }));
 
@@ -1896,7 +1942,7 @@ function loadFiles(fileList) {
   function onAllTexReady() {
     updateTextureUI();
     if (mdlFiles.length > 0) {
-      loadMDLFile(mdlFiles[0]);
+      loadAllMDLFiles(mdlFiles);
     } else if (currentModel) {
       const n = applyTexturesToScene();
       setStatus(fmt('status_tex_applied', { n }));
@@ -1977,27 +2023,171 @@ function loadFiles(fileList) {
   }
 }
 
-function loadMDLFile(file) {
-  setStatus(fmt('status_parse', { name: file.name }));
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      const model = parseMDL(e.target.result);
-      if (!model.nodes.length) throw new Error(L('err_no_nodes'));
-      buildScene(model);
-      const n = applyTexturesToScene();
-      if (n > 0) setStatus(fmt('status_model_tex', { name: model.name, n }));
-    } catch (err) {
-      logError('MDL: ' + err.message);
-      setStatus(L('status_prefix') + ': ' + err.message);
-      alert(L('err_parse_title') + '\n' + err.message + '\n\n' + L('err_parse_hint'));
+// ─────────────────────────────────────────────
+//  Supermodel-Animations-Merge
+// ─────────────────────────────────────────────
+function mergeAnimationsFromSupermodel(mainModel, superModel) {
+  if (superModel.animations.length === 0) {
+    logWarn('Supermodel "' + superModel.name + '" has no animations.');
+    return;
+  }
+
+  const mainNodeNames = new Set(mainModel.nodes.map(n => n.name));
+
+  for (const anim of superModel.animations) {
+    const remapped = { name: anim.name, length: anim.length, transtime: anim.transtime, nodes: {} };
+    for (const [nodeName, data] of Object.entries(anim.nodes)) {
+      // Root-Node-Name remappen: supermodel.name → mainmodel.name
+      const mapped = (nodeName === superModel.name) ? mainModel.name : nodeName;
+      if (mainNodeNames.has(mapped) || mapped === mainModel.name) {
+        remapped.nodes[mapped] = data;
+      }
     }
-  };
-  reader.onerror = () => {
-    logError(file.name + ' — ' + L('status_read_error'));
-    setStatus(L('status_read_error'));
-  };
-  reader.readAsText(file);
+    mainModel.animations.push(remapped);
+  }
+  mainModel.animCount = mainModel.animations.length;
+
+  // Rest-Pose aus erster Animation wenn noch keine vorhanden
+  if (Object.keys(mainModel.restPose).length === 0 && mainModel.animations.length > 0) {
+    for (const [nodeName, data] of Object.entries(mainModel.animations[0].nodes)) {
+      const firstOri = data.oriKeys[0];
+      const firstPos = data.posKeys[0];
+      if (firstOri || firstPos) {
+        mainModel.restPose[nodeName] = {
+          orientation: firstOri ? [firstOri.ax, firstOri.ay, firstOri.az, firstOri.angle] : null,
+          position:    firstPos ? [firstPos.x, firstPos.y, firstPos.z] : null,
+        };
+      }
+    }
+  }
+
+  logInfo('Supermodel "' + superModel.name + '": ' + superModel.animations.length + ' animations adopted.');
+}
+
+// ─────────────────────────────────────────────
+//  MDL-Loader  (Einzel- oder Mehrfach-Dateien)
+// ─────────────────────────────────────────────
+function loadAllMDLFiles(mdlFiles) {
+  const texts = {};
+  let pending = mdlFiles.length;
+
+  function onAllRead() {
+    // Alle Dateien parsen
+    const parsed = {};
+    for (const [baseName, text] of Object.entries(texts)) {
+      try {
+        parsed[baseName] = parseMDL(text);
+      } catch (err) {
+        logError('MDL parse: ' + baseName + ' — ' + err.message);
+      }
+    }
+    if (Object.keys(parsed).length === 0) return;
+
+    // ── Fall A: Supermodel nachladen ──────────────────────────────────
+    // Ein Modell wartet bereits auf sein Supermodel.
+    if (pendingSupermodel && currentModel) {
+      const superName = pendingSupermodel.toLowerCase();
+      const superModel =
+        parsed[superName] ||
+        Object.values(parsed).find(m => m.name.toLowerCase() === superName);
+
+      if (superModel) {
+        mergeAnimationsFromSupermodel(currentModel, superModel);
+        pendingSupermodel = null;
+        applyRestPose(currentModel);
+        saveGeometryPose();
+        buildAnimUI(currentModel);
+        setStatus('Animations from "' + superModel.name + '" loaded — ' +
+                  currentModel.animations.length + ' animations available.');
+      } else {
+        logWarn('No suitable supermodel file found in the selection.');
+      }
+      return;
+    }
+
+    // ── Fall B: Hauptmodell bestimmen ─────────────────────────────────
+    // Regel: Das Hauptmodell hat einen setsupermodel-Verweis auf ein ANDERES Modell
+    //        (also NICHT NULL und NICHT sich selbst).
+    // Das Supermodel wird NUR für Animationen genutzt, nicht für Geometrie.
+
+    let mainModel = null;
+    let superModelCandidate = null;
+
+    // Schritt 1: Finde Modell mit nicht-trivialem Supermodel-Verweis
+    for (const model of Object.values(parsed)) {
+      const sm = (model.supermodel || '').toLowerCase();
+      if (sm && sm !== 'null' && sm !== '' && sm !== model.name.toLowerCase()) {
+        mainModel = model;
+        break;
+      }
+    }
+
+    // Schritt 2: Kein Verweis → erstes Modell mit Geometrie nehmen
+    if (!mainModel) {
+      for (const model of Object.values(parsed)) {
+        const hasMesh = model.nodes.some(n =>
+          n.type === 'trimesh' || n.type === 'skin' || n.type === 'danglymesh');
+        if (hasMesh) { mainModel = model; break; }
+      }
+    }
+
+    if (!mainModel || !mainModel.nodes.length) {
+      logError(L('err_no_nodes'));
+      alert(L('err_parse_title') + '\n' + L('err_no_nodes') + '\n\n' + L('err_parse_hint'));
+      return;
+    }
+
+    // Schritt 3: Supermodel suchen (NICHT als Geometrie-Basis verwenden)
+    if (mainModel.supermodel) {
+      const smName = mainModel.supermodel.toLowerCase();
+      if (smName && smName !== 'null') {
+        superModelCandidate =
+          parsed[smName] ||
+          Object.values(parsed).find(m =>
+            m.name.toLowerCase() === smName &&
+            m.name.toLowerCase() !== mainModel.name.toLowerCase());
+      }
+    }
+
+    // Szene mit der Geometrie des Hauptmodells aufbauen
+    buildScene(mainModel);
+    const n = applyTexturesToScene();
+    if (n > 0) setStatus(fmt('status_model_tex', { name: mainModel.name, n }));
+
+    // Supermodel-Animationen direkt anwenden
+    if (superModelCandidate) {
+      mergeAnimationsFromSupermodel(mainModel, superModelCandidate);
+      applyRestPose(mainModel);
+      saveGeometryPose();
+      buildAnimUI(mainModel);
+      pendingSupermodel = null;
+
+    } else if (mainModel.supermodel &&
+               mainModel.supermodel.toLowerCase() !== 'null' &&
+               mainModel.supermodel !== '') {
+      // Supermodel wurde referenziert aber nicht mitgeladen → Hinweis
+      pendingSupermodel = mainModel.supermodel;
+      logWarn('Model "' + mainModel.name + '" refers to supermodel "' + mainModel.supermodel + '".');
+      logInfo('→ Please load "' + mainModel.supermodel + '.mdl" to activate animations.');
+      setStatus('Supermodel "' + mainModel.supermodel + '" needed → please load additionally.');
+    }
+  }
+
+  for (const file of mdlFiles) {
+    const baseName = file.name.replace(/\.[^.]+$/, '').toLowerCase();
+    const reader = new FileReader();
+    reader.onload = e => {
+      texts[baseName] = e.target.result;
+      pending--;
+      if (pending === 0) onAllRead();
+    };
+    reader.onerror = () => {
+      logError(file.name + ' — ' + L('status_read_error'));
+      pending--;
+      if (pending === 0) onAllRead();
+    };
+    reader.readAsText(file);
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -2104,6 +2294,25 @@ function resetToPose() {
     obj.quaternion.copy(pose.quat);
   }
 }
+
+// Rest-Pose aus Modell auf Szene anwenden (nach Supermodel-Merge nötig)
+function applyRestPose(model) {
+  for (const node of model.nodes) {
+    const obj = nodeObjects[node.name];
+    if (!obj) continue;
+    const restPose = model.restPose && model.restPose[node.name];
+    if (restPose) {
+      if (restPose.orientation) {
+        const [ax, ay, az, angle] = restPose.orientation;
+        obj.quaternion.copy(axisAngleToQuat(ax, ay, az, angle));
+      }
+      if (restPose.position) {
+        obj.position.set(...restPose.position);
+      }
+    }
+  }
+}
+
 
 function buildAnimUI(model) {
   const panel = document.getElementById('anim-panel');
