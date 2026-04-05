@@ -301,6 +301,62 @@
   /* Scrollbar for sidebar */
   #sidebar ::-webkit-scrollbar { width: 4px; }
 
+  /* ── Animations-Panel ── */
+  #anim-panel {
+    border-top: 1px solid var(--border);
+    display: none;
+  }
+  #anim-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 12px 2px; cursor: pointer; user-select: none;
+  }
+  #anim-header:hover .tex-arrow { color: var(--gold); }
+  .anim-header-title {
+    font-size: 10px; letter-spacing: 2px;
+    color: var(--muted); text-transform: uppercase;
+  }
+  #anim-body {
+    overflow: hidden;
+    max-height: 200px;
+    transition: max-height 0.25s ease, opacity 0.2s ease;
+    opacity: 1;
+    padding: 4px 12px 10px;
+  }
+  #anim-body.collapsed {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  #anim-select {
+    width: 100%; background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 3px;
+    font-family: 'Share Tech Mono', monospace; font-size: 11px;
+    padding: 3px 6px; cursor: pointer; outline: none; margin-bottom: 6px;
+  }
+  #anim-select:focus { border-color: var(--gold); }
+  #anim-controls { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  #btn-anim-play {
+    flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%;
+    background: var(--gold); border: none; color: var(--bg);
+    font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  #btn-anim-play:hover { background: var(--gold2); }
+  #anim-time-display { font-size: 10px; color: var(--muted); flex-shrink: 0; width: 60px; text-align: right; }
+  #anim-scrubber {
+    flex: 1; height: 3px; accent-color: var(--gold);
+    background: var(--border); border-radius: 2px; outline: none; border: none; cursor: pointer;
+  }
+  #anim-speed-row { display: flex; align-items: center; gap: 6px; }
+  .speed-btn {
+    font-size: 9px; padding: 1px 5px; letter-spacing: 0.5px;
+    background: transparent; border: 1px solid var(--border);
+    color: var(--muted); border-radius: 2px; cursor: pointer;
+    font-family: 'Share Tech Mono', monospace; transition: all 0.15s;
+  }
+  .speed-btn:hover, .speed-btn.active { border-color: var(--gold); color: var(--gold); }
+
   /* ── Einklappbarer Texturen-Abschnitt ── */
   #texture-header {
     display: flex; align-items: center; justify-content: space-between;
@@ -347,11 +403,11 @@
 
     <div id="drop-zone" onclick="document.getElementById('file-input').click()">
       <span class="icon">⬡</span>
-      <strong data-i18n="drop_title">MDL + TGA/DDS ablegen</strong><br>
+      <strong data-i18n="drop_title">MDL + TGA ablegen</strong><br>
       <span data-i18n="drop_or">oder klicken zum Öffnen</span><br>
       <small style="color:var(--muted)" data-i18n="drop_hint">Mehrere Dateien gleichzeitig möglich</small>
     </div>
-    <input type="file" id="file-input" accept=".mdl,.tga,.dds,.txt" multiple>
+    <input type="file" id="file-input" accept=".mdl,.tga,.dds,.png,.jpg,.txt" multiple>
 
     <div id="texture-status" style="margin:0 12px 8px;display:none;">
       <div id="texture-header" onclick="toggleTextureList()">
@@ -365,6 +421,30 @@
 
     <div id="section-title" data-i18n="scene_graph">Szenen-Graph</div>
     <div id="node-list"><div style="padding:20px;color:var(--muted);font-size:11px;text-align:center;" data-i18n="no_file_loaded">Keine Datei geladen</div></div>
+
+    <!-- ── Animations-Panel ── -->
+    <div id="anim-panel">
+      <div id="anim-header" onclick="toggleAnimPanel()">
+        <span class="anim-header-title" data-i18n="anim_heading">Animationen</span>
+        <span class="tex-arrow open">▶</span>
+      </div>
+      <div id="anim-body">
+        <select id="anim-select" onchange="onAnimSelect(this.value)"></select>
+        <div id="anim-controls">
+          <button id="btn-anim-play" onclick="toggleAnimPlay()" title="Play/Pause">▶</button>
+          <input type="range" id="anim-scrubber" min="0" max="1000" value="0"
+                 oninput="onScrub(this.value)" onchange="onScrub(this.value)">
+          <span id="anim-time-display">0.00 / 0.00</span>
+        </div>
+        <div id="anim-speed-row">
+          <span style="font-size:10px;color:var(--muted);margin-right:2px" data-i18n="anim_speed">Speed:</span>
+          <button class="speed-btn" onclick="setAnimSpeed(0.25)">¼×</button>
+          <button class="speed-btn" onclick="setAnimSpeed(0.5)">½×</button>
+          <button class="speed-btn active" onclick="setAnimSpeed(1)">1×</button>
+          <button class="speed-btn" onclick="setAnimSpeed(2)">2×</button>
+        </div>
+      </div>
+    </div>
 
     <div id="controls-panel">
       <div class="ctrl-row">
@@ -443,12 +523,14 @@ const I18N_BUNDLE = {
   en: {
     _meta: { language: 'English', code: 'en' },
     logo_subtitle:'Neverwinter Nights 1 · Enhanced Edition',
-    drop_title:'Drop MDL + TGA/DDS here', drop_or:'or click to open',
+    drop_title:'Drop MDL + TGA here', drop_or:'or click to open',
     drop_hint:'Multiple files at once supported',
     textures_heading:'Textures', scene_graph:'Scene Graph',
     no_file_loaded:'No file loaded', ctrl_wireframe:'Wireframe',
     ctrl_lighting:'Lighting', btn_normals:'Normals', btn_grid:'Grid',
-    btn_bbox:'BBox', btn_axes:'Axes', btn_rotate:'Rotate', btn_resetcam:'↺ Camera', empty_title:'Load MDL File',
+    btn_bbox:'BBox', btn_axes:'Axes', btn_rotate:'Rotate', btn_resetcam:'↺ Camera',
+    anim_heading:'Animations', anim_speed:'Speed:',
+    empty_title:'Load MDL File',
     empty_hint:'Drag & Drop · ASCII Format · Decompiled',
     hud_camera:'Camera', hud_orbit:'LMB Orbit', hud_zoom:'RMB/Wheel Zoom',
     hud_pan:'MMB Pan', hud_vertices:'Vertices', hud_faces:'Faces',
@@ -479,12 +561,14 @@ const I18N_BUNDLE = {
   de: {
     _meta: { language: 'Deutsch', code: 'de' },
     logo_subtitle:'Neverwinter Nights 1 · Enhanced Edition',
-    drop_title:'MDL + TGA/DDS ablegen', drop_or:'oder klicken zum Öffnen',
+    drop_title:'MDL + TGA ablegen', drop_or:'oder klicken zum Öffnen',
     drop_hint:'Mehrere Dateien gleichzeitig möglich',
     textures_heading:'Texturen', scene_graph:'Szenen-Graph',
     no_file_loaded:'Keine Datei geladen', ctrl_wireframe:'Gitterlinien',
     ctrl_lighting:'Beleuchtung', btn_normals:'Normalen', btn_grid:'Raster',
-    btn_bbox:'BBox', btn_axes:'Achsen', btn_rotate:'Rotation', btn_resetcam:'↺ Kamera', empty_title:'MDL Datei laden',
+    btn_bbox:'BBox', btn_axes:'Achsen', btn_rotate:'Rotation', btn_resetcam:'↺ Kamera',
+    anim_heading:'Animationen', anim_speed:'Tempo:',
+    empty_title:'MDL Datei laden',
     empty_hint:'Drag & Drop · ASCII-Format · Decompiliert',
     hud_camera:'Kamera', hud_orbit:'LMB Orbit', hud_zoom:'RMB/Rad Zoom',
     hud_pan:'MMB Pan', hud_vertices:'Vertices', hud_faces:'Faces',
@@ -593,7 +677,7 @@ function parseMDL(text) {
   // Strip inline comments (# ...)
   const lines = rawLines.map(l => { const c = l.indexOf('#'); return c >= 0 ? l.substring(0, c) : l; });
 
-  const model = { name: '', supermodel: '', classification: 'unknown', nodes: [], animCount: 0 };
+  const model = { name: '', supermodel: '', classification: 'unknown', nodes: [], animCount: 0, animations: [] };
   let i = 0;
 
   function tok(idx) {
@@ -621,30 +705,39 @@ function parseMDL(text) {
       }
     } else if (k === 'newanim') {
       model.animCount++;
-      // Parse first animation to get rest pose (time=0 keyframes).
-      // In NWN, the first keyframe of the first animation defines the display pose.
-      if (model.animCount === 1) {
-        const animName = t[1] || '';
-        i++;
-        while (i < lines.length) {
-          const ak = key(i);
-          if (ak === 'doneanim') break;
-          if (ak === 'node') {
-            const result = parseAnimNode(lines, i);
-            // Only store rest pose if this node has a keyframe
-            if (result.restOrientation) {
-              if (!model.restPose) model.restPose = {};
-              model.restPose[result.name] = {
-                orientation: result.restOrientation,
-                position:    result.restPosition || null,
-              };
-            }
-            i = result.next;
-            continue;
-          }
-          i++;
-        }
+      const animName = t[1] || '';
+      // Lies length und transtime aus den nächsten Zeilen
+      let length = 0, transtime = 0;
+      const peek = Math.min(i + 4, lines.length);
+      for (let p = i + 1; p < peek; p++) {
+        const pt = lines[p].trim().split(/\s+/);
+        if (pt[0] === 'length')    length   = parseFloat(pt[1]) || 0;
+        if (pt[0] === 'transtime') transtime = parseFloat(pt[1]) || 0;
       }
+      const anim = { name: animName, length, transtime, nodes: {} };
+      i++;
+      while (i < lines.length) {
+        const ak = key(i);
+        if (ak === 'doneanim') break;
+        if (ak === 'node') {
+          const result = parseFullAnimNode(lines, i);
+          anim.nodes[result.name] = result.data;
+          // Rest-Pose aus erster Animation (Zeit=0)
+          if (model.animCount === 1 && (result.data.oriKeys.length > 0 || result.data.posKeys.length > 0)) {
+            if (!model.restPose) model.restPose = {};
+            const firstOri = result.data.oriKeys[0];
+            const firstPos = result.data.posKeys[0];
+            model.restPose[result.name] = {
+              orientation: firstOri ? [firstOri.ax, firstOri.ay, firstOri.az, firstOri.angle] : null,
+              position:    firstPos ? [firstPos.x, firstPos.y, firstPos.z] : null,
+            };
+          }
+          i = result.next;
+          continue;
+        }
+        i++;
+      }
+      model.animations.push(anim);
     }
     i++;
   }
@@ -652,69 +745,73 @@ function parseMDL(text) {
   return model;
 }
 
-// Parse an animation node block; extract name and time=0 keyframes only.
-// NWN verwendet zwei verschiedene Keyframe-Formate:
-//   Format A (Mod-Modelle):  "orientationkey\n  t x y z w\n  ...\nendlist"
-//   Format B (Spieldateien): "orientationkey 17\n  t x y z w\n  ..."  (Count, kein endlist)
-function parseAnimNode(lines, start) {
+// Liest alle Keyframes eines Animations-Nodes.
+// Gibt { name, data: { posKeys, oriKeys }, next } zurück.
+// posKeys: [{t, x, y, z}, ...]
+// oriKeys: [{t, ax, ay, az, angle}, ...]
+function parseFullAnimNode(lines, start) {
   const hdr = lines[start].trim().split(/\s+/);
   const name = hdr[2] || '';
-  let restOrientation = null;
-  let restPosition    = null;
+  const data = { posKeys: [], oriKeys: [] };
   let i = start + 1;
 
   function tok(idx) { return lines[idx].trim().split(/\s+/).filter(x => x.length > 0); }
   function num(s)   { const v = parseFloat(s); return isNaN(v) ? 0 : v; }
 
-  // Liest Keyframes in beiden Formaten; gibt den Index nach dem letzten gelesenen zurück.
-  // minCols: Mindestanzahl Felder pro Keyframe-Zeile (ohne Zeitstempel)
-  function readKeyframes(startIdx, minCols, count) {
-    let best = { time: Infinity, vals: null };
-    let j = startIdx;
-    let read = 0;
+  function readAllKeys(startIdx, minCols, count) {
+    const keys = [];
+    let j = startIdx, read = 0;
     while (j < lines.length) {
       const t2 = tok(j);
       const k0 = (t2[0] || '').toLowerCase();
       if (k0 === 'endlist') { j++; break; }
-      // Stopp bei nächstem Keyword (für Format B ohne endlist)
       if (k0 === 'endnode' || k0 === 'node' || k0 === 'orientationkey' ||
           k0 === 'positionkey' || k0 === 'scalekey') break;
       if (t2.length >= minCols + 1) {
         const time = parseFloat(t2[0]);
-        if (!isNaN(time) && time < best.time) {
-          best.time = time;
-          best.vals = t2.slice(1, minCols + 1).map(num);
-        }
+        if (!isNaN(time)) keys.push({ t: time, vals: t2.slice(1, minCols + 1).map(num) });
         read++;
         if (count > 0 && read >= count) { j++; break; }
       }
       j++;
     }
-    return { vals: best.vals, next: j };
+    return { keys, next: j };
   }
 
   while (i < lines.length) {
     const t = tok(i);
     const k = (t[0] || '').toLowerCase();
-    if (k === 'endnode') return { name, restOrientation, restPosition, next: i + 1 };
+    if (k === 'endnode') return { name, data, next: i + 1 };
 
     if (k === 'orientationkey') {
-      // t[1] ist entweder undefined (Format A) oder eine Zahl/Count (Format B)
       const count = (t.length > 1 && !isNaN(parseInt(t[1]))) ? parseInt(t[1]) : 0;
-      const result = readKeyframes(i + 1, 4, count);  // 4 Felder: x y z w
-      if (result.vals) restOrientation = result.vals;
-      i = result.next;
+      const res = readAllKeys(i + 1, 4, count);
+      data.oriKeys = res.keys.map(k => ({ t: k.t, ax: k.vals[0], ay: k.vals[1], az: k.vals[2], angle: k.vals[3] }));
+      i = res.next;
       continue;
     } else if (k === 'positionkey') {
       const count = (t.length > 1 && !isNaN(parseInt(t[1]))) ? parseInt(t[1]) : 0;
-      const result = readKeyframes(i + 1, 3, count);  // 3 Felder: x y z
-      if (result.vals) restPosition = result.vals;
-      i = result.next;
+      const res = readAllKeys(i + 1, 3, count);
+      data.posKeys = res.keys.map(k => ({ t: k.t, x: k.vals[0], y: k.vals[1], z: k.vals[2] }));
+      i = res.next;
       continue;
     }
     i++;
   }
-  return { name, restOrientation, restPosition, next: i };
+  return { name, data, next: i };
+}
+
+// Veraltet aber noch referenziert — Wrapper für Kompatibilität
+function parseAnimNode(lines, start) {
+  const res = parseFullAnimNode(lines, start);
+  const firstOri = res.data.oriKeys[0];
+  const firstPos = res.data.posKeys[0];
+  return {
+    name: res.name,
+    restOrientation: firstOri ? [firstOri.ax, firstOri.ay, firstOri.az, firstOri.angle] : null,
+    restPosition:    firstPos ? [firstPos.x, firstPos.y, firstPos.z] : null,
+    next: res.next
+  };
 }
 
 function parseNode(lines, start) {
@@ -875,6 +972,8 @@ let currentModel = null;
 let nodeObjects = {};    // name -> THREE.Object3D
 let selectedNodeName = null;
 let wireOpacity = 0;
+// Name des Supermodells das noch erwartet wird (null = keins ausstehend)
+let pendingSupermodel = null;
 
 // ─────────────────────────────────────────────
 //  Orbit Controls (custom, minimal)
@@ -1187,6 +1286,8 @@ function buildScene(model) {
   currentModel = model;
   buildNodeList(model);
   showModelInfo(model, totalVerts, totalFaces);
+  saveGeometryPose();
+  buildAnimUI(model);
 }
 
 // ─────────────────────────────────────────────
@@ -1435,10 +1536,18 @@ function toggleSidebar() {
 
 function toggleTextureList() {
   const list  = document.getElementById('texture-list');
-  const arrow = document.querySelector('.tex-arrow');
+  const arrow = document.querySelector('#texture-header .tex-arrow');
   const isOpen = !list.classList.contains('collapsed');
   list.classList.toggle('collapsed', isOpen);
-  arrow.classList.toggle('open', !isOpen);
+  if (arrow) arrow.classList.toggle('open', !isOpen);
+}
+
+function toggleAnimPanel() {
+  const body  = document.getElementById('anim-body');
+  const arrow = document.querySelector('#anim-header .tex-arrow');
+  const isOpen = !body.classList.contains('collapsed');
+  body.classList.toggle('collapsed', isOpen);
+  if (arrow) arrow.classList.toggle('open', !isOpen);
 }
 
 // ─────────────────────────────────────────────
@@ -1728,6 +1837,16 @@ function clearSession(keepTextures = false) {
   nodeObjects        = {};
   selectedNodeName   = null;
   currentModel       = null;
+  pendingSupermodel  = null;
+  animState.current  = null;
+  animState.playing  = false;
+  animState.time     = 0;
+  geometryPose       = {};
+  document.getElementById('anim-panel').style.display = 'none';
+  const animBody  = document.getElementById('anim-body');
+  const animArrow = document.querySelector('#anim-header .tex-arrow');
+  animBody.classList.remove('collapsed');
+  if (animArrow) animArrow.classList.add('open');
 
   // 4. UI zurücksetzen
   document.getElementById('node-list').innerHTML =
@@ -1802,8 +1921,17 @@ function loadFiles(fileList) {
     return;
   }
 
-  // Wenn ein neues MDL geladen wird → komplette Session zurücksetzen
-  if (mdlFiles.length > 0) { clearSession(); clearLog(); }
+  // MDL laden:
+  // - Ist ein Supermodel ausstehend und passt eine der Dateien → nur Animationen laden
+  // - Sonst: neue Session starten
+  if (mdlFiles.length > 0) {
+    const isSupermodelLoad = pendingSupermodel && currentModel &&
+      mdlFiles.some(f => f.name.replace(/\.[^.]+$/, '').toLowerCase() === pendingSupermodel.toLowerCase());
+    if (!isSupermodelLoad) {
+      clearSession();
+      clearLog();
+    }
+  }
 
   setStatus(fmt('status_loading', { n: files.length }));
 
@@ -1814,7 +1942,7 @@ function loadFiles(fileList) {
   function onAllTexReady() {
     updateTextureUI();
     if (mdlFiles.length > 0) {
-      loadMDLFile(mdlFiles[0]);
+      loadAllMDLFiles(mdlFiles);
     } else if (currentModel) {
       const n = applyTexturesToScene();
       setStatus(fmt('status_tex_applied', { n }));
@@ -1895,27 +2023,171 @@ function loadFiles(fileList) {
   }
 }
 
-function loadMDLFile(file) {
-  setStatus(fmt('status_parse', { name: file.name }));
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      const model = parseMDL(e.target.result);
-      if (!model.nodes.length) throw new Error(L('err_no_nodes'));
-      buildScene(model);
-      const n = applyTexturesToScene();
-      if (n > 0) setStatus(fmt('status_model_tex', { name: model.name, n }));
-    } catch (err) {
-      logError('MDL: ' + err.message);
-      setStatus(L('status_prefix') + ': ' + err.message);
-      alert(L('err_parse_title') + '\n' + err.message + '\n\n' + L('err_parse_hint'));
+// ─────────────────────────────────────────────
+//  Supermodel-Animations-Merge
+// ─────────────────────────────────────────────
+function mergeAnimationsFromSupermodel(mainModel, superModel) {
+  if (superModel.animations.length === 0) {
+    logWarn('Supermodel "' + superModel.name + '" has no animations.');
+    return;
+  }
+
+  const mainNodeNames = new Set(mainModel.nodes.map(n => n.name));
+
+  for (const anim of superModel.animations) {
+    const remapped = { name: anim.name, length: anim.length, transtime: anim.transtime, nodes: {} };
+    for (const [nodeName, data] of Object.entries(anim.nodes)) {
+      // Root-Node-Name remappen: supermodel.name → mainmodel.name
+      const mapped = (nodeName === superModel.name) ? mainModel.name : nodeName;
+      if (mainNodeNames.has(mapped) || mapped === mainModel.name) {
+        remapped.nodes[mapped] = data;
+      }
     }
-  };
-  reader.onerror = () => {
-    logError(file.name + ' — ' + L('status_read_error'));
-    setStatus(L('status_read_error'));
-  };
-  reader.readAsText(file);
+    mainModel.animations.push(remapped);
+  }
+  mainModel.animCount = mainModel.animations.length;
+
+  // Rest-Pose aus erster Animation wenn noch keine vorhanden
+  if (Object.keys(mainModel.restPose).length === 0 && mainModel.animations.length > 0) {
+    for (const [nodeName, data] of Object.entries(mainModel.animations[0].nodes)) {
+      const firstOri = data.oriKeys[0];
+      const firstPos = data.posKeys[0];
+      if (firstOri || firstPos) {
+        mainModel.restPose[nodeName] = {
+          orientation: firstOri ? [firstOri.ax, firstOri.ay, firstOri.az, firstOri.angle] : null,
+          position:    firstPos ? [firstPos.x, firstPos.y, firstPos.z] : null,
+        };
+      }
+    }
+  }
+
+  logInfo('Supermodel "' + superModel.name + '": ' + superModel.animations.length + ' animations adopted.');
+}
+
+// ─────────────────────────────────────────────
+//  MDL-Loader  (Einzel- oder Mehrfach-Dateien)
+// ─────────────────────────────────────────────
+function loadAllMDLFiles(mdlFiles) {
+  const texts = {};
+  let pending = mdlFiles.length;
+
+  function onAllRead() {
+    // Alle Dateien parsen
+    const parsed = {};
+    for (const [baseName, text] of Object.entries(texts)) {
+      try {
+        parsed[baseName] = parseMDL(text);
+      } catch (err) {
+        logError('MDL parse: ' + baseName + ' — ' + err.message);
+      }
+    }
+    if (Object.keys(parsed).length === 0) return;
+
+    // ── Fall A: Supermodel nachladen ──────────────────────────────────
+    // Ein Modell wartet bereits auf sein Supermodel.
+    if (pendingSupermodel && currentModel) {
+      const superName = pendingSupermodel.toLowerCase();
+      const superModel =
+        parsed[superName] ||
+        Object.values(parsed).find(m => m.name.toLowerCase() === superName);
+
+      if (superModel) {
+        mergeAnimationsFromSupermodel(currentModel, superModel);
+        pendingSupermodel = null;
+        applyRestPose(currentModel);
+        saveGeometryPose();
+        buildAnimUI(currentModel);
+        setStatus('Animations from "' + superModel.name + '" loaded — ' +
+                  currentModel.animations.length + ' animations available.');
+      } else {
+        logWarn('No suitable supermodel file found in the selection.');
+      }
+      return;
+    }
+
+    // ── Fall B: Hauptmodell bestimmen ─────────────────────────────────
+    // Regel: Das Hauptmodell hat einen setsupermodel-Verweis auf ein ANDERES Modell
+    //        (also NICHT NULL und NICHT sich selbst).
+    // Das Supermodel wird NUR für Animationen genutzt, nicht für Geometrie.
+
+    let mainModel = null;
+    let superModelCandidate = null;
+
+    // Schritt 1: Finde Modell mit nicht-trivialem Supermodel-Verweis
+    for (const model of Object.values(parsed)) {
+      const sm = (model.supermodel || '').toLowerCase();
+      if (sm && sm !== 'null' && sm !== '' && sm !== model.name.toLowerCase()) {
+        mainModel = model;
+        break;
+      }
+    }
+
+    // Schritt 2: Kein Verweis → erstes Modell mit Geometrie nehmen
+    if (!mainModel) {
+      for (const model of Object.values(parsed)) {
+        const hasMesh = model.nodes.some(n =>
+          n.type === 'trimesh' || n.type === 'skin' || n.type === 'danglymesh');
+        if (hasMesh) { mainModel = model; break; }
+      }
+    }
+
+    if (!mainModel || !mainModel.nodes.length) {
+      logError(L('err_no_nodes'));
+      alert(L('err_parse_title') + '\n' + L('err_no_nodes') + '\n\n' + L('err_parse_hint'));
+      return;
+    }
+
+    // Schritt 3: Supermodel suchen (NICHT als Geometrie-Basis verwenden)
+    if (mainModel.supermodel) {
+      const smName = mainModel.supermodel.toLowerCase();
+      if (smName && smName !== 'null') {
+        superModelCandidate =
+          parsed[smName] ||
+          Object.values(parsed).find(m =>
+            m.name.toLowerCase() === smName &&
+            m.name.toLowerCase() !== mainModel.name.toLowerCase());
+      }
+    }
+
+    // Szene mit der Geometrie des Hauptmodells aufbauen
+    buildScene(mainModel);
+    const n = applyTexturesToScene();
+    if (n > 0) setStatus(fmt('status_model_tex', { name: mainModel.name, n }));
+
+    // Supermodel-Animationen direkt anwenden
+    if (superModelCandidate) {
+      mergeAnimationsFromSupermodel(mainModel, superModelCandidate);
+      applyRestPose(mainModel);
+      saveGeometryPose();
+      buildAnimUI(mainModel);
+      pendingSupermodel = null;
+
+    } else if (mainModel.supermodel &&
+               mainModel.supermodel.toLowerCase() !== 'null' &&
+               mainModel.supermodel !== '') {
+      // Supermodel wurde referenziert aber nicht mitgeladen → Hinweis
+      pendingSupermodel = mainModel.supermodel;
+      logWarn('Model "' + mainModel.name + '" refers to supermodel "' + mainModel.supermodel + '".');
+      logInfo('→ Please load "' + mainModel.supermodel + '.mdl" to activate animations.');
+      setStatus('Supermodel "' + mainModel.supermodel + '" needed → please load additionally.');
+    }
+  }
+
+  for (const file of mdlFiles) {
+    const baseName = file.name.replace(/\.[^.]+$/, '').toLowerCase();
+    const reader = new FileReader();
+    reader.onload = e => {
+      texts[baseName] = e.target.result;
+      pending--;
+      if (pending === 0) onAllRead();
+    };
+    reader.onerror = () => {
+      logError(file.name + ' — ' + L('status_read_error'));
+      pending--;
+      if (pending === 0) onAllRead();
+    };
+    reader.readAsText(file);
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -1939,8 +2211,194 @@ dropZone.addEventListener('drop', e => { loadFiles(e.dataTransfer.files); });
 document.getElementById('file-input').addEventListener('change', e => { loadFiles(e.target.files); e.target.value=''; });
 
 // ─────────────────────────────────────────────
-//  Render loop
+//  Animation Engine
 // ─────────────────────────────────────────────
+const animState = {
+  current:  null,   // aktuelles Anim-Objekt
+  time:     0,
+  playing:  false,
+  speed:    1.0,
+  scrubbing: false,
+};
+
+// Gespeicherte Rest-Pose (Geometrie-Transforms) für Reset
+let geometryPose = {};  // nodeName → { pos, quat }
+
+function saveGeometryPose() {
+  geometryPose = {};
+  for (const [name, obj] of Object.entries(nodeObjects)) {
+    geometryPose[name] = {
+      pos:  obj.position.clone(),
+      quat: obj.quaternion.clone(),
+    };
+  }
+}
+
+// Lineare Interpolation zwischen zwei Keyframe-Arrays
+function lerpKeys(keys, time) {
+  if (!keys || keys.length === 0) return null;
+  if (keys.length === 1) return keys[0];
+  // Klemme auf gültigen Bereich
+  if (time <= keys[0].t) return keys[0];
+  if (time >= keys[keys.length - 1].t) return keys[keys.length - 1];
+  // Suche umgebende Keys
+  let lo = 0, hi = keys.length - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (keys[mid].t <= time) lo = mid; else hi = mid;
+  }
+  const a = keys[lo], b = keys[hi];
+  const alpha = (b.t === a.t) ? 0 : (time - a.t) / (b.t - a.t);
+  return { lo: a, hi: b, alpha };
+}
+
+function applyAnimFrame(anim, time) {
+  for (const [nodeName, data] of Object.entries(anim.nodes)) {
+    const obj = nodeObjects[nodeName];
+    if (!obj) continue;
+
+    // Position interpolieren
+    if (data.posKeys.length > 0) {
+      const r = lerpKeys(data.posKeys, time);
+      if (r && r.alpha !== undefined) {
+        obj.position.set(
+          r.lo.x + (r.hi.x - r.lo.x) * r.alpha,
+          r.lo.y + (r.hi.y - r.lo.y) * r.alpha,
+          r.lo.z + (r.hi.z - r.lo.z) * r.alpha
+        );
+      } else if (r) {
+        obj.position.set(r.x, r.y, r.z);
+      }
+    }
+
+    // Orientierung interpolieren (Achse-Winkel → Quaternion → Slerp)
+    if (data.oriKeys.length > 0) {
+      const r = lerpKeys(data.oriKeys, time);
+      if (r && r.alpha !== undefined) {
+        const qa = axisAngleToQuat(r.lo.ax, r.lo.ay, r.lo.az, r.lo.angle);
+        const qb = axisAngleToQuat(r.hi.ax, r.hi.ay, r.hi.az, r.hi.angle);
+        obj.quaternion.slerpQuaternions(qa, qb, r.alpha);
+      } else if (r) {
+        obj.quaternion.copy(axisAngleToQuat(r.ax, r.ay, r.az, r.angle));
+      }
+    }
+  }
+}
+
+function resetToPose() {
+  // Zurück zur Rest-Pose (Geometrie-Transforms + Rest-Pose-Keys)
+  for (const [name, pose] of Object.entries(geometryPose)) {
+    const obj = nodeObjects[name];
+    if (!obj) continue;
+    obj.position.copy(pose.pos);
+    obj.quaternion.copy(pose.quat);
+  }
+}
+
+// Rest-Pose aus Modell auf Szene anwenden (nach Supermodel-Merge nötig)
+function applyRestPose(model) {
+  for (const node of model.nodes) {
+    const obj = nodeObjects[node.name];
+    if (!obj) continue;
+    const restPose = model.restPose && model.restPose[node.name];
+    if (restPose) {
+      if (restPose.orientation) {
+        const [ax, ay, az, angle] = restPose.orientation;
+        obj.quaternion.copy(axisAngleToQuat(ax, ay, az, angle));
+      }
+      if (restPose.position) {
+        obj.position.set(...restPose.position);
+      }
+    }
+  }
+}
+
+
+function buildAnimUI(model) {
+  const panel = document.getElementById('anim-panel');
+  const sel   = document.getElementById('anim-select');
+  if (!model.animations || model.animations.length === 0) {
+    panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = 'block';
+  sel.innerHTML = '';
+  for (const a of model.animations) {
+    const opt = document.createElement('option');
+    opt.value = a.name;
+    opt.textContent = a.name + '  (' + a.length.toFixed(2) + 's)';
+    sel.appendChild(opt);
+  }
+  // Erste Animation auswählen aber nicht starten
+  selectAnim(model.animations[0].name, false);
+}
+
+function selectAnim(name, autoPlay) {
+  const model = currentModel;
+  if (!model) return;
+  const anim = model.animations.find(a => a.name === name);
+  if (!anim) return;
+  animState.current  = anim;
+  animState.time     = 0;
+  animState.playing  = false;
+  document.getElementById('btn-anim-play').textContent = '▶';
+  document.getElementById('anim-scrubber').value = 0;
+  updateAnimTimeDisplay();
+  resetToPose();
+  applyAnimFrame(anim, 0);
+  if (autoPlay) { animState.playing = true; document.getElementById('btn-anim-play').textContent = '⏸'; }
+}
+
+function onAnimSelect(name) { selectAnim(name, false); }
+
+function toggleAnimPlay() {
+  if (!animState.current) return;
+  animState.playing = !animState.playing;
+  document.getElementById('btn-anim-play').textContent = animState.playing ? '⏸' : '▶';
+}
+
+function onScrub(val) {
+  if (!animState.current) return;
+  animState.time = (val / 1000) * animState.current.length;
+  animState.playing = false;
+  document.getElementById('btn-anim-play').textContent = '▶';
+  applyAnimFrame(animState.current, animState.time);
+  updateAnimTimeDisplay();
+}
+
+function setAnimSpeed(s) {
+  animState.speed = s;
+  document.querySelectorAll('.speed-btn').forEach(b => {
+    b.classList.toggle('active', parseFloat(b.textContent) === s ||
+      (s === 0.25 && b.textContent === '¼×') ||
+      (s === 0.5  && b.textContent === '½×') ||
+      (s === 1    && b.textContent === '1×') ||
+      (s === 2    && b.textContent === '2×'));
+  });
+}
+
+function updateAnimTimeDisplay() {
+  if (!animState.current) return;
+  const cur = animState.time.toFixed(2).padStart(5);
+  const tot = animState.current.length.toFixed(2);
+  document.getElementById('anim-time-display').textContent = cur + ' / ' + tot;
+  if (!animState.scrubbing) {
+    const frac = animState.current.length > 0 ? animState.time / animState.current.length : 0;
+    document.getElementById('anim-scrubber').value = Math.round(frac * 1000);
+  }
+}
+
+function tickAnimation(dt) {
+  if (!animState.playing || !animState.current) return;
+  animState.time += dt * animState.speed;
+  if (animState.time >= animState.current.length) {
+    animState.time = animState.time % animState.current.length;
+  }
+  applyAnimFrame(animState.current, animState.time);
+  updateAnimTimeDisplay();
+}
+
+
 function resize() {
   const vp = document.getElementById('viewport');
   const w = vp.clientWidth, h = vp.clientHeight;
@@ -1963,6 +2421,7 @@ function animate(time) {
     orbit.theta += dt * 0.4;
     updateCamera();
   }
+  tickAnimation(dt);
   renderer.render(scene, camera);
 }
 animate(0);
