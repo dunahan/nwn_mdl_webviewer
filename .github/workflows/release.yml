@@ -1,0 +1,92 @@
+# ═══════════════════════════════════════════════════════════
+#  NWN MDL Viewer — Create GitHub Release
+#
+#  Runs build.py and publishes a downloadable release with:
+#    - nwn_mdl_viewer.html   (standalone single-file version)
+#    - nwn-mdl-viewer-src.zip (full source code)
+#
+#  Triggers:
+#    - Push of a version tag:  git tag v1.2.3 && git push --tags
+#    - Manual trigger via Actions tab (workflow_dispatch)
+# ═══════════════════════════════════════════════════════════
+
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release tag (e.g. v1.0.0)'
+        required: true
+        default: 'v0.0.0-dev'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Run build script
+        run: python build.py
+
+      - name: Rename dist file for release
+        run: cp dist/index.html dist/nwn_mdl_viewer.html
+
+      - name: Create source ZIP (excluding dist/)
+        run: |
+          zip -r dist/nwn-mdl-viewer-src.zip . \
+            --exclude "dist/*" \
+            --exclude ".git/*" \
+            --exclude "*.DS_Store" \
+            --exclude "__pycache__/*"
+
+      - name: Determine tag name
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "name=${{ github.event.inputs.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.name }}
+          name: "NWN MDL Viewer ${{ steps.tag.outputs.name }}"
+          body: |
+            ## NWN MDL Viewer ${{ steps.tag.outputs.name }}
+
+            ### Downloads
+            | Datei | Beschreibung |
+            |---|---|
+            | `nwn_mdl_viewer.html` | **Standalone-Version** — einfach im Browser öffnen, kein Server nötig |
+            | `nwn-mdl-viewer-src.zip` | Vollständiger Quellcode (HTML + CSS + JS + lang/) |
+
+            ### Verwendung
+            1. `nwn_mdl_viewer.html` herunterladen
+            2. Im Browser öffnen (Chrome, Firefox, Edge)
+            3. `.mdl` + Texturdateien (`.tga`, `.dds`) hineinziehen
+
+            ### Unterstützte Formate
+            - ASCII MDL (decompiliert mit NWN Explorer o.ä.)
+            - NWN/Bioware DDS (custom 20-Byte-Header, DXT1/DXT5)
+            - TGA (Type 2/10, 16/24/32-bit)
+          draft: false
+          prerelease: ${{ contains(steps.tag.outputs.name, '-') }}
+          files: |
+            dist/nwn_mdl_viewer.html
+            dist/nwn-mdl-viewer-src.zip
