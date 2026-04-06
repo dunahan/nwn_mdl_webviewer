@@ -3,12 +3,12 @@
     "language": "Deutsch",
     "code": "de",
     "author": "",
-    "version": "1.0"
+    "version": "1.1"
   },
 
   "logo_subtitle":        "Neverwinter Nights 1 · Enhanced Edition",
 
-  "drop_title":           "MDL + TGA/DDS ablegen",
+  "drop_title":           "MDL + TGA ablegen",
   "drop_or":              "oder klicken zum Öffnen",
   "drop_hint":            "Mehrere Dateien gleichzeitig möglich",
 
@@ -22,7 +22,12 @@
   "btn_normals":          "Normalen",
   "btn_grid":             "Raster",
   "btn_bbox":             "BBox",
+  "btn_axes":             "Achsen",
   "btn_rotate":           "Rotation",
+  "btn_resetcam":         "↺ Kamera",
+
+  "anim_heading":         "Animationen",
+  "anim_speed":           "Tempo:",
 
   "empty_title":          "MDL Datei laden",
   "empty_hint":           "Drag & Drop · ASCII-Format · Decompiliert",
@@ -69,9 +74,18 @@
   "status_parse":         "Parse MDL: {name} …",
   "status_no_files":      "Keine .mdl oder .tga Dateien erkannt.",
   "status_read_error":    "Fehler beim Lesen der Datei.",
-  "status_tga_error":     "TGA-Fehler: {name} — {msg}",
+  "status_tga_error":     "Textur-Fehler: {name} — {msg}",
   "status_lang_loaded":   "Sprache geladen: {lang}",
-  "status_lang_fallback": "Sprache nicht gefunden — Fallback auf Deutsch.",
+  "status_lang_fallback": "Sprache nicht gefunden — Fallback auf Englisch.",
+
+  "super_no_anims":       "Supermodel \"{name}\" hat keine Animationen.",
+  "super_anims_merged":   "Supermodel \"{name}\": {n} Animationen übernommen.",
+  "super_anims_loaded":   "Animationen von \"{name}\" geladen — {n} Animationen verfügbar.",
+  "super_not_found":      "Keine passende Supermodel-Datei in der Auswahl gefunden.",
+  "super_mdl_error":      "MDL-Fehler: {name}",
+  "super_pending_warn":   "Modell \"{name}\" verweist auf Supermodel \"{super}\".",
+  "super_pending_info":   "→ Bitte \"{super}.mdl\" zusätzlich laden um Animationen zu aktivieren.",
+  "super_pending_status": "Supermodel \"{super}\" benötigt → bitte zusätzlich laden.",
 
   "err_no_nodes":         "Keine Nodes gefunden. Ist die Datei im ASCII-Format?",
   "err_parse_title":      "Fehler beim Parsen:",

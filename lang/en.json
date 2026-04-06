@@ -3,12 +3,12 @@
     "language": "English",
     "code": "en",
     "author": "",
-    "version": "1.0"
+    "version": "1.1"
   },
 
   "logo_subtitle":        "Neverwinter Nights 1 · Enhanced Edition",
 
-  "drop_title":           "Drop MDL + TGA/DDS here",
+  "drop_title":           "Drop MDL + TGA here",
   "drop_or":              "or click to open",
   "drop_hint":            "Multiple files at once supported",
 
@@ -22,7 +22,12 @@
   "btn_normals":          "Normals",
   "btn_grid":             "Grid",
   "btn_bbox":             "BBox",
+  "btn_axes":             "Axes",
   "btn_rotate":           "Rotate",
+  "btn_resetcam":         "↺ Camera",
+
+  "anim_heading":         "Animations",
+  "anim_speed":           "Speed:",
 
   "empty_title":          "Load MDL File",
   "empty_hint":           "Drag & Drop · ASCII Format · Decompiled",
@@ -69,9 +74,18 @@
   "status_parse":         "Parsing MDL: {name} …",
   "status_no_files":      "No .mdl or .tga files recognised.",
   "status_read_error":    "Error reading file.",
-  "status_tga_error":     "TGA error: {name} — {msg}",
+  "status_tga_error":     "Texture error: {name} — {msg}",
   "status_lang_loaded":   "Language loaded: {lang}",
-  "status_lang_fallback": "Language file not found — falling back to German.",
+  "status_lang_fallback": "Language file not found — falling back to English.",
+
+  "super_no_anims":       "Supermodel \"{name}\" has no animations.",
+  "super_anims_merged":   "Supermodel \"{name}\": {n} animations applied.",
+  "super_anims_loaded":   "Animations from \"{name}\" loaded — {n} animations available.",
+  "super_not_found":      "No matching supermodel file found in the selection.",
+  "super_mdl_error":      "MDL parse error: {name}",
+  "super_pending_warn":   "Model \"{name}\" references supermodel \"{super}\".",
+  "super_pending_info":   "→ Please load \"{super}.mdl\" additionally to activate animations.",
+  "super_pending_status": "Supermodel \"{super}\" required → please load additionally.",
 
   "err_no_nodes":         "No nodes found. Is this a decompiled ASCII file?",
   "err_parse_title":      "Parse error:",

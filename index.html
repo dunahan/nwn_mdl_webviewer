@@ -556,7 +556,15 @@ const I18N_BUNDLE = {
     status_lang_fallback:'Language file not found — using English.',
     err_no_nodes:'No nodes found. Is this a decompiled ASCII file?',
     err_parse_title:'Parse error:',
-    err_parse_hint:'Please make sure the file is a decompiled ASCII .mdl file.'
+    err_parse_hint:'Please make sure the file is a decompiled ASCII .mdl file.',
+    super_no_anims:'Supermodel "{name}" has no animations.',
+    super_anims_merged:'Supermodel "{name}": {n} animations applied.',
+    super_anims_loaded:'Animations from "{name}" loaded — {n} animations available.',
+    super_not_found:'No matching supermodel file found in the selection.',
+    super_mdl_error:'MDL parse error: {name}',
+    super_pending_warn:'Model "{name}" references supermodel "{super}".',
+    super_pending_info:'→ Please load "{super}.mdl" additionally to activate animations.',
+    super_pending_status:'Supermodel "{super}" required → please load additionally.'
   },
   de: {
     _meta: { language: 'Deutsch', code: 'de' },
@@ -594,7 +602,15 @@ const I18N_BUNDLE = {
     status_lang_fallback:'Sprache nicht gefunden — Englisch als Fallback.',
     err_no_nodes:'Keine Nodes gefunden. Ist die Datei im ASCII-Format?',
     err_parse_title:'Fehler beim Parsen:',
-    err_parse_hint:'Stellen Sie sicher, dass es sich um eine decompilierte ASCII .mdl Datei handelt.'
+    err_parse_hint:'Stellen Sie sicher, dass es sich um eine decompilierte ASCII .mdl Datei handelt.',
+    super_no_anims:'Supermodel "{name}" hat keine Animationen.',
+    super_anims_merged:'Supermodel "{name}": {n} Animationen übernommen.',
+    super_anims_loaded:'Animationen von "{name}" geladen — {n} Animationen verfügbar.',
+    super_not_found:'Keine passende Supermodel-Datei in der Auswahl gefunden.',
+    super_mdl_error:'MDL-Fehler: {name}',
+    super_pending_warn:'Modell "{name}" verweist auf Supermodel "{super}".',
+    super_pending_info:'→ Bitte "{super}.mdl" zusätzlich laden um Animationen zu aktivieren.',
+    super_pending_status:'Supermodel "{super}" benötigt → bitte zusätzlich laden.'
   }
 };
 
@@ -2028,7 +2044,7 @@ function loadFiles(fileList) {
 // ─────────────────────────────────────────────
 function mergeAnimationsFromSupermodel(mainModel, superModel) {
   if (superModel.animations.length === 0) {
-    logWarn('Supermodel "' + superModel.name + '" has no animations.');
+    logWarn(fmt('super_no_anims', { name: superModel.name }));
     return;
   }
 
@@ -2061,7 +2077,7 @@ function mergeAnimationsFromSupermodel(mainModel, superModel) {
     }
   }
 
-  logInfo('Supermodel "' + superModel.name + '": ' + superModel.animations.length + ' animations adopted.');
+  logInfo(fmt('super_anims_merged', { name: superModel.name, n: superModel.animations.length }));
 }
 
 // ─────────────────────────────────────────────
@@ -2078,7 +2094,7 @@ function loadAllMDLFiles(mdlFiles) {
       try {
         parsed[baseName] = parseMDL(text);
       } catch (err) {
-        logError('MDL parse: ' + baseName + ' — ' + err.message);
+        logError(fmt('super_mdl_error', { name: baseName }) + ' — ' + err.message);
       }
     }
     if (Object.keys(parsed).length === 0) return;
@@ -2097,10 +2113,9 @@ function loadAllMDLFiles(mdlFiles) {
         applyRestPose(currentModel);
         saveGeometryPose();
         buildAnimUI(currentModel);
-        setStatus('Animations from "' + superModel.name + '" loaded — ' +
-                  currentModel.animations.length + ' animations available.');
+        setStatus(fmt('super_anims_loaded', { name: superModel.name, n: currentModel.animations.length }));
       } else {
-        logWarn('No suitable supermodel file found in the selection.');
+        logWarn(L('super_not_found'));
       }
       return;
     }
@@ -2167,9 +2182,9 @@ function loadAllMDLFiles(mdlFiles) {
                mainModel.supermodel !== '') {
       // Supermodel wurde referenziert aber nicht mitgeladen → Hinweis
       pendingSupermodel = mainModel.supermodel;
-      logWarn('Model "' + mainModel.name + '" refers to supermodel "' + mainModel.supermodel + '".');
-      logInfo('→ Please load "' + mainModel.supermodel + '.mdl" to activate animations.');
-      setStatus('Supermodel "' + mainModel.supermodel + '" needed → please load additionally.');
+      logWarn(fmt('super_pending_warn', { name: mainModel.name, super: mainModel.supermodel }));
+      logInfo(fmt('super_pending_info', { super: mainModel.supermodel }));
+      setStatus(fmt('super_pending_status', { super: mainModel.supermodel }));
     }
   }
 
