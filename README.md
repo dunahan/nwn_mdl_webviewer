@@ -29,12 +29,22 @@ No installation, no server — just open `index.html` locally or use it directly
 2. Go to **Settings → Pages → Source → Deploy from branch → `main` / `(root)`**
 3. Visit `https://<your-username>.github.io/nwn-mdl-webviewer/`
 
-### Option B — Local use
+### Option B — Local use (with a release)
+
+1. Download the latest Release from GitHub.
+2. Open in browser (Chrome, Firefox, Edge)
+3. Drag .mdl + texture files (.tga, .dds) into the drop zone.
+
+### Option C — Local use (python3 needed!)
 
 ```bash
 git clone https://github.com/dunahan/nwn-mdl-webviewer.git
 cd nwn-mdl-viewer
 # Simply open index.html in any modern browser:
+python3 build.py
+
+# creates dist/index.html
+cd dist
 open index.html          # macOS
 start index.html         # Windows
 xdg-open index.html      # Linux
