@@ -21,9 +21,23 @@ function logMsg(msg, level) {
   const icons = { error: '✕', warn: '⚠', info: '·' };
   const row = document.createElement('div');
   row.className = 'log-entry log-' + level;
-  row.innerHTML = '<span class="log-icon">' + icons[level] + '</span>'
-                + '<span class="log-msg">'  + msg + '</span>'
-                + '<span class="log-time">' + ts  + '</span>';
+
+  const iconSpan = document.createElement('span');
+  iconSpan.className = 'log-icon';
+  iconSpan.textContent = icons[level] || '';
+
+  const msgSpan = document.createElement('span');
+  msgSpan.className = 'log-msg';
+  msgSpan.textContent = String(msg);
+
+  const timeSpan = document.createElement('span');
+  timeSpan.className = 'log-time';
+  timeSpan.textContent = ts;
+
+  row.appendChild(iconSpan);
+  row.appendChild(msgSpan);
+  row.appendChild(timeSpan);
+
   entries.appendChild(row);
   entries.scrollTop = entries.scrollHeight;
 
