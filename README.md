@@ -3,7 +3,7 @@
 A browser-based 3D model viewer for **Neverwinter Nights 1: Enhanced Edition** decompiled ASCII `.mdl` files.  
 No installation, no server — just open `index.html` locally or use it directly via **GitHub Pages**.
 
-🌐 **Live Demo:** `https://dunahan.github.io/nwn-mdl-webviewer/`
+🌐 **Live Demo:** `https://dunahan.github.io/nwn_mdl_webviewer/`
 
 ---
 
@@ -27,7 +27,7 @@ No installation, no server — just open `index.html` locally or use it directly
 
 1. Fork or clone this repository
 2. Go to **Settings → Pages → Source → Deploy from branch → `main` / `(root)`**
-3. Visit `https://<your-username>.github.io/nwn-mdl-webviewer/`
+3. Visit `https://<your-username>.github.io/nwn_mdl_webviewer/`
 
 ### Option B — Local use (with a release)
 
@@ -38,8 +38,8 @@ No installation, no server — just open `index.html` locally or use it directly
 ### Option C — Local use (python3 needed!)
 
 ```bash
-git clone https://github.com/dunahan/nwn-mdl-webviewer.git
-cd nwn-mdl-viewer
+git clone https://github.com/dunahan/nwn_mdl_webviewer.git
+cd nwn_mdl_webviewer
 
 # creates dist/index.html
 python3 build.py
