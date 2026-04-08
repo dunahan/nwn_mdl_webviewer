@@ -40,10 +40,11 @@ No installation, no server — just open `index.html` locally or use it directly
 ```bash
 git clone https://github.com/dunahan/nwn-mdl-webviewer.git
 cd nwn-mdl-viewer
-# Simply open index.html in any modern browser:
-python3 build.py
 
 # creates dist/index.html
+python3 build.py
+
+# Simply open index.html in any modern browser:
 cd dist
 open index.html          # macOS
 start index.html         # Windows
