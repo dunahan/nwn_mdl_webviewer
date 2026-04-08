@@ -43,11 +43,11 @@ jobs:
         run: python build.py
 
       - name: Rename dist file for release
-        run: cp dist/index.html dist/nwn_mdl_viewer.html
+        run: cp dist/index.html dist/nwn_mdl_webviewer.html
 
       - name: Create source ZIP (excluding dist/)
         run: |
-          zip -r dist/nwn-mdl-viewer-src.zip . \
+          zip -r dist/nwn-mdl-webviewer-src.zip . \
             --exclude "dist/*" \
             --exclude ".git/*" \
             --exclude "*.DS_Store" \
@@ -66,27 +66,27 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.name }}
-          name: "NWN MDL Viewer ${{ steps.tag.outputs.name }}"
+          name: "NWN MDL WebViewer ${{ steps.tag.outputs.name }}"
           body: |
-            ## NWN MDL Viewer ${{ steps.tag.outputs.name }}
+            ## NWN MDL WebViewer ${{ steps.tag.outputs.name }}
 
             ### Downloads
-            | Datei | Beschreibung |
+            | File | Description|
             |---|---|
-            | `nwn_mdl_viewer.html` | **Standalone-Version** — einfach im Browser öffnen, kein Server nötig |
-            | `nwn-mdl-viewer-src.zip` | Vollständiger Quellcode (HTML + CSS + JS + lang/) |
+            | `nwn_mdl_webviewer.html` | **Standalone-Version** — Simply open in your browser, no server required |
+            | `nwn-mdl-webviewer-src.zip` | Full source code (HTML + CSS + JS + lang/) |
 
-            ### Verwendung
-            1. `nwn_mdl_viewer.html` herunterladen
-            2. Im Browser öffnen (Chrome, Firefox, Edge)
-            3. `.mdl` + Texturdateien (`.tga`, `.dds`) hineinziehen
+            ### Using the release
+            1. Download `nwn_mdl_webviewer.html`
+            2. Open in browser (Chrome, Firefox, Edge)
+            3. Drag `.mdl` + texture files (`.tga`, `.dds`) into the drop zone.
 
-            ### Unterstützte Formate
-            - ASCII MDL (decompiliert mit NWN Explorer o.ä.)
+            ### Supported formats
+            - ASCII MDL (decompiled with NWN Explorer or similar.)
             - NWN/Bioware DDS (custom 20-Byte-Header, DXT1/DXT5)
             - TGA (Type 2/10, 16/24/32-bit)
           draft: false
           prerelease: ${{ contains(steps.tag.outputs.name, '-') }}
           files: |
-            dist/nwn_mdl_viewer.html
-            dist/nwn-mdl-viewer-src.zip
+            dist/nwn_mdl_webviewer.html
+            dist/nwn-mdl-webviewer-src.zip
