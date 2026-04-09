@@ -49,6 +49,9 @@ let wireOpacity = 0;
 // Name des Supermodells das noch erwartet wird (null = keins ausstehend)
 let pendingSupermodel = null;
 
+// Implementierung des SkeletonHelpers
+let skeletonHelper = null;
+
 // ─────────────────────────────────────────────
 //  Orbit Controls (custom, minimal)
 // ─────────────────────────────────────────────

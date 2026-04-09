@@ -174,6 +174,14 @@ function resetCamera() {
   updateCamera();
 }
 
+function toggleSkeleton() {
+  const btn = document.getElementById('btn-skeleton');
+  if (btn) btn.classList.toggle('active');
+  if (skeletonHelper) {
+    skeletonHelper.visible = btn ? btn.classList.contains('active') : !skeletonHelper.visible;
+  }
+}
+
 function setStatus(msg) { document.getElementById('status-msg').textContent = msg; }
 
 // ─────────────────────────────────────────────

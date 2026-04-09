@@ -184,6 +184,7 @@ function buildScene(model) {
 
     obj.name = node.name;
     obj.userData.nodeData = node;
+    obj.isBone = true; // NEU: Zwingend erforderlich, damit der SkeletonHelper die Hierarchie erkennt
 
     objects[node.name] = obj;
     nodeObjects[node.name] = obj;
@@ -222,6 +223,16 @@ function buildScene(model) {
     bboxHelper = new THREE.Box3Helper(box, new THREE.Color(0xc8a44a));
     bboxHelper.visible = document.getElementById('btn-bbox').classList.contains('active');
     scene.add(bboxHelper);
+    
+    // NEU: SkeletonHelper initialisieren
+    skeletonHelper = new THREE.SkeletonHelper(modelGroup);
+    // Wenn du die Farbe anpassen willst, kannst du das hier tun (Standard ist Blau/Grün-Verlauf)
+    // skeletonHelper.material.color.set(0xffcc00); 
+  
+    // Standardmäßig an den Button-State in der HTML koppeln, falls er existiert
+    const btnSkeleton = document.getElementById('btn-skeleton');
+    skeletonHelper.visible = btnSkeleton ? btnSkeleton.classList.contains('active') : false;
+    scene.add(skeletonHelper);
   }
 
   // Update stats
