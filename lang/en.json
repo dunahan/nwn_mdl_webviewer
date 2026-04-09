@@ -25,6 +25,7 @@
   "btn_axes":             "Axes",
   "btn_rotate":           "Rotate",
   "btn_resetcam":         "↺ Camera",
+  "btn_skeleton":         "Skeleton",
 
   "anim_heading":         "Animations",
   "anim_speed":           "Speed:",

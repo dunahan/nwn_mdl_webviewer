@@ -7,6 +7,8 @@
 //  Muss vor jedem neuen Ladevorgang aufgerufen werden.
 // ─────────────────────────────────────────────
 function clearSession(keepTextures = false) {
+  //let skeletonHelper = null; // deaktiviert, führt zu Promlemen bei der Anzeige von Skeletten
+  
   // 1. Alle Geometrien und Materialien der alten Szene vom GPU freigeben
   function disposeObject(obj) {
     if (!obj) return;
@@ -28,6 +30,17 @@ function clearSession(keepTextures = false) {
 
   if (modelGroup) { disposeObject(modelGroup); scene.remove(modelGroup); modelGroup = null; }
   if (bboxHelper) { scene.remove(bboxHelper);  bboxHelper = null; }
+
+// NEU: SkeletonHelper aufräumen
+  if (typeof skeletonHelper !== 'undefined' && skeletonHelper) {
+    scene.remove(skeletonHelper);
+    
+    // SkeletonHelper hat kein .dispose(), aber seine Geometrie und Material schon.
+    // Wir nutzen deine existierende Funktion, um sicherzugehen:
+    disposeObject(skeletonHelper); 
+    
+    skeletonHelper = null;
+  }
 
   // 2. Textur-Cache vom GPU entladen und leeren
   for (const key of Object.keys(textureCache)) {
