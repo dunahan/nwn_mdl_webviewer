@@ -7,7 +7,7 @@
 //  Muss vor jedem neuen Ladevorgang aufgerufen werden.
 // ─────────────────────────────────────────────
 function clearSession(keepTextures = false) {
-  let skeletonHelper = null;
+  //let skeletonHelper = null; // deaktiviert, führt zu Promlemen bei der Anzeige von Skeletten
   
   // 1. Alle Geometrien und Materialien der alten Szene vom GPU freigeben
   function disposeObject(obj) {
