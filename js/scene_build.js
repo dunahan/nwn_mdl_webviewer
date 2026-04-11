@@ -265,6 +265,25 @@ function buildScene(model) {
   // Die CPU-geskinten Vertices werden in NWN-Space in den Geometry-Buffer geschrieben;
   // Three.js rendert sie korrekt, weil das Skin-Mesh Kind von modelGroup ist.
 
+  // ── Schritt 1: Alle Bones in MDL-Geometrie-Pose setzen ─────────────────────
+  // Die Bind-Matrizen MÜSSEN auf Basis der reinen Geometrie-Pose berechnet werden,
+  // NICHT auf Basis der Animations-Rest-Pose (model.restPose).
+  // Hintergrund: Bei Modellen mit eigenen Animationen (z.B. c_drggreen) wurde
+  // model.restPose bereits aus dem t=0-Key der ersten Animation befüllt und beim
+  // Erstellen der Objekte angewendet. Das führt zu falschen Bind-Matrizen, weil
+  // die Bones dann in animierter Pose stehen, nicht in der neutralen Geometrie-Pose.
+  // Modelle ohne eigene Animationen (z.B. c_drgred) waren nicht betroffen, da
+  // model.restPose leer blieb und die Geometrie-Pose direkt genutzt wurde.
+  for (const node of model.nodes) {
+    if (node.type === 'skin') continue;   // Skin-Nodes haben keine eigene Pose
+    const obj = objects[node.name];
+    if (!obj) continue;
+    const [ax, ay, az, angle] = node.orientation;
+    obj.quaternion.copy(axisAngleToQuat(ax, ay, az, angle));
+    obj.position.set(...node.position);
+    obj.scale.setScalar(node.scale);
+  }
+
   modelGroup.updateMatrixWorld(true);
 
   // NWN-Space-Matrix eines Bone: mg_inv * bone.matrixWorld
@@ -314,6 +333,12 @@ function buildScene(model) {
   // Skinning-Daten global für animation.js bereitstellen
   window._nwnBindInvMatrices = bindInverseMatrices;
   window._nwnModelGroup      = modelGroup;
+
+  // ── Schritt 2: Rest-Pose aus Animationen anwenden ───────────────────────────
+  // Erst NACH der Bind-Matrix-Berechnung die Animations-Rest-Pose setzen,
+  // damit die Szene in der erwarteten Ausgangsstellung erscheint.
+  applyRestPose(model);
+  modelGroup.updateMatrixWorld(true);
 
   saveGeometryPose();
   buildAnimUI(model);
