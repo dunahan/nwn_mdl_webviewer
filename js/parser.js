@@ -231,32 +231,29 @@ function parseNode(lines, start) {
           });
         }
       }
-	} else if (k === 'weights') {
-	  // NWN Skin Weights: eine Zeile pro Vertex
-	  // Format: boneName weight [boneName weight ...]  (max. 4 Paare)
-	  const count = parseInt(t[1]) || 0;
-	  node.weights = [];
-	  for (let j = 0; j < count; j++) {
-		i++;
-		if (i >= lines.length) break;
-		const wt = tok(i);
-		const influences = [];
-		// Paare: (Name, Gewicht), (Name, Gewicht) ...
-		for (let p = 0; p + 1 < wt.length; p += 2) {
-		  const boneName = wt[p];
-		  const boneW    = parseFloat(wt[p + 1]);
-		  if (boneName && !isNaN(boneW) && boneW > 0) {
-			influences.push({ bone: boneName, weight: boneW });
-		  }
-		}
-		node.weights.push(influences);
-	  }
     } else if (k === 'constraints') {
       // danglymesh: ein Constraint-Wert pro Zeile (0=starr, 255=frei) — nur überspringen
       const count = parseInt(t[1]) || 0;
       for (let j = 0; j < count; j++) {
         i++;
         if (i >= lines.length) break;
+      }
+    } else if (k === 'weights') {
+      // skin-Node: pro Original-Vertex eine Zeile "BoneName Gewicht BoneName Gewicht ..."
+      // Gespeichert als node.vertexWeights[vi] = [{bone, weight}, ...]
+      const count = parseInt(t[1]) || 0;
+      node.vertexWeights = [];
+      for (let j = 0; j < count; j++) {
+        i++;
+        if (i >= lines.length) break;
+        const wt = tok(i);
+        const pairs = [];
+        for (let w = 0; w + 1 < wt.length; w += 2) {
+          const bone   = wt[w];
+          const weight = parseFloat(wt[w + 1]) || 0;
+          if (bone && weight > 0) pairs.push({ bone, weight });
+        }
+        node.vertexWeights.push(pairs);
       }
     }
     i++;
@@ -278,3 +275,5 @@ function axisAngleToQuat(ax, ay, az, angle) {
   const s = Math.sin(half) / len;
   return new THREE.Quaternion(ax * s, ay * s, az * s, Math.cos(half));
 }
+
+// ─────────────────────────────────────────────

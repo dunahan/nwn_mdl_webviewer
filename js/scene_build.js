@@ -9,19 +9,7 @@ const NODE_COLORS = {
   danglymesh: 0x50b8d0,
   emitter: 0xf0a030, aabb: 0xe8a020, light: 0xf8f050, reference: 0x80c0e0,
 };
-
 function nodeColor(type) { return NODE_COLORS[type] || 0x808080; }
-
-function getWorldPosition(nodeName, nodeMap) {
-  const pos = new THREE.Vector3();
-  let current = nodeMap[nodeName];
-  while (current && current.parent !== 'NULL') {
-    pos.add(new THREE.Vector3(...current.position));
-    current = nodeMap[current.parent];
-  }
-  if (current) pos.add(new THREE.Vector3(...current.position));
-  return pos;
-}
 
 function buildScene(model) {
   // modelGroup/wireGroup/bboxHelper wurden bereits durch clearSession() bereinigt.
@@ -114,80 +102,11 @@ function buildScene(model) {
       // Wenn Bitmap referenziert aber Textur noch nicht geladen: Hinweis-Farbe
       if (node.bitmap && !tex) mat.color.set(nodeColor(node.type));
 
-      // ── NEU: SkinnedMesh braucht skinning: true im Material ──
-      if (node.type === 'skin') mat.skinning = true;
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      obj = mesh;
 
-      if (node.type === 'skin' && node.weights && node.weights.length > 0) {
-	    // Alle beteiligten Bone-Namen einsammeln
-		const boneNames = [];
-		for (const influences of node.weights) {
-		  for (const inf of influences) {
-		    if (!boneNames.includes(inf.bone)) boneNames.push(inf.bone);
-		  }
-		}
-
-        // THREE.Bone-Objekte anlegen (werden später in die Hierarchie eingehängt)
-		// NEU — World-Space (korrekt)
-        const bones = boneNames.map(name => {
-          const b = new THREE.Bone();
-          b.name = name;
-		  // Position/Rotation aus dem geparsten Node übernehmen
-          const bNode = nodeMap[name];
-		  
-          if (bNode) {
-            const worldPos = getWorldPosition(name, nodeMap); // ← akkumulierter Parent-Chain
-            b.position.copy(worldPos);
-            const [bax, bay, baz, bang] = bNode.orientation;
-            b.quaternion.copy(axisAngleToQuat(bax, bay, baz, bang));
-            b.scale.setScalar(bNode.scale);
-          }
-          return b;
-        });		
-
-        // skinIndex / skinWeight Buffer aufbauen (max. 4 Influences pro Vertex)
-        const MAX_INF = 4;
-        const faceCount    = node.faces.length;
-        const skinIndices  = new Float32Array(faceCount * 3 * MAX_INF);
-        const skinWeights  = new Float32Array(faceCount * 3 * MAX_INF);
-
-        for (let fi = 0; fi < faceCount; fi++) {
-          const face = node.faces[fi];
-          
-		  for (let k = 0; k < 3; k++) {
-            const vi  = face.v[k];
-            const inf = (node.weights[vi] || []).slice(0, MAX_INF);
-            const base = (fi * 3 + k) * MAX_INF;
-            
-			for (let m = 0; m < MAX_INF; m++) {
-              if (m < inf.length) {
-                skinIndices[base + m] = boneNames.indexOf(inf[m].bone);
-                skinWeights[base + m] = inf[m].weight;
-              } else {
-                skinIndices[base + m] = 0;
-                skinWeights[base + m] = 0;
-              }
-            }
-          }
-        }
-
-        geo.setAttribute('skinIndex',  new THREE.BufferAttribute(skinIndices,  MAX_INF));
-        geo.setAttribute('skinWeight', new THREE.BufferAttribute(skinWeights, MAX_INF));
-
-        // Skeleton + SkinnedMesh
-        const skeleton = new THREE.Skeleton(bones);
-        const skinnedMesh = new THREE.SkinnedMesh(geo, mat);
-        skinnedMesh.castShadow    = true;
-        skinnedMesh.receiveShadow = true;
-        skinnedMesh.add(bones[0]); // Root-Bone einbinden
-        skinnedMesh.bind(skeleton);
-        obj = skinnedMesh;
-	  } else {
-         const mesh = new THREE.Mesh(geo, mat);
-         mesh.castShadow = true;
-         mesh.receiveShadow = true;
-         obj = mesh;
-      }
-	  
       // Wireframe-Overlay: als Kind des eigentlichen Mesh einhängen,
       // damit es die komplette Transformations-Hierarchie automatisch erbt.
       const wireMat = new THREE.MeshBasicMaterial({
@@ -255,13 +174,22 @@ function buildScene(model) {
     // Apply local transform.
     // Priority: animation time=0 keyframe (rest pose) > geometry orientation.
     // NWN-Format: orientation = (axis_x, axis_y, axis_z, winkel_radiant) — Achse-Winkel, KEIN Quaternion!
-/*    const restPose = model.restPose && model.restPose[node.name];
-    const oriSrc   = (restPose && restPose.orientation) ? restPose.orientation : node.orientation;
-    const [ax, ay, az, angle] = oriSrc;
-    const quat = axisAngleToQuat(ax, ay, az, angle);
-    obj.quaternion.copy(quat);
-    obj.position.set(...node.position);
-    obj.scale.setScalar(node.scale);*/
+    //
+    // skin-Nodes: Die Three.js-Mesh-Position bleibt bei (0,0,0), da die MDL-Vertices
+    // im lokalen Raum des Skin-Nodes gespeichert sind und erst durch CPU-Skinning in
+    // den Model-Space transformiert werden.
+    // Die node.position des Skin-Nodes ist der Pivot-Offset, der beim Skinning zu
+    // jedem Vertex addiert werden muss (vertex_model = vertex_local + skin_node_pos).
+    const isSkinNode = node.type === 'skin';
+    if (!isSkinNode) {
+      const restPose = model.restPose && model.restPose[node.name];
+      const oriSrc   = (restPose && restPose.orientation) ? restPose.orientation : node.orientation;
+      const [ax, ay, az, angle] = oriSrc;
+      obj.quaternion.copy(axisAngleToQuat(ax, ay, az, angle));
+      obj.position.set(...node.position);
+      obj.scale.setScalar(node.scale);
+    }
+    // skin: position/quaternion/scale = Three.js-Default (0/identity/1)
 
     obj.name = node.name;
     obj.userData.nodeData = node;
@@ -269,35 +197,12 @@ function buildScene(model) {
 
     objects[node.name] = obj;
     nodeObjects[node.name] = obj;
-	
-    // ── NEU: Skin-Vertices sind bereits im Model-Space — lokalen Transform ignorieren
-    if (node.type === 'skin') {
-      obj.position.set(0, 0, 0);
-      obj.quaternion.set(0, 0, 0, 1); // Identität
-      obj.scale.setScalar(1);
-    } else {
-      const restPose = model.restPose && model.restPose[node.name];
-      const oriSrc   = (restPose && restPose.orientation) ? restPose.orientation : node.orientation;
-      const [ax, ay, az, angle] = oriSrc;
-      const quat = axisAngleToQuat(ax, ay, az, angle);
-      obj.quaternion.copy(quat);
-      obj.position.set(...node.position);
-      obj.scale.setScalar(node.scale);
-    }
   }
-  
+
   // Build hierarchy
   for (const node of model.nodes) {
     const obj = objects[node.name];
     if (!obj) continue;
-
-    // ── NEU: Skin-Vertices liegen bereits im Model-Space (Bind Pose).
-    // Den Parent-Transform NICHT anwenden — sonst doppelte Transformation.
-    if (node.type === 'skin') {
-      modelGroup.add(obj);
-      continue;
-    }
-
     const parentName = node.parent;
     if (parentName && parentName !== 'NULL' && objects[parentName]) {
       objects[parentName].add(obj);
@@ -349,6 +254,67 @@ function buildScene(model) {
   currentModel = model;
   buildNodeList(model);
   showModelInfo(model, totalVerts, totalFaces);
+
+  // ── CPU-Skinning vorbereiten ─────────────────────────────────────────────
+  // Koordinaten-Konvention: Alle Skinning-Berechnungen laufen in NWN-Z-Up-Space,
+  // also VOR der -90°-X-Rotation des modelGroup. Das vermeidet Koordinaten-
+  // System-Konflikte, da Skin-Vertices und Bone-Matrizen beide in NWN-Space sind.
+  //
+  // Die modelGroup-Rotation (-90° um X) konvertiert NWN-Z-Up nach Three.js-Y-Up
+  // und wird von Three.js automatisch auf alle Child-Meshes (inkl. Skin-Meshes) angewendet.
+  // Die CPU-geskinten Vertices werden in NWN-Space in den Geometry-Buffer geschrieben;
+  // Three.js rendert sie korrekt, weil das Skin-Mesh Kind von modelGroup ist.
+
+  modelGroup.updateMatrixWorld(true);
+
+  // NWN-Space-Matrix eines Bone: mg_inv * bone.matrixWorld
+  // mg_inv: invertiert die modelGroup-Welt-Matrix (enthält -90°-X-Rotation + Position)
+  const _mgInv = new THREE.Matrix4().copy(modelGroup.matrixWorld).invert();
+
+  // Inverse Bind-Matrizen in NWN-Space für alle Bones
+  const bindInverseMatrices = {};
+  for (const [name, obj] of Object.entries(objects)) {
+    const boneNWN = new THREE.Matrix4().multiplyMatrices(_mgInv, obj.matrixWorld);
+    bindInverseMatrices[name] = boneNWN.invert();
+  }
+
+  // Pro skin-Node: Bind-Positionen in NWN-Model-Space und Gewichte pro explodiertem Vertex
+  for (const node of model.nodes) {
+    if (node.type !== 'skin' || !node.vertexWeights) continue;
+    const obj = objects[node.name];
+    if (!obj || !(obj instanceof THREE.Mesh)) continue;
+    const geo = obj.geometry;
+
+    // Vertex-Model-Space = vertex_local + skin_node_position
+    // skin_node_position ist der MDL-Pivot-Offset (NWN-Space).
+    const [spx, spy, spz] = node.position;   // skin node pivot in NWN model space
+    const rawPos = geo.attributes.position.array;
+    const bindPos = new Float32Array(rawPos.length);
+    for (let k = 0; k < rawPos.length; k += 3) {
+      bindPos[k]     = rawPos[k]     + spx;
+      bindPos[k + 1] = rawPos[k + 1] + spy;
+      bindPos[k + 2] = rawPos[k + 2] + spz;
+    }
+    geo.userData.bindPositions = bindPos;
+
+    // Gewichte pro explodiertem Vertex: Explode-Schritt erzeugt 3 Verts pro Face.
+    // Explodierter Vertex fi*3+k stammt von Original-Vertex node.faces[fi].v[k].
+    const perVertWeights = [];
+    for (let fi = 0; fi < node.faces.length; fi++) {
+      for (let k = 0; k < 3; k++) {
+        const vi = node.faces[fi].v[k];
+        perVertWeights.push(node.vertexWeights[vi] || []);
+      }
+    }
+    geo.userData.perVertWeights = perVertWeights;
+    geo.userData.hasSkin = true;
+    geo.attributes.position.usage = THREE.DynamicDrawUsage;
+  }
+
+  // Skinning-Daten global für animation.js bereitstellen
+  window._nwnBindInvMatrices = bindInverseMatrices;
+  window._nwnModelGroup      = modelGroup;
+
   saveGeometryPose();
   buildAnimUI(model);
 }

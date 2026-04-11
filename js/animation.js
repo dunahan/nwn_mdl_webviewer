@@ -86,6 +86,78 @@ function resetToPose() {
   }
 }
 
+// ── CPU-Skinning (Linear Blend Skinning in NWN-Z-Up-Space) ──────────────────
+// Formel pro Vertex:  finalPos = Σ_i ( weight_i × skinMat_i × bindPos )
+// skinMat_i = currentBoneNWN × inverseBoneBindNWN
+// Alle Matrizen und Positionen in NWN-Space (vor modelGroup -90°-X-Rotation).
+// Die modelGroup-Rotation wird von Three.js automatisch auf das Skin-Mesh angewendet.
+const _sk = {
+  mgInv:    new THREE.Matrix4(),
+  boneMat:  new THREE.Matrix4(),
+  skinMat:  new THREE.Matrix4(),
+  vBind:    new THREE.Vector3(),
+  vTmp:     new THREE.Vector3(),
+  vFinal:   new THREE.Vector3(),
+};
+
+function applySkinning() {
+  if (!currentModel || !window._nwnBindInvMatrices || !window._nwnModelGroup) return;
+  const bindInv = window._nwnBindInvMatrices;
+  const mg      = window._nwnModelGroup;
+
+  // mg_inv einmal pro Frame berechnen: wandelt bone.matrixWorld in NWN-Space um
+  mg.updateMatrixWorld(true);
+  _sk.mgInv.copy(mg.matrixWorld).invert();
+
+  for (const node of currentModel.nodes) {
+    if (node.type !== 'skin') continue;
+    const obj = nodeObjects[node.name];
+    if (!obj || !(obj instanceof THREE.Mesh)) continue;
+    const geo = obj.geometry;
+    if (!geo.userData.hasSkin) continue;
+
+    const bindPos      = geo.userData.bindPositions;   // NWN model-space
+    const perVertW     = geo.userData.perVertWeights;
+    const posArr       = geo.attributes.position.array;
+    const nVerts       = perVertW.length;
+
+    for (let i = 0; i < nVerts; i++) {
+      const pairs = perVertW[i];
+      _sk.vFinal.set(0, 0, 0);
+      _sk.vBind.set(bindPos[i * 3], bindPos[i * 3 + 1], bindPos[i * 3 + 2]);
+
+      let totalW = 0;
+      for (const { bone, weight } of pairs) {
+        const boneObj = nodeObjects[bone];
+        if (!boneObj || !bindInv[bone]) continue;
+
+        // Aktueller Bone in NWN-Space
+        _sk.boneMat.multiplyMatrices(_sk.mgInv, boneObj.matrixWorld);
+        // skinMatrix = currentBoneNWN × inverseBoneBindNWN
+        _sk.skinMat.multiplyMatrices(_sk.boneMat, bindInv[bone]);
+
+        _sk.vTmp.copy(_sk.vBind).applyMatrix4(_sk.skinMat);
+        _sk.vFinal.addScaledVector(_sk.vTmp, weight);
+        totalW += weight;
+      }
+
+      if (totalW < 1e-6) {
+        _sk.vFinal.copy(_sk.vBind);        // Fallback: Bind-Position
+      } else if (Math.abs(totalW - 1.0) > 0.01) {
+        _sk.vFinal.divideScalar(totalW);   // Gewichte normalisieren
+      }
+
+      posArr[i * 3]     = _sk.vFinal.x;
+      posArr[i * 3 + 1] = _sk.vFinal.y;
+      posArr[i * 3 + 2] = _sk.vFinal.z;
+    }
+
+    geo.attributes.position.needsUpdate = true;
+    geo.computeBoundingBox();
+    geo.computeBoundingSphere();
+  }
+}
+
 // Rest-Pose aus Modell auf Szene anwenden (nach Supermodel-Merge nötig)
 function applyRestPose(model) {
   for (const node of model.nodes) {
@@ -137,6 +209,7 @@ function selectAnim(name, autoPlay) {
   updateAnimTimeDisplay();
   resetToPose();
   applyAnimFrame(anim, 0);
+  applySkinning();
   if (autoPlay) { animState.playing = true; document.getElementById('btn-anim-play').textContent = '⏸'; }
 }
 
@@ -154,6 +227,7 @@ function onScrub(val) {
   animState.playing = false;
   document.getElementById('btn-anim-play').textContent = '▶';
   applyAnimFrame(animState.current, animState.time);
+  applySkinning();
   updateAnimTimeDisplay();
 }
 
@@ -186,6 +260,7 @@ function tickAnimation(dt) {
     animState.time = animState.time % animState.current.length;
   }
   applyAnimFrame(animState.current, animState.time);
+  applySkinning();
   updateAnimTimeDisplay();
 }
 
