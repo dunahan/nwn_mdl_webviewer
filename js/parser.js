@@ -238,6 +238,23 @@ function parseNode(lines, start) {
         i++;
         if (i >= lines.length) break;
       }
+    } else if (k === 'weights') {
+      // skin-Node: pro Original-Vertex eine Zeile "BoneName Gewicht BoneName Gewicht ..."
+      // Gespeichert als node.vertexWeights[vi] = [{bone, weight}, ...]
+      const count = parseInt(t[1]) || 0;
+      node.vertexWeights = [];
+      for (let j = 0; j < count; j++) {
+        i++;
+        if (i >= lines.length) break;
+        const wt = tok(i);
+        const pairs = [];
+        for (let w = 0; w + 1 < wt.length; w += 2) {
+          const bone   = wt[w];
+          const weight = parseFloat(wt[w + 1]) || 0;
+          if (bone && weight > 0) pairs.push({ bone, weight });
+        }
+        node.vertexWeights.push(pairs);
+      }
     }
     i++;
   }
