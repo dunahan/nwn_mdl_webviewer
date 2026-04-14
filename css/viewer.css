@@ -353,6 +353,49 @@ input[type=range] {
 }
 .speed-btn:hover, .speed-btn.active { border-color: var(--gold); color: var(--gold); }
 
+/* ── PLT-Panel ── */
+#plt-panel {
+  border-top: 1px solid var(--border);
+  display: none;
+}
+#plt-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 12px 2px; cursor: pointer; user-select: none;
+}
+#plt-header:hover .tex-arrow { color: var(--gold); }
+#plt-body {
+  overflow: hidden;
+  max-height: 240px;
+  transition: max-height 0.25s ease, opacity 0.2s ease;
+  opacity: 1;
+  padding: 4px 12px 10px;
+}
+#plt-body.collapsed {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+#plt-layer-list { display: flex; flex-direction: column; gap: 1px; }
+.plt-layer-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 3px 4px; border-radius: 3px;
+  font-size: 11px; color: var(--muted);
+  transition: background 0.1s;
+  opacity: 0.38;
+}
+.plt-layer-item.used { color: var(--text); opacity: 1; }
+.plt-layer-item:hover { background: rgba(255,255,255,0.03); }
+.plt-layer-dot {
+  width: 10px; height: 10px; border-radius: 2px;
+  flex-shrink: 0;
+}
+.plt-layer-name { flex: 1; }
+.plt-layer-tag {
+  font-size: 9px; letter-spacing: 0.5px; color: var(--muted);
+}
+.plt-layer-item.used .plt-layer-tag { color: var(--gold); }
+
 /* ── Einklappbarer Texturen-Abschnitt ── */
 #texture-header {
   display: flex; align-items: center; justify-content: space-between;

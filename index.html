@@ -34,7 +34,7 @@
       <span data-i18n="drop_or">oder klicken zum Öffnen</span><br>
       <small style="color:var(--muted)" data-i18n="drop_hint">Mehrere Dateien gleichzeitig möglich</small>
     </div>
-    <input type="file" id="file-input" accept=".mdl,.tga,.dds,.png,.jpg,.txt" multiple>
+    <input type="file" id="file-input" accept=".mdl,.tga,.dds,.plt,.png,.jpg,.txt" multiple>
 
     <div id="texture-status" style="margin:0 12px 8px;display:none;">
       <div id="texture-header" onclick="toggleTextureList()">
@@ -70,6 +70,17 @@
           <button class="speed-btn active" onclick="setAnimSpeed(1)">1×</button>
           <button class="speed-btn" onclick="setAnimSpeed(2)">2×</button>
         </div>
+      </div>
+    </div>
+
+    <!-- ── PLT Layer-Panel ── -->
+    <div id="plt-panel">
+      <div id="plt-header" onclick="togglePLTPanel()">
+        <span class="plt-header-title">PLT Layer</span>
+        <span class="tex-arrow open">▶</span>
+      </div>
+      <div id="plt-body">
+        <div id="plt-layer-list"></div>
       </div>
     </div>
 

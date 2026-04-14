@@ -253,3 +253,87 @@ function parseTGA(buffer) {
 }
 
 // ─────────────────────────────────────────────
+//  NWN PLT-Parser  (Bioware Palette Texture)
+//
+//  Header (24 Bytes):
+//    [0-7]   "PLT V1  "  Signatur
+//    [8-11]  uint32 LE   Anzahl Layer (immer 10)
+//    [12-15] uint32 LE   0 (reserviert)
+//    [16-19] uint32 LE   Breite
+//    [20-23] uint32 LE   Höhe
+//    [24+]   Pixeldaten  je 2 Bytes: [color_index, layer_index]
+//
+//  10 Layer (0–9): skin, hair, metal1, metal2, cloth1, cloth2,
+//                  leather1, leather2, tattoo1, tattoo2
+//
+//  Aktuell: color_index wird als Graustufe gerendert.
+//  usedLayers[] und pltBuffer werden für das spätere
+//  Paletten-Mapping gespeichert.
+// ─────────────────────────────────────────────
+function parseNWNPLT(buffer) {
+  const data = new Uint8Array(buffer);
+  if (data.length < 24) throw new Error('PLT: Datei zu kurz');
+
+  const sig = String.fromCharCode(...data.subarray(0, 8));
+  if (!sig.startsWith('PLT V1')) throw new Error('PLT: Ungültige Signatur "' + sig.trim() + '"');
+
+  const numLayers = data[8]  | (data[9]  << 8) | (data[10] << 16) | (data[11] << 24);
+  const w         = data[16] | (data[17] << 8) | (data[18] << 16) | (data[19] << 24);
+  const h         = data[20] | (data[21] << 8) | (data[22] << 16) | (data[23] << 24);
+
+  if (w <= 0 || h <= 0 || w > 8192 || h > 8192)
+    throw new Error('PLT: Ungültige Auflösung ' + w + 'x' + h);
+
+  const expectedBytes = w * h * 2;
+  if (data.length - 24 < expectedBytes)
+    throw new Error('PLT: Pixeldaten unvollständig (erwartet ' + expectedBytes + ', erhalten ' + (data.length - 24) + ')');
+
+  const pixels     = new Uint8ClampedArray(w * h * 4);
+  const usedLayers = new Array(10).fill(false);
+
+  for (let i = 0; i < w * h; i++) {
+    const off        = 24 + i * 2;
+    const colorIndex = data[off];      // 0–255: Helligkeitswert
+    const layerIdx   = data[off + 1];  // 0–9:   Layer-Zugehörigkeit
+
+    if (layerIdx < 10) usedLayers[layerIdx] = true;
+
+    const p = i * 4;
+    pixels[p]     = colorIndex;
+    pixels[p + 1] = colorIndex;
+    pixels[p + 2] = colorIndex;
+    pixels[p + 3] = 255;
+  }
+
+  // PLT speichert top-to-bottom → vertikal spiegeln (wie DDS)
+  const rowBytes = w * 4;
+  const tmp = new Uint8ClampedArray(rowBytes);
+  for (let row = 0; row < (h >> 1); row++) {
+    const top = row * rowBytes;
+    const bot = (h - 1 - row) * rowBytes;
+    tmp.set(pixels.subarray(top, top + rowBytes));
+    pixels.copyWithin(top, bot, bot + rowBytes);
+    pixels.set(tmp, bot);
+  }
+
+  const cvs = document.createElement('canvas');
+  cvs.width = w; cvs.height = h;
+  cvs.getContext('2d').putImageData(new ImageData(pixels, w, h), 0, 0);
+
+  const pltTex = new THREE.CanvasTexture(cvs);
+  pltTex.flipY = false;
+  pltTex.wrapS = THREE.RepeatWrapping;
+  pltTex.wrapT = THREE.RepeatWrapping;
+  if (!pltTex.userData) pltTex.userData = {};
+  pltTex.userData.hasAlpha   = false;
+  pltTex.userData.isPLT      = true;        // Marker für späteres Paletten-Mapping
+  pltTex.userData.pltWidth   = w;
+  pltTex.userData.pltHeight  = h;
+  pltTex.userData.numLayers  = numLayers;
+  pltTex.userData.usedLayers = usedLayers;  // bool[10]: welche Layer vorkommen
+  pltTex.userData.pltBuffer  = buffer;      // Rohdaten für späteres Paletten-Mapping
+  pltTex.needsUpdate = true;
+  return pltTex;
+}
+
+// ─────────────────────────────────────────────

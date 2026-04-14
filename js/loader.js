@@ -9,7 +9,7 @@ function loadFiles(fileList) {
 
   const files = Array.from(fileList);
   const mdlFiles = files.filter(f => f.name.toLowerCase().endsWith('.mdl') || f.name.toLowerCase().endsWith('.txt'));
-  const texFiles = files.filter(f => /\.(tga|png|jpg|jpeg|dds)$/i.test(f.name));
+  const texFiles = files.filter(f => /\.(tga|png|jpg|jpeg|dds|plt)$/i.test(f.name));
 
   if (mdlFiles.length === 0 && texFiles.length === 0) {
     setStatus(L('status_no_files'));
@@ -36,6 +36,7 @@ function loadFiles(fileList) {
 
   function onAllTexReady() {
     updateTextureUI();
+    buildPLTPanel();
     if (mdlFiles.length > 0) {
       loadAllMDLFiles(mdlFiles);
     } else if (currentModel) {
@@ -84,6 +85,28 @@ function loadFiles(fileList) {
           setStatus(fmt('status_tex_loaded', { name: file.name, n: texLoaded, total: texFiles.length }));
         } catch(err) {
           logError('DDS: ' + file.name + ' — ' + err.message);
+          setStatus(fmt('status_tga_error', { name: file.name, msg: err.message }));
+        }
+        texPending--;
+        if (texPending === 0) onAllTexReady();
+      };
+      reader.onerror = () => {
+        logError(file.name + ' — ' + L('status_read_error'));
+        setStatus(fmt('status_read_error'));
+        texPending--;
+        if (texPending === 0) onAllTexReady();
+      };
+      reader.readAsArrayBuffer(file);
+    } else if (ext === 'plt') {
+      // NWN/Bioware PLT (Palette Texture)
+      const reader = new FileReader();
+      reader.onload = ev => {
+        try {
+          textureCache[key] = parseNWNPLT(ev.target.result);
+          texLoaded++;
+          setStatus(fmt('status_tex_loaded', { name: file.name, n: texLoaded, total: texFiles.length }));
+        } catch(err) {
+          logError('PLT: ' + file.name + ' — ' + err.message);
           setStatus(fmt('status_tga_error', { name: file.name, msg: err.message }));
         }
         texPending--;
