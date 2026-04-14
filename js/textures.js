@@ -266,9 +266,9 @@ function parseTGA(buffer) {
 //  10 Layer (0–9): skin, hair, metal1, metal2, cloth1, cloth2,
 //                  leather1, leather2, tattoo1, tattoo2
 //
-//  Aktuell: Layer werden ignoriert — color_index wird als
-//           Graustufe gerendert. Vollständiges Paletten-Mapping
-//           folgt in einem späteren Schritt.
+//  Aktuell: color_index wird als Graustufe gerendert.
+//  usedLayers[] und pltBuffer werden für das spätere
+//  Paletten-Mapping gespeichert.
 // ─────────────────────────────────────────────
 function parseNWNPLT(buffer) {
   const data = new Uint8Array(buffer);
@@ -288,12 +288,15 @@ function parseNWNPLT(buffer) {
   if (data.length - 24 < expectedBytes)
     throw new Error('PLT: Pixeldaten unvollständig (erwartet ' + expectedBytes + ', erhalten ' + (data.length - 24) + ')');
 
-  const pixels = new Uint8ClampedArray(w * h * 4);
+  const pixels     = new Uint8ClampedArray(w * h * 4);
+  const usedLayers = new Array(10).fill(false);
 
   for (let i = 0; i < w * h; i++) {
     const off        = 24 + i * 2;
-    const colorIndex = data[off];     // 0–255: Helligkeitswert
-    // data[off + 1]  = layer_index (0–9) — vorerst ignoriert
+    const colorIndex = data[off];      // 0–255: Helligkeitswert
+    const layerIdx   = data[off + 1];  // 0–9:   Layer-Zugehörigkeit
+
+    if (layerIdx < 10) usedLayers[layerIdx] = true;
 
     const p = i * 4;
     pixels[p]     = colorIndex;
@@ -317,18 +320,20 @@ function parseNWNPLT(buffer) {
   cvs.width = w; cvs.height = h;
   cvs.getContext('2d').putImageData(new ImageData(pixels, w, h), 0, 0);
 
-  const tex = new THREE.CanvasTexture(cvs);
-  tex.flipY = false;
-  tex.wrapS = THREE.RepeatWrapping;
-  tex.wrapT = THREE.RepeatWrapping;
-  if (!tex.userData) tex.userData = {};
-  tex.userData.hasAlpha  = false;
-  tex.userData.isPLT     = true;       // Marker für späteres Paletten-Mapping
-  tex.userData.pltWidth  = w;
-  tex.userData.pltHeight = h;
-  tex.userData.numLayers = numLayers;
-  tex.needsUpdate = true;
-  return tex;
+  const pltTex = new THREE.CanvasTexture(cvs);
+  pltTex.flipY = false;
+  pltTex.wrapS = THREE.RepeatWrapping;
+  pltTex.wrapT = THREE.RepeatWrapping;
+  if (!pltTex.userData) pltTex.userData = {};
+  pltTex.userData.hasAlpha   = false;
+  pltTex.userData.isPLT      = true;        // Marker für späteres Paletten-Mapping
+  pltTex.userData.pltWidth   = w;
+  pltTex.userData.pltHeight  = h;
+  pltTex.userData.numLayers  = numLayers;
+  pltTex.userData.usedLayers = usedLayers;  // bool[10]: welche Layer vorkommen
+  pltTex.userData.pltBuffer  = buffer;      // Rohdaten für späteres Paletten-Mapping
+  pltTex.needsUpdate = true;
+  return pltTex;
 }
 
 // ─────────────────────────────────────────────

@@ -185,3 +185,75 @@ function toggleSkeleton() {
 function setStatus(msg) { document.getElementById('status-msg').textContent = msg; }
 
 // ─────────────────────────────────────────────
+//  PLT Layer Panel
+// ─────────────────────────────────────────────
+
+// Repräsentative Farben pro Layer (Platzhalter bis zum echten Paletten-Mapping)
+const PLT_LAYER_NAMES  = ['Skin','Hair','Metal 1','Metal 2','Cloth 1','Cloth 2','Leather 1','Leather 2','Tattoo 1','Tattoo 2'];
+const PLT_LAYER_COLORS = ['#e8a880','#7a5030','#b8c0cc','#c8a44a','#5878b8','#b85878','#8a6040','#504030','#4888b8','#b87048'];
+
+function buildPLTPanel() {
+  const panel  = document.getElementById('plt-panel');
+  const listEl = document.getElementById('plt-layer-list');
+  if (!panel || !listEl) return;
+
+  // Alle PLT-Einträge im Textur-Cache suchen
+  const pltEntries = Object.entries(textureCache)
+    .filter(([, tex]) => tex && tex.userData && tex.userData.isPLT);
+
+  if (pltEntries.length === 0) {
+    panel.style.display = 'none';
+    return;
+  }
+
+  panel.style.display = 'block';
+  listEl.innerHTML = '';
+
+  for (const [texName, tex] of pltEntries) {
+    // Bei mehreren PLT-Texturen: Dateiname als Trenner
+    if (pltEntries.length > 1) {
+      const label = document.createElement('div');
+      label.style.cssText = 'font-size:10px;color:var(--muted);margin:6px 0 3px;' +
+                            'letter-spacing:1px;text-transform:uppercase;border-top:' +
+                            '1px solid var(--border);padding-top:6px;';
+      label.textContent = texName;
+      listEl.appendChild(label);
+    }
+
+    const usedLayers = tex.userData.usedLayers || new Array(10).fill(false);
+
+    for (let i = 0; i < 10; i++) {
+      const used = usedLayers[i];
+      const item = document.createElement('div');
+      item.className = 'plt-layer-item' + (used ? ' used' : '');
+      item.dataset.layer = i;
+
+      const dot = document.createElement('div');
+      dot.className = 'plt-layer-dot';
+      dot.style.background = PLT_LAYER_COLORS[i];
+      item.appendChild(dot);
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'plt-layer-name';
+      nameSpan.textContent = PLT_LAYER_NAMES[i];
+      item.appendChild(nameSpan);
+
+      const tag = document.createElement('span');
+      tag.className = 'plt-layer-tag';
+      tag.textContent = used ? '●' : '○';
+      item.appendChild(tag);
+
+      listEl.appendChild(item);
+    }
+  }
+}
+
+function togglePLTPanel() {
+  const body  = document.getElementById('plt-body');
+  const arrow = document.querySelector('#plt-header .tex-arrow');
+  if (!body) return;
+  body.classList.toggle('collapsed');
+  if (arrow) arrow.classList.toggle('open');
+}
+
+// ─────────────────────────────────────────────

@@ -36,6 +36,7 @@ function loadFiles(fileList) {
 
   function onAllTexReady() {
     updateTextureUI();
+    buildPLTPanel();
     if (mdlFiles.length > 0) {
       loadAllMDLFiles(mdlFiles);
     } else if (currentModel) {
