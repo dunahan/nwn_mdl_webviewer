@@ -273,7 +273,7 @@ function buildPLTPanel() {
 // hier Scrollbalken eingefügt
 function _buildLayerPicker(layerIdx, dotEl) {
   const wrap = document.createElement('div');
-  wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:2px;padding:4px 0 6px 18px;max-height:120px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent;';
+  wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:2px;padding:4px 0 6px 18px;max-height:120px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--scrollbar) transparent;';
   wrap.dataset.layerPicker = layerIdx;
 
   const rows = hasPalette(layerIdx) ? 176 : 0;
