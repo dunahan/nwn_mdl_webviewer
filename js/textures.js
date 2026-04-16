@@ -337,3 +337,60 @@ function parseNWNPLT(buffer) {
 }
 
 // ─────────────────────────────────────────────
+
+// ─────────────────────────────────────────────
+//  PLT → Canvas neu rendern mit Palette
+//
+//  Liest pltBuffer aus tex.userData, ersetzt für jeden
+//  Pixel die Graustufe durch den echten Paletten-RGB-Wert
+//  aus palettes.js (getPaletteRGB).
+//  Wird aufgerufen wenn der User einen Layer-Farbton ändert.
+// ─────────────────────────────────────────────
+function applyPLTPalette(tex) {
+  if (!tex || !tex.userData || !tex.userData.isPLT) return;
+  const buffer = tex.userData.pltBuffer;
+  if (!buffer) return;
+
+  const data   = new Uint8Array(buffer);
+  const w      = tex.userData.pltWidth;
+  const h      = tex.userData.pltHeight;
+  const pixels = new Uint8ClampedArray(w * h * 4);
+
+  for (let i = 0; i < w * h; i++) {
+    const off        = 24 + i * 2;
+    const colorIndex = data[off];
+    const layerIdx   = data[off + 1];
+    const row        = (layerIdx < 10) ? pltLayerRows[layerIdx] : 0;
+    const [r, g, b]  = getPaletteRGB(layerIdx, row, colorIndex);
+    const p = i * 4;
+    pixels[p]     = r;
+    pixels[p + 1] = g;
+    pixels[p + 2] = b;
+    pixels[p + 3] = 255;
+  }
+
+  // PLT top-to-bottom → vertikal spiegeln
+  const rowBytes = w * 4;
+  const tmp = new Uint8ClampedArray(rowBytes);
+  for (let row = 0; row < (h >> 1); row++) {
+    const top = row * rowBytes;
+    const bot = (h - 1 - row) * rowBytes;
+    tmp.set(pixels.subarray(top, top + rowBytes));
+    pixels.copyWithin(top, bot, bot + rowBytes);
+    pixels.set(tmp, bot);
+  }
+
+  const cvs = tex.image;
+  cvs.getContext('2d').putImageData(new ImageData(pixels, w, h), 0, 0);
+  tex.needsUpdate = true;
+}
+
+// Alle PLT-Texturen im Cache neu rendern (nach Layer-Auswahl)
+function reapplyAllPLTPalettes() {
+  for (const tex of Object.values(textureCache)) {
+    if (tex && tex.userData && tex.userData.isPLT) {
+      applyPLTPalette(tex);
+    }
+  }
+}
+
