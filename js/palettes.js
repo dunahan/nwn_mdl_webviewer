@@ -73,15 +73,18 @@ function getPaletteSwatchHex(layerIdx, row) {
     0: PLT_SKIN_SWATCH,
     1: PLT_HAIR_SWATCH,
     4: PLT_CLOTH_SWATCH,
+    5: PLT_CLOTH_SWATCH,   // Cloth 2 = identisch mit Cloth 1
     6: PLT_LEATH_SWATCH,
+    7: PLT_LEATH_SWATCH,   // Leather 2 = identisch mit Leather 1
     8: PLT_TATTOO_SWATCH,
+    9: PLT_TATTOO_SWATCH,  // Tattoo 2 = identisch mit Tattoo 1
   };
   const tbl = tables[layerIdx];
   if (tbl) {
     const v = tbl[row] || 0x888888;
     return '#' + v.toString(16).padStart(6, '0');
   }
-  // Fallback für Layer ohne eingebettete Palette (Metal 1/2, Cloth 2, Leather 2, Tattoo 2)
+  // Fallback für Layer ohne eingebettete Palette (Metal 1/2)
   return PLT_LAYER_COLORS[layerIdx] || '#888888';
 }
 

@@ -142,7 +142,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg);
 }
 #node-list::-webkit-scrollbar { width: 4px; }
 #node-list::-webkit-scrollbar-track { background: transparent; }
-#node-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+#node-list::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 2px; }
 
 .node-item {
   display: flex; align-items: center; gap: 6px;
@@ -273,7 +273,7 @@ input[type=range] {
   padding: 6px 12px 8px; font-size: 10px; line-height: 1.8;
 }
 #log-entries::-webkit-scrollbar { width: 4px; }
-#log-entries::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+#log-entries::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 2px; }
 .log-entry { display: flex; gap: 8px; align-items: baseline; }
 .log-entry.log-error .log-icon { color: #e05050; }
 .log-entry.log-warn  .log-icon { color: #e0a030; }
@@ -297,6 +297,7 @@ input[type=range] {
 
 /* Scrollbar for sidebar */
 #sidebar ::-webkit-scrollbar { width: 4px; }
+#sidebar ::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 2px; }
 
 /* ── Animations-Panel ── */
 #anim-panel {
