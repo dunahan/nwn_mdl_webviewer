@@ -189,15 +189,14 @@ function setStatus(msg) { document.getElementById('status-msg').textContent = ms
 // ─────────────────────────────────────────────
 
 // Repräsentative Farben pro Layer (Platzhalter bis zum echten Paletten-Mapping)
-const PLT_LAYER_NAMES  = ['Skin','Hair','Metal 1','Metal 2','Cloth 1','Cloth 2','Leather 1','Leather 2','Tattoo 1','Tattoo 2'];
-const PLT_LAYER_COLORS = ['#e8a880','#7a5030','#b8c0cc','#c8a44a','#5878b8','#b85878','#8a6040','#504030','#4888b8','#b87048'];
+// const PLT_LAYER_NAMES  = ['Skin','Hair','Metal 1','Metal 2','Cloth 1','Cloth 2','Leather 1','Leather 2','Tattoo 1','Tattoo 2'];
+// const PLT_LAYER_COLORS = ['#e8a880','#7a5030','#b8c0cc','#c8a44a','#5878b8','#b85878','#8a6040','#504030','#4888b8','#b87048'];
 
 function buildPLTPanel() {
   const panel  = document.getElementById('plt-panel');
   const listEl = document.getElementById('plt-layer-list');
   if (!panel || !listEl) return;
 
-  // Alle PLT-Einträge im Textur-Cache suchen
   const pltEntries = Object.entries(textureCache)
     .filter(([, tex]) => tex && tex.userData && tex.userData.isPLT);
 
@@ -210,12 +209,10 @@ function buildPLTPanel() {
   listEl.innerHTML = '';
 
   for (const [texName, tex] of pltEntries) {
-    // Bei mehreren PLT-Texturen: Dateiname als Trenner
     if (pltEntries.length > 1) {
       const label = document.createElement('div');
       label.style.cssText = 'font-size:10px;color:var(--muted);margin:6px 0 3px;' +
-                            'letter-spacing:1px;text-transform:uppercase;border-top:' +
-                            '1px solid var(--border);padding-top:6px;';
+        'letter-spacing:1px;text-transform:uppercase;border-top:1px solid var(--border);padding-top:6px;';
       label.textContent = texName;
       listEl.appendChild(label);
     }
@@ -224,13 +221,13 @@ function buildPLTPanel() {
 
     for (let i = 0; i < 10; i++) {
       const used = usedLayers[i];
+      // Layer-Header-Zeile
       const item = document.createElement('div');
       item.className = 'plt-layer-item' + (used ? ' used' : '');
-      item.dataset.layer = i;
 
       const dot = document.createElement('div');
       dot.className = 'plt-layer-dot';
-      dot.style.background = PLT_LAYER_COLORS[i];
+      dot.style.background = getPaletteSwatchHex(i, pltLayerRows[i]);
       item.appendChild(dot);
 
       const nameSpan = document.createElement('span');
@@ -243,9 +240,66 @@ function buildPLTPanel() {
       tag.textContent = used ? '●' : '○';
       item.appendChild(tag);
 
-      listEl.appendChild(item);
+      // Aufklapp-Pfeil für Color-Picker nur wenn Palette vorhanden und Layer benutzt
+      if (used && hasPalette(i)) {
+        const arrow = document.createElement('span');
+        arrow.className = 'plt-pick-arrow';
+        arrow.textContent = '▶';
+        arrow.style.cssText = 'font-size:8px;color:var(--muted);margin-left:2px;transition:transform 0.2s;flex-shrink:0;';
+        item.appendChild(arrow);
+        item.style.cursor = 'pointer';
+
+        const picker = _buildLayerPicker(i, dot);
+        picker.style.display = 'none'; // collapsed by default
+
+        item.addEventListener('click', () => {
+          const open = picker.style.display !== 'none';
+          picker.style.display = open ? 'none' : 'flex';
+          arrow.style.transform = open ? '' : 'rotate(90deg)';
+        });
+
+        listEl.appendChild(item);
+        listEl.appendChild(picker);
+      } else {
+        listEl.appendChild(item);
+      }
     }
   }
+
+  // Beim ersten Aufbau direkt mit Paletten rendern
+  reapplyAllPLTPalettes();
+}
+
+// hier Scrollbalken eingefügt
+function _buildLayerPicker(layerIdx, dotEl) {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:2px;padding:4px 0 6px 18px;max-height:120px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--scrollbar) transparent;';
+  wrap.dataset.layerPicker = layerIdx;
+
+  const rows = hasPalette(layerIdx) ? 176 : 0;
+  for (let row = 0; row < rows; row++) {
+    const hex = getPaletteSwatchHex(layerIdx, row);
+    const sw = document.createElement('div');
+    sw.style.cssText = `width:12px;height:12px;border-radius:2px;background:${hex};cursor:pointer;flex-shrink:0;`;
+    sw.title = 'Zeile ' + row;
+    if (row === pltLayerRows[layerIdx]) {
+      sw.style.outline = '1.5px solid var(--gold)';
+      sw.style.outlineOffset = '1px';
+    }
+    sw.addEventListener('click', () => {
+      pltLayerRows[layerIdx] = row;
+      reapplyAllPLTPalettes();
+      // Auswahl-Highlight aktualisieren
+      wrap.querySelectorAll('div').forEach((s, idx) => {
+        s.style.outline = (idx === row) ? '1.5px solid var(--gold)' : '';
+        s.style.outlineOffset = (idx === row) ? '1px' : '';
+      });
+      // Dot-Farbe aktualisieren
+      dotEl.style.background = hex;
+    });
+    wrap.appendChild(sw);
+  }
+  return wrap;
 }
 
 function togglePLTPanel() {
