@@ -57,8 +57,8 @@ function getPaletteSwatchHex(layerIdx, row) {
   const tables = {
     0: PLT_SKIN_SWATCH,
     1: PLT_HAIR_SWATCH,
-    2: PLT_METAL1_SWATCH,
-    3: PLT_METAL2_SWATCH,
+    2: PLT_METAL_SWATCH,   // Metal 1 = ähnlich wie Metal 1´2
+    3: PLT_METAL_SWATCH,   
     4: PLT_CLOTH_SWATCH,
     5: PLT_CLOTH_SWATCH,   // Cloth 2 = identisch mit Cloth 1
     6: PLT_LEATH_SWATCH,
