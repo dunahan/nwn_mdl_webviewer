@@ -14,7 +14,7 @@ const I18N_BUNDLE = {
   en: {
     _meta: { language: 'English', code: 'en' },
     logo_subtitle:'Neverwinter Nights 1 · Enhanced Edition',
-    drop_title:'Drop MDL + TGA here', drop_or:'or click to open',
+    drop_title:'Drop MDL + TGA/DDS/PLT here', drop_or:'or click to open',
     drop_hint:'Multiple files at once supported',
     textures_heading:'Textures', scene_graph:'Scene Graph',
     no_file_loaded:'No file loaded', ctrl_wireframe:'Wireframe',
@@ -55,12 +55,26 @@ const I18N_BUNDLE = {
     super_mdl_error:'MDL parse error: {name}',
     super_pending_warn:'Model "{name}" references supermodel "{super}".',
     super_pending_info:'→ Please load "{super}.mdl" additionally to activate animations.',
-    super_pending_status:'Supermodel "{super}" required → please load additionally.'
+    super_pending_status:'Supermodel "{super}" required → please load additionally.',
+    plt_heading:          'PLT Layers',
+    sidebar_toggle_title: 'Toggle sidebar',
+    log_toggle_title:     'Toggle log',
+    plt_row_label:        'Row ',
+    plt_layer_0:          'Skin',
+    plt_layer_1:          'Hair',
+    plt_layer_2:          'Metal 1',
+    plt_layer_3:          'Metal 2',
+    plt_layer_4:          'Cloth 1',
+    plt_layer_5:          'Cloth 2',
+    plt_layer_6:          'Leather 1',
+    plt_layer_7:          'Leather 2',
+    plt_layer_8:          'Tattoo 1',
+    plt_layer_9:          'Tattoo 2'
   },
   de: {
     _meta: { language: 'Deutsch', code: 'de' },
     logo_subtitle:'Neverwinter Nights 1 · Enhanced Edition',
-    drop_title:'MDL + TGA ablegen', drop_or:'oder klicken zum Öffnen',
+    drop_title:'MDL + TGA/DDS/PLT ablegen', drop_or:'oder klicken zum Öffnen',
     drop_hint:'Mehrere Dateien gleichzeitig möglich',
     textures_heading:'Texturen', scene_graph:'Szenen-Graph',
     no_file_loaded:'Keine Datei geladen', ctrl_wireframe:'Gitterlinien',
@@ -101,7 +115,21 @@ const I18N_BUNDLE = {
     super_mdl_error:'MDL-Fehler: {name}',
     super_pending_warn:'Modell "{name}" verweist auf Supermodel "{super}".',
     super_pending_info:'→ Bitte "{super}.mdl" zusätzlich laden um Animationen zu aktivieren.',
-    super_pending_status:'Supermodel "{super}" benötigt → bitte zusätzlich laden.'
+    super_pending_status:'Supermodel "{super}" benötigt → bitte zusätzlich laden.',
+    plt_heading:          'PLT Layer',
+    sidebar_toggle_title: 'Sidebar ein-/ausblenden',
+    log_toggle_title:     'Log ein-/ausblenden',
+    plt_row_label:        'Zeile ',
+    plt_layer_0:          'Haut',
+    plt_layer_1:          'Haar',
+    plt_layer_2:          'Metall 1',
+    plt_layer_3:          'Metall 2',
+    plt_layer_4:          'Stoff 1',
+    plt_layer_5:          'Stoff 2',
+    plt_layer_6:          'Leder 1',
+    plt_layer_7:          'Leder 2',
+    plt_layer_8:          'Tattoo 1',
+    plt_layer_9:          'Tattoo 2'
   }
 };
 
@@ -129,40 +157,55 @@ function applyI18n() {
 
 // Sprache wechseln — funktioniert immer (eingebettet oder per fetch)
 async function switchLanguage(code) {
-  // 1. Eingebettet vorhanden?
+  // --- 1. SPRACHDATEN LADEN ---
   if (I18N_BUNDLE[code]) {
+    // A. Eingebettete Sprache (en / de)
     LANG = Object.assign({}, I18N_FALLBACK, I18N_BUNDLE[code]);
     currentLangCode = code;
-    applyI18n();
-    setStatus(fmt('status_lang_loaded', { lang: I18N_BUNDLE[code]._meta.language }));
-    // URL-Parameter aktualisieren (ohne Seiten-Reload)
-    const url = new URL(window.location);
-    url.searchParams.set('lang', code);
-    history.replaceState(null, '', url);
-    return;
-  }
-  // 2. Externe JSON-Datei (für eigene Übersetzungen, benötigt HTTP-Server)
-  try {
-    const resp = await fetch('lang/' + code + '.json');
-    if (!resp.ok) throw new Error(resp.status);
-    const data = await resp.json();
-    LANG = Object.assign({}, I18N_FALLBACK, data);
-    currentLangCode = code;
-    // Dropdown mit neuer Option befüllen falls noch nicht vorhanden
-    const sel = document.getElementById('lang-select');
-    if (sel && !sel.querySelector('option[value="' + code + '"]')) {
-      const opt = document.createElement('option');
-      opt.value = code; opt.textContent = data._meta?.language || code;
-      sel.appendChild(opt);
+  } else {
+    // B. Externe JSON-Datei (für eigene Übersetzungen)
+    try {
+      const resp = await fetch('lang/' + code + '.json');
+      if (!resp.ok) throw new Error(resp.status);
+      const data = await resp.json();
+      LANG = Object.assign({}, I18N_FALLBACK, data);
+      currentLangCode = code;
+      
+      // Dropdown mit neuer Option befüllen falls noch nicht vorhanden
+      const sel = document.getElementById('lang-select');
+      if (sel && !sel.querySelector('option[value="' + code + '"]')) {
+        const opt = document.createElement('option');
+        opt.value = code; opt.textContent = data._meta?.language || code;
+        sel.appendChild(opt);
+      }
+    } catch (e) {
+      setStatus(L('status_lang_fallback'));
+      return; // Bei Fehler abbrechen, UI nicht aktualisieren
     }
-    applyI18n();
-    setStatus(fmt('status_lang_loaded', { lang: data._meta?.language || code }));
-    const url = new URL(window.location);
-    url.searchParams.set('lang', code);
-    history.replaceState(null, '', url);
-  } catch (e) {
-    setStatus(L('status_lang_fallback'));
   }
+
+  // --- 2. UI AKTUALISIEREN (Wird jetzt immer erreicht!) ---
+  
+  applyI18n(); // Übersetzt statisches HTML (data-i18n)
+  
+  // Dynamische UI-Elemente neu zeichnen
+  if (typeof currentModel !== 'undefined' && currentModel) {
+    buildNodeList(currentModel); 
+    if (typeof showModelInfo === 'function') {
+      showModelInfo(currentModel, window.lastVertCount || 0, window.lastFaceCount || 0);
+    }
+  }
+
+  // PLT Panel immer neu bauen, da es von textureCache abhängt
+  if (typeof buildPLTPanel === 'function') {
+    buildPLTPanel(); // Hier greift nun das L('plt_layer_' + i)
+  }
+  
+  // Statusleiste und URL-Parameter aktualisieren
+  setStatus(fmt('status_lang_loaded', { lang: LANG._meta?.language || currentLangCode }));
+  const url = new URL(window.location);
+  url.searchParams.set('lang', currentLangCode);
+  history.replaceState(null, '', url);
 }
 
 // Beim Start: Sprache aus URL-Parameter oder Browser-Sprache ermitteln
@@ -176,5 +219,3 @@ async function loadLanguage() {
   }
   await switchLanguage(code);
 }
-
-

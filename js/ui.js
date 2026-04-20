@@ -232,7 +232,7 @@ function buildPLTPanel() {
 
       const nameSpan = document.createElement('span');
       nameSpan.className = 'plt-layer-name';
-      nameSpan.textContent = PLT_LAYER_NAMES[i];
+      nameSpan.textContent = L('plt_layer_' + i);
       item.appendChild(nameSpan);
 
       const tag = document.createElement('span');
@@ -281,7 +281,7 @@ function _buildLayerPicker(layerIdx, dotEl) {
     const hex = getPaletteSwatchHex(layerIdx, row);
     const sw = document.createElement('div');
     sw.style.cssText = `width:12px;height:12px;border-radius:2px;background:${hex};cursor:pointer;flex-shrink:0;`;
-    sw.title = 'Zeile ' + row;
+    sw.title = L('plt_row_label') + row;
     if (row === pltLayerRows[layerIdx]) {
       sw.style.outline = '1.5px solid var(--gold)';
       sw.style.outlineOffset = '1px';
