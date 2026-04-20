@@ -9,7 +9,7 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.outputEncoding = THREE.SRGBColorSpace;
 renderer.setClearColor(0x0a0c0f);
 
 const scene  = new THREE.Scene();
