@@ -155,58 +155,6 @@ function applyI18n() {
   if (sel) sel.value = currentLangCode;
 }
 
-/* Sprache wechseln — funktioniert immer (eingebettet oder per fetch)
-async function switchLanguage(code) {
-  // 1. Eingebettet vorhanden?
-  if (I18N_BUNDLE[code]) {
-    LANG = Object.assign({}, I18N_FALLBACK, I18N_BUNDLE[code]);
-    currentLangCode = code;
-    applyI18n();
-    setStatus(fmt('status_lang_loaded', { lang: I18N_BUNDLE[code]._meta.language }));
-    // URL-Parameter aktualisieren (ohne Seiten-Reload)
-    const url = new URL(window.location);
-    url.searchParams.set('lang', code);
-    history.replaceState(null, '', url);
-//  return;
-  }
-  // 2. Externe JSON-Datei (für eigene Übersetzungen, benötigt HTTP-Server)
-  try {
-    const resp = await fetch('lang/' + code + '.json');
-    if (!resp.ok) throw new Error(resp.status);
-    const data = await resp.json();
-    LANG = Object.assign({}, I18N_FALLBACK, data);
-    currentLangCode = code;
-    
-    // Dropdown mit neuer Option befüllen falls noch nicht vorhanden
-    const sel = document.getElementById('lang-select');
-    if (sel && !sel.querySelector('option[value="' + code + '"]')) {
-      const opt = document.createElement('option');
-      opt.value = code; opt.textContent = data._meta?.language || code;
-      sel.appendChild(opt);
-    }
-    
-    applyI18n();
-    
-    // NEU: Dynamische UI-Elemente neu zeichnen, falls Daten vorhanden sind
-    if (typeof currentModel !== 'undefined' && currentModel) {
-      buildNodeList(currentModel); 
-      showModelInfo(currentModel, lastVertCount, lastFaceCount); // Variablen ggf. anpassen
-    }
-  
-    // PLT Panel immer neu bauen, da es von textureCache abhängt
-    if (typeof buildPLTPanel === 'function') {
-      buildPLTPanel();
-    }
-    
-    setStatus(fmt('status_lang_loaded', { lang: data._meta?.language || code }));
-    const url = new URL(window.location);
-    url.searchParams.set('lang', code);
-    history.replaceState(null, '', url);
-  } catch (e) {
-    setStatus(L('status_lang_fallback'));
-  }
-}*/
-
 // Sprache wechseln — funktioniert immer (eingebettet oder per fetch)
 async function switchLanguage(code) {
   // --- 1. SPRACHDATEN LADEN ---
