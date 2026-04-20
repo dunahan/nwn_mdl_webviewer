@@ -165,7 +165,7 @@ All error sources now write to the panel: TGA, DDS, MDL and FileReader errors �
 ## 🗺️ Roadmap
 
 - [x] Texture loading (TGA via `tga.js`, DDS support)
-- [ ] Animation playback (keyframe interpolation)
+- [x] Animation playback (keyframe interpolation)
 - [ ] Export to glTF/OBJ
 - [ ] Multiple file loading (supermodel chain)
 - [ ] Walkmesh visualisation overlay

@@ -75,8 +75,14 @@ http://localhost:8080/?lang=en
 | `nd_*` | Node detail panel field labels |
 | `info_*` | Model info panel field labels |
 | `vis_toggle_title` | Tooltip for the visibility toggle button |
+| `sidebar_toggle_title` | Tooltip to collapse/expand the sidebar |
+| `log_toggle_title` | Tooltip to collapse/expand the activity log |
 | `status_*` | Dynamic status messages (`{placeholder}` tokens are replaced) |
+| `super_* ` | Supermodel and animation merging logic messages |
 | `err_*` | Error messages |
+| `plt_heading` | Heading for the PLT (Pixel Look-up Table) color picker |
+| `plt_row_label` | Label for color rows in the PLT picker |
+| `plt_layer_*` | "Individual layer names for PLT textures (Skin, Hair, Metal, etc.)" |
 
 ---
 

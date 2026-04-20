@@ -342,6 +342,19 @@ function buildScene(model) {
 
   saveGeometryPose();
   buildAnimUI(model);
+  
+  // ── Schritt 3: Skin-Meshes initial in Rest-Pose bringen ──────────────────────
+  // applySkinning() muss auch ohne Animationen einmal aufgerufen werden,
+  // damit die Skin-Vertices vom lokalen Skin-Node-Space (nur vertex_local)
+  // in den Model-Space transformiert werden (vertex_local + skin_node_pivot).
+  // Bei Modellen mit Animationen geschieht das erst durch selectAnim() →
+  // applyAnimFrame() → applySkinning() – hier stellt der direkte Aufruf
+  // sicher, dass auch reine Geometrie-Modelle (z.B. Umhang ohne Animationen)
+  // korrekt positioniert sind.
+  // Da die Bones jetzt in der Geometry-Pose stehen (= Bind-Pose), ergibt sich
+  // skinMat = currentBone × inverseBind = identity, d.h. jeder Vertex landet
+  // exakt an seiner Bind-Position (vertex_local + skin_node_pivot).
+  applySkinning();
 }
 
 // ─────────────────────────────────────────────

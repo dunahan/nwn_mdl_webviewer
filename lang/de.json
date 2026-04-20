@@ -8,7 +8,7 @@
 
   "logo_subtitle":        "Neverwinter Nights 1 · Enhanced Edition",
 
-  "drop_title":           "MDL + TGA ablegen",
+  "drop_title":           "MDL + TGA/DDS/PLT ablegen",
   "drop_or":              "oder klicken zum Öffnen",
   "drop_hint":            "Mehrere Dateien gleichzeitig möglich",
 
@@ -90,5 +90,21 @@
 
   "err_no_nodes":         "Keine Nodes gefunden. Ist die Datei im ASCII-Format?",
   "err_parse_title":      "Fehler beim Parsen:",
-  "err_parse_hint":       "Stellen Sie sicher, dass es sich um eine decompilierte ASCII .mdl Datei handelt."
+  "err_parse_hint":       "Stellen Sie sicher, dass es sich um eine decompilierte ASCII .mdl Datei handelt.",
+
+  "sidebar_toggle_title": "Sidebar ein-/ausblenden",
+  "log_toggle_title":     "Log ein-/ausblenden",
+
+  "plt_heading":          "PLT Layers",
+  "plt_row_label":        "Zeile ",
+  "plt_layer_0":          "Haut",
+  "plt_layer_1":          "Haar",
+  "plt_layer_2":          "Metall 1",
+  "plt_layer_3":          "Metall 2",
+  "plt_layer_4":          "Stoff 1",
+  "plt_layer_5":          "Stoff 2",
+  "plt_layer_6":          "Leder 1",
+  "plt_layer_7":          "Leder 2",
+  "plt_layer_8":          "Tattoo 1",
+  "plt_layer_9":          "Tattoo 2"
 }
