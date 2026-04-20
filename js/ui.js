@@ -133,7 +133,8 @@ function toggleNormals() {
   const on = btn.classList.contains('active');
   if (modelGroup) {
     modelGroup.traverse(child => {
-      if (child.isMesh && !child.userData.isWireframe && child.material.isMeshPhongMaterial) {
+    //if (child.isMesh && !child.userData.isWireframe && child.material.isMeshPhongMaterial) {
+      if (child.isMesh && !child.userData.isWireframe && child.material.isMeshStandardMaterial) {
         child.material.flatShading = !on;
         child.material.needsUpdate = true;
       }

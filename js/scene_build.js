@@ -77,7 +77,7 @@ function buildScene(model) {
       const texHasAlpha = tex ? (tex.userData.hasAlpha === true) : false;
       const useTexAlpha  = node.transparencyhint === 1 && texHasAlpha;
       const useMeshAlpha = node.alpha < 0.99;
-
+/*
       const mat = new THREE.MeshPhongMaterial({
         color:       tex ? new THREE.Color(1, 1, 1) : new THREE.Color(d[0] || 0.8, d[1] || 0.8, d[2] || 0.8),
         map:         tex || null,
@@ -90,6 +90,27 @@ function buildScene(model) {
                        Math.min(node.specular[2], 0.15)
                      ),
         shininess:   node.shininess,   // direkt, ohne ×128
+        side:        THREE.DoubleSide,
+        transparent: useMeshAlpha || useTexAlpha,
+        opacity:     node.alpha,
+        alphaTest:   useTexAlpha ? 0.1 : 0,
+        depthWrite:  !useTexAlpha,
+      });
+*/
+
+// Update für r152
+// Phong-Werte auf PBR abbilden:
+//   shininess (0–128+) → roughness (1.0 = rau, 0.1 = glatt)
+//   specular-Intensität → metalness (NWN-Modelle sind meist nicht-metallisch)
+      const roughness = Math.max(0.1, 1.0 - Math.min(node.shininess / 64.0, 0.9));
+      const specMax   = Math.max(node.specular[0], node.specular[1], node.specular[2]);
+      const metalness = Math.min(specMax * 1.5, 0.6);
+
+      const mat = new THREE.MeshStandardMaterial({
+        color:       tex ? new THREE.Color(1, 1, 1) : new THREE.Color(d[0] || 0.8, d[1] || 0.8, d[2] || 0.8),
+        map:         tex || null,
+        roughness,
+        metalness,
         side:        THREE.DoubleSide,
         transparent: useMeshAlpha || useTexAlpha,
         opacity:     node.alpha,
