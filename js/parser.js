@@ -156,6 +156,9 @@ function parseNode(lines, start) {
     orientation: [0, 0, 0, 1],  // quaternion x y z w
     scale: 1,
     bitmap: '',
+    materialname: '',
+    textures: {},     // index → name (aus MDL-Node, z.B. texture0, texture1 ...)
+    renderhint: '',   // 'NormalAndSpecMapped' | 'NormalTangents' | ''
     verts: [], tverts: [], normals: [], faces: [],
     ambient: [0.2, 0.2, 0.2],
     diffuse: [0.8, 0.8, 0.8],
@@ -179,19 +182,30 @@ function parseNode(lines, start) {
     const t = tok(i);
     const k = (t[0] || '').toLowerCase();
 
-    if      (k === 'parent')      node.parent = t[1] || 'NULL';
-    else if (k === 'position')    node.position = [num(t[1]), num(t[2]), num(t[3])];
-    else if (k === 'orientation') node.orientation = [num(t[1]), num(t[2]), num(t[3]), num(t[4])];
-    else if (k === 'scale')       node.scale = num(t[1]) || 1;
-    else if (k === 'bitmap')      node.bitmap = (t[1] || '').toLowerCase();
-    else if (k === 'ambient')     node.ambient = [num(t[1]), num(t[2]), num(t[3])];
-    else if (k === 'diffuse')     node.diffuse = [num(t[1]), num(t[2]), num(t[3])];
-    else if (k === 'specular')    node.specular = [num(t[1]), num(t[2]), num(t[3])];
-    else if (k === 'shininess')   node.shininess = num(t[1]);
-    else if (k === 'render')      node.render = parseInt(t[1]) || 0;
-    else if (k === 'alpha')       node.alpha = num(t[1]);
-    else if (k === 'tilefade')    node.tilefade = parseInt(t[1]) || 0;
-    else if (k === 'transparencyhint') node.transparencyhint = parseInt(t[1]) || 0;
+    if      (k === 'parent')            node.parent = t[1] || 'NULL';
+    else if (k === 'position')          node.position = [num(t[1]), num(t[2]), num(t[3])];
+    else if (k === 'orientation')       node.orientation = [num(t[1]), num(t[2]), num(t[3]), num(t[4])];
+    else if (k === 'scale')             node.scale = num(t[1]) || 1;
+    else if (k === 'bitmap')            node.bitmap = (t[1] || '').toLowerCase();
+    else if (k === 'materialname')      node.materialname = (t[1] || '').toLowerCase();
+    else if (/^texture\d+$/.test(k)) {
+      const idx = parseInt(k.replace('texture', ''));
+      if (!isNaN(idx)) {
+        const val = (t[1] || '').toLowerCase();
+        node.textures[idx] = (val === 'null' || val === '') ? null : val;
+      }
+    }
+    else if (k === 'renderhint') {
+      node.renderhint = t[1] || '';
+    }
+    else if (k === 'ambient')           node.ambient = [num(t[1]), num(t[2]), num(t[3])];
+    else if (k === 'diffuse')           node.diffuse = [num(t[1]), num(t[2]), num(t[3])];
+    else if (k === 'specular')          node.specular = [num(t[1]), num(t[2]), num(t[3])];
+    else if (k === 'shininess')         node.shininess = num(t[1]);
+    else if (k === 'render')            node.render = parseInt(t[1]) || 0;
+    else if (k === 'alpha')             node.alpha = num(t[1]);
+    else if (k === 'tilefade')          node.tilefade = parseInt(t[1]) || 0;
+    else if (k === 'transparencyhint')  node.transparencyhint = parseInt(t[1]) || 0;
     else if (k === 'verts') {
       const count = parseInt(t[1]) || 0;
       for (let j = 0; j < count; j++) {

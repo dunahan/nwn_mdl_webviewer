@@ -133,7 +133,6 @@ function applySkinning() {
 
         // Aktueller Bone in NWN-Space
         _sk.boneMat.multiplyMatrices(_sk.mgInv, boneObj.matrixWorld);
-        // skinMatrix = currentBoneNWN × inverseBoneBindNWN
         _sk.skinMat.multiplyMatrices(_sk.boneMat, bindInv[bone]);
 
         _sk.vTmp.copy(_sk.vBind).applyMatrix4(_sk.skinMat);

@@ -9,29 +9,37 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.setClearColor(0x0a0c0f);
+
+// Update für r152
+// r152: ColorManagement ist standardmäßig true — hier explizit gesetzt.
+// Hex-Farben werden automatisch von sRGB nach Linear konvertiert.
+THREE.ColorManagement.enabled = true;
 
 const scene  = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 5000);
 camera.position.set(2, 2, 4);
 camera.lookAt(0, 0, 0);
 
-// Lights
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.35);
+// Lights, updates für r152
+//const ambientLight = new THREE.AmbientLight(0xffffff, 0.35);
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambientLight);
 
-const dirLight = new THREE.DirectionalLight(0xfff0d0, 1.0);
+//const dirLight = new THREE.DirectionalLight(0xfff0d0, 1.0);
+const dirLight = new THREE.DirectionalLight(0xfff0d0, 1.4);
 dirLight.position.set(5, 10, 8);
 dirLight.castShadow = true;
 scene.add(dirLight);
 
-const dirLight2 = new THREE.DirectionalLight(0xd0e0ff, 0.4);
+//const dirLight2 = new THREE.DirectionalLight(0xd0e0ff, 0.4);
+const dirLight2 = new THREE.DirectionalLight(0xd0e0ff, 0.6);
 dirLight2.position.set(-6, 3, -5);
 scene.add(dirLight2);
 
-// Grid
-const gridHelper = new THREE.GridHelper(10, 20, 0x2a3040, 0x1a2030);
+// Grid, update für r152
+const gridHelper = new THREE.GridHelper(10, 20, 0x4a5a6a, 0x3a4858);
 scene.add(gridHelper);
 
 // Axes
@@ -46,6 +54,7 @@ let currentModel = null;
 let nodeObjects = {};    // name -> THREE.Object3D
 let selectedNodeName = null;
 let wireOpacity = 0;
+
 // Name des Supermodells das noch erwartet wird (null = keins ausstehend)
 let pendingSupermodel = null;
 

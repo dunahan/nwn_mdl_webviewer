@@ -6,6 +6,7 @@
 //  Textur-Cache  (key = basename lowercase, kein extension)
 // ─────────────────────────────────────────────
 const textureCache = {};   // 'c_badger' → THREE.Texture
+const invertedTexCache = {};  // verhindert Memory Leak bei wiederhotem applyTexturesToScene
 
 function basename(filename) {
   return filename.replace(/\.[^.]+$/, '').toLowerCase();
@@ -394,3 +395,44 @@ function reapplyAllPLTPalettes() {
   }
 }
 
+// ─────────────────────────────────────────────
+//  Specular-Map → Roughness-Map (invertiert)
+//
+//  NWN:EE Spec-Maps: hell = glänzend, dunkel = matt
+//  Three.js roughnessMap:  hell = rau,  dunkel = glatt
+//  → RGB-Kanäle invertieren: r=255-r, g=255-g, b=255-b
+//  Alpha-Kanal wird nicht verändert.
+//  Gibt eine neue CanvasTexture zurück (Original bleibt erhalten).
+// ─────────────────────────────────────────────
+function invertSpecToRoughnessMap(sourceTex, cacheKey) {
+  // Cache-Treffer: invertierte Version bereits vorhanden
+  if (cacheKey && invertedTexCache[cacheKey]) return invertedTexCache[cacheKey];
+
+  const src = sourceTex.image;
+  if (!src || !src.width) return sourceTex;
+
+  const w   = src.width;
+  const h   = src.height;
+  const cvs = document.createElement('canvas');
+  cvs.width = w; cvs.height = h;
+  const ctx = cvs.getContext('2d');
+  ctx.drawImage(src, 0, 0);
+
+  const imgData = ctx.getImageData(0, 0, w, h);
+  const d       = imgData.data;
+  for (let i = 0; i < d.length; i += 4) {
+    d[i]     = 255 - d[i];
+    d[i + 1] = 255 - d[i + 1];
+    d[i + 2] = 255 - d[i + 2];
+  }
+  ctx.putImageData(imgData, 0, 0);
+
+  const tex = new THREE.CanvasTexture(cvs);
+  tex.flipY  = false;
+  tex.wrapS  = THREE.RepeatWrapping;
+  tex.wrapT  = THREE.RepeatWrapping;
+  tex.needsUpdate = true;
+
+  if (cacheKey) invertedTexCache[cacheKey] = tex;
+  return tex;
+}

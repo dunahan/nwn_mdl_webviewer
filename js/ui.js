@@ -77,6 +77,77 @@ function selectNode(name) {
     extraRows = '<div class="nd-row"><span>' + L('nd_dangle_info_label') + '</span><span class="nd-val">' + L('nd_dangle_info') + '</span></div>';
   }
 
+  // ── MTR-Abschnitt ──────────────────────────────────────────────────
+  const mtrKey = n.materialname
+    ? n.materialname.toLowerCase()
+    : (n.bitmap ? n.bitmap.toLowerCase() : null);
+  const mtr = mtrKey ? (mtrCache[mtrKey] || null) : null;
+
+  let mtrSection = '';
+  if (mtr) {
+    // Texture-Slots mit Lade-Status
+    const mapSlots = [
+      { idx: 0, label: 'Diffuse'   },
+      { idx: 1, label: 'Normal'    },
+      { idx: 2, label: 'Specular'  },
+      { idx: 3, label: 'Roughness' },
+      { idx: 4, label: 'Height'    },
+      { idx: 5, label: 'Emissive'  },
+    ];
+
+    const texRows = mapSlots.map(slot => {
+      const texName = mtr.textures.hasOwnProperty(slot.idx) ? mtr.textures[slot.idx] : null;
+      if (texName === null && !mtr.textures.hasOwnProperty(slot.idx)) return ''; // Slot nicht im MTR
+      const loaded  = texName && textureCache[texName];
+      const missing = texName && !loaded;
+      const icon    = loaded ? '✓' : (missing ? '?' : '—');
+      const color   = loaded ? 'var(--gold2)' : (missing ? 'var(--amber)' : 'var(--muted)');
+      const display = texName || '—';
+      return '<div class="nd-row nd-mtr-row">' +
+        '<span>' + slot.label + '</span>' +
+        '<span class="nd-val">' +
+          '<span style="color:' + color + ';margin-right:3px">' + icon + '</span>' +
+          '<span style="color:' + (loaded ? 'var(--text)' : (missing ? 'var(--amber)' : 'var(--muted)')) + '">' +
+            display +
+          '</span>' +
+        '</span></div>';
+    }).filter(Boolean).join('');
+
+    // Renderhint
+    const rhVal   = mtr.renderhint || null;
+    const rhRow   = rhVal
+      ? '<div class="nd-row nd-mtr-row"><span>Renderhint</span>' +
+        '<span class="nd-val nd-mtr-hint">' + rhVal + '</span></div>'
+      : '';
+
+    // Parameter
+    const paramEntries = Object.entries(mtr.params);
+    const paramRows = paramEntries.map(([pname, p]) =>
+      '<div class="nd-row nd-mtr-row"><span>' + pname + '</span>' +
+      '<span class="nd-val">' + p.values.map(v => v.toFixed(3)).join(', ') + '</span></div>'
+    ).join('');
+
+    // Tangenten-Status
+    const geo = obj.geometry;
+    const hasTangents = geo && geo.userData && geo.userData.hasTangents;
+    const tanRow = '<div class="nd-row nd-mtr-row"><span>Tangents</span>' +
+      '<span class="nd-val">' +
+        '<span style="color:' + (hasTangents ? 'var(--gold2)' : 'var(--muted)') + ';margin-right:3px">' +
+          (hasTangents ? '✓' : '—') +
+        '</span>' +
+        '<span style="color:' + (hasTangents ? 'var(--text)' : 'var(--muted)') + '">' +
+          (hasTangents ? 'computed' : 'derivative') +
+        '</span>' +
+      '</span></div>';
+
+    mtrSection =
+      '<div class="nd-section-header">MTR · ' + mtrKey + '</div>' +
+      rhRow +
+      texRows +
+      tanRow +
+      (paramRows ? '<div class="nd-section-sub">Parameters</div>' + paramRows : '');
+  }
+
   detail.innerHTML =
     '<div class="nd-title">' + n.name + '</div>' +
     '<div class="nd-row"><span>' + L('nd_type')     + '</span><span class="nd-val">' + n.type + '</span></div>' +
@@ -87,7 +158,8 @@ function selectNode(name) {
     '<div class="nd-row"><span>' + L('nd_position') + '</span><span class="nd-val">' + n.position.map(v=>v.toFixed(3)).join(', ') + '</span></div>' +
     '<div class="nd-row"><span>' + L('nd_diffuse')  + '</span><span class="nd-val">' + n.diffuse.map(v=>v.toFixed(2)).join(', ') + '</span></div>' +
     '<div class="nd-row"><span>' + L('nd_alpha')    + '</span><span class="nd-val">' + n.alpha.toFixed(2) + '</span></div>' +
-    extraRows;
+    extraRows +
+    mtrSection;
 }
 
 function showModelInfo(model, verts, faces) {
@@ -133,7 +205,7 @@ function toggleNormals() {
   const on = btn.classList.contains('active');
   if (modelGroup) {
     modelGroup.traverse(child => {
-      if (child.isMesh && !child.userData.isWireframe && child.material.isMeshPhongMaterial) {
+      if (child.isMesh && !child.userData.isWireframe && child.material.isMeshStandardMaterial) {
         child.material.flatShading = !on;
         child.material.needsUpdate = true;
       }

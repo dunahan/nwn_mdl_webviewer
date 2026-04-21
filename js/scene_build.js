@@ -67,6 +67,17 @@ function buildScene(model) {
       if (hasNormals) geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
       else geo.computeVertexNormals();
 
+      // NEU — Tangenten berechnen wenn renderhint gesetzt
+      // computeTangents() benötigt: position + normal + uv — alle vorhanden.
+      // Skin-Meshes: einmalig in Bind-Pose, bleibt statisch während Animationen (akzeptabel für Viewer).
+      const needsTangents = node.renderhint &&
+        (node.renderhint.toLowerCase() === 'normalandspecmapped' ||
+         node.renderhint.toLowerCase() === 'normaltangents');
+      if (needsTangents) {
+        geo.computeTangents();
+        geo.userData.hasTangents = true;
+      }
+
       const d = node.diffuse;
       const bitmapKey = node.bitmap ? node.bitmap.toLowerCase() : '';
       const tex = bitmapKey ? (textureCache[bitmapKey] || null) : null;
@@ -78,18 +89,19 @@ function buildScene(model) {
       const useTexAlpha  = node.transparencyhint === 1 && texHasAlpha;
       const useMeshAlpha = node.alpha < 0.99;
 
-      const mat = new THREE.MeshPhongMaterial({
+      // Update für r152
+      // Phong-Werte auf PBR abbilden:
+      //   shininess (0–128+) → roughness (1.0 = rau, 0.1 = glatt)
+      //   specular-Intensität → metalness (NWN-Modelle sind meist nicht-metallisch)
+      const roughness = Math.max(0.1, 1.0 - Math.min(node.shininess / 64.0, 0.9));
+      const specMax   = Math.max(node.specular[0], node.specular[1], node.specular[2]);
+      const metalness = Math.min(specMax * 1.5, 0.6);
+
+      const mat = new THREE.MeshStandardMaterial({
         color:       tex ? new THREE.Color(1, 1, 1) : new THREE.Color(d[0] || 0.8, d[1] || 0.8, d[2] || 0.8),
         map:         tex || null,
-        // NWN nutzt ein einfaches diffuses Shading — Specular ist kaum sichtbar.
-        // node.shininess (z.B. 26) × 128 würde Hochglanz erzeugen; direkt nutzen ist korrekt.
-        // Specular-Farbe auf max. 0.15 begrenzen um ungewolltes Glänzen zu verhindern.
-        specular:    new THREE.Color(
-                       Math.min(node.specular[0], 0.15),
-                       Math.min(node.specular[1], 0.15),
-                       Math.min(node.specular[2], 0.15)
-                     ),
-        shininess:   node.shininess,   // direkt, ohne ×128
+        roughness,
+        metalness,
         side:        THREE.DoubleSide,
         transparent: useMeshAlpha || useTexAlpha,
         opacity:     node.alpha,
@@ -189,7 +201,6 @@ function buildScene(model) {
       obj.position.set(...node.position);
       obj.scale.setScalar(node.scale);
     }
-    // skin: position/quaternion/scale = Three.js-Default (0/identity/1)
 
     obj.name = node.name;
     obj.userData.nodeData = node;
