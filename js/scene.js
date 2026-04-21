@@ -9,7 +9,7 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.outputEncoding = THREE.SRGBColorSpace;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.setClearColor(0x0a0c0f);
 
 // Update für r152
@@ -39,8 +39,7 @@ dirLight2.position.set(-6, 3, -5);
 scene.add(dirLight2);
 
 // Grid, update für r152
-//const gridHelper = new THREE.GridHelper(10, 20, 0x2a3040, 0x1a2030);
-const gridHelper = new THREE.GridHelper(10, 20, 0x506070, 0x404f60);
+const gridHelper = new THREE.GridHelper(10, 20, 0x4a5a6a, 0x3a4858);
 scene.add(gridHelper);
 
 // Axes
@@ -55,6 +54,7 @@ let currentModel = null;
 let nodeObjects = {};    // name -> THREE.Object3D
 let selectedNodeName = null;
 let wireOpacity = 0;
+
 // Name des Supermodells das noch erwartet wird (null = keins ausstehend)
 let pendingSupermodel = null;
 

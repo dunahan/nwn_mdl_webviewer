@@ -2,23 +2,21 @@
    NWN MDL Viewer — File Loader & Supermodel Merge
    ═══════════════════════════════════════════════ */
 
-//  Multi-File Loader  (MDL + TGA/PNG gleichzeitig)
+//  Multi-File Loader  (MDL + Texturen gleichzeitig)
 // ─────────────────────────────────────────────
 function loadFiles(fileList) {
   if (!fileList || fileList.length === 0) return;
 
-  const files = Array.from(fileList);
+  const files    = Array.from(fileList);
   const mdlFiles = files.filter(f => f.name.toLowerCase().endsWith('.mdl') || f.name.toLowerCase().endsWith('.txt'));
   const texFiles = files.filter(f => /\.(tga|png|jpg|jpeg|dds|plt)$/i.test(f.name));
+  const mtrFiles = files.filter(f => /\.mtr$/i.test(f.name));
 
-  if (mdlFiles.length === 0 && texFiles.length === 0) {
+  if (mdlFiles.length === 0 && texFiles.length === 0 && mtrFiles.length === 0) {
     setStatus(L('status_no_files'));
     return;
   }
 
-  // MDL laden:
-  // - Ist ein Supermodel ausstehend und passt eine der Dateien → nur Animationen laden
-  // - Sonst: neue Session starten
   if (mdlFiles.length > 0) {
     const isSupermodelLoad = pendingSupermodel && currentModel &&
       mdlFiles.some(f => f.name.replace(/\.[^.]+$/, '').toLowerCase() === pendingSupermodel.toLowerCase());
@@ -30,8 +28,9 @@ function loadFiles(fileList) {
 
   setStatus(fmt('status_loading', { n: files.length }));
 
-  // 1. Alle Texturen laden
+  // Gesamtzähler: Texturen + MTR müssen beide fertig sein vor onAllTexReady
   let texPending = texFiles.length;
+  let mtrPending = mtrFiles.length;
   let texLoaded  = 0;
 
   function onAllTexReady() {
@@ -45,7 +44,33 @@ function loadFiles(fileList) {
     }
   }
 
-  if (texPending === 0) {
+  function checkAllReady() {
+    if (texPending === 0 && mtrPending === 0) onAllTexReady();
+  }
+
+  // MTR-Dateien als Text einlesen
+  for (const file of mtrFiles) {
+    const key = basename(file.name);
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        mtrCache[key] = parseMTR(ev.target.result);
+        logInfo(fmt('status_mtr_loaded', { name: file.name }));
+      } catch(err) {
+        logError(fmt('status_mtr_error', { name: file.name, msg: err.message }));
+      }
+      mtrPending--;
+      checkAllReady();
+    };
+    reader.onerror = () => {
+      logError(file.name + ' — ' + L('status_read_error'));
+      mtrPending--;
+      checkAllReady();
+    };
+    reader.readAsText(file);
+  }
+
+  if (texPending === 0 && mtrPending === 0) {
     onAllTexReady();
     return;
   }
@@ -66,13 +91,13 @@ function loadFiles(fileList) {
           setStatus(fmt('status_tga_error', { name: file.name, msg: err.message }));
         }
         texPending--;
-        if (texPending === 0) onAllTexReady();
+        checkAllReady();
       };
       reader.onerror = () => {
         logError(file.name + ' — ' + L('status_read_error'));
         setStatus(fmt('status_read_error'));
         texPending--;
-        if (texPending === 0) onAllTexReady();
+        checkAllReady();
       };
       reader.readAsArrayBuffer(file);
     } else if (ext === 'dds') {
@@ -88,13 +113,13 @@ function loadFiles(fileList) {
           setStatus(fmt('status_tga_error', { name: file.name, msg: err.message }));
         }
         texPending--;
-        if (texPending === 0) onAllTexReady();
+        checkAllReady();
       };
       reader.onerror = () => {
         logError(file.name + ' — ' + L('status_read_error'));
         setStatus(fmt('status_read_error'));
         texPending--;
-        if (texPending === 0) onAllTexReady();
+        checkAllReady();
       };
       reader.readAsArrayBuffer(file);
     } else if (ext === 'plt') {
@@ -110,13 +135,13 @@ function loadFiles(fileList) {
           setStatus(fmt('status_tga_error', { name: file.name, msg: err.message }));
         }
         texPending--;
-        if (texPending === 0) onAllTexReady();
+        checkAllReady();
       };
       reader.onerror = () => {
         logError(file.name + ' — ' + L('status_read_error'));
         setStatus(fmt('status_read_error'));
         texPending--;
-        if (texPending === 0) onAllTexReady();
+        checkAllReady();
       };
       reader.readAsArrayBuffer(file);
     } else {
@@ -132,10 +157,10 @@ function loadFiles(fileList) {
         texLoaded++;
         setStatus(fmt('status_tex_loaded', { name: file.name, n: texLoaded, total: texFiles.length }));
         texPending--;
-        if (texPending === 0) onAllTexReady();
+        checkAllReady();
       }, undefined, () => {
         texPending--;
-        if (texPending === 0) onAllTexReady();
+        checkAllReady();
       });
     }
   }

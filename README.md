@@ -132,6 +132,14 @@ nwn-mdl-viewer/
 | Inspect node | Click sidebar item |
 | Toggle visibility | Click ⬡ icon next to node |
 
+### Features for Enhanced Edition models (MTR)
+
+| Symbol | Meaning |
+| -- | -- |
+| $\textcolor{gold}{\textsf{✓ gold}}$ | Texture loaded and active |
+| $\textcolor{yellow}{\textsf{? amber}}$ | Referenced in MTR, but file not loaded |
+| $\textcolor{darkgrey}{\textsf{— grey}}$ | Slot not defined in MTR |
+
 ### Error Log
 
 - A ▲ button with a counter badge appears on the right side of the status bar.

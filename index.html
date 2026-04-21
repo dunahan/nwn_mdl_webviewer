@@ -30,11 +30,11 @@
 
     <div id="drop-zone" onclick="document.getElementById('file-input').click()">
       <span class="icon">⬡</span>
-      <strong data-i18n="drop_title">MDL + TGA ablegen</strong><br>
+      <strong data-i18n="drop_title">MDL + Texturen ablegen</strong><br>
       <span data-i18n="drop_or">oder klicken zum Öffnen</span><br>
       <small style="color:var(--muted)" data-i18n="drop_hint">Mehrere Dateien gleichzeitig möglich</small>
     </div>
-    <input type="file" id="file-input" accept=".mdl,.tga,.dds,.plt,.png,.jpg,.txt" multiple>
+    <input type="file" id="file-input" accept=".mdl,.tga,.dds,.plt,.mtr,.png,.jpg,.txt" multiple>
 
     <div id="texture-status" style="margin:0 12px 8px;display:none;">
       <div id="texture-header" onclick="toggleTextureList()">
@@ -158,6 +158,7 @@
 <script src="js/i18n.js"></script>
 <script src="js/plt_swatch.js"></script>
 <script src="js/palettes.js"></script>
+<script src="js/mtr.js"></script>
 <script src="js/parser.js"></script>
 <script src="js/scene.js"></script>
 <script src="js/scene_build.js"></script>

@@ -423,3 +423,37 @@ input[type=range] {
   max-height: 0;
   opacity: 0;
 }
+
+/* ── Node-Detail MTR-Abschnitt ── */
+.nd-section-header {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  color: var(--gold);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 3px;
+}
+.nd-section-sub {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.nd-mtr-row {
+  font-size: 10px;
+  line-height: 1.65;
+  color: var(--muted);
+}
+.nd-mtr-row .nd-val {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+.nd-mtr-hint {
+  color: var(--amber);
+  font-size: 9px;
+  letter-spacing: 0.5px;
+}
