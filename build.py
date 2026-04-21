@@ -58,9 +58,10 @@ def build():
     js_combined = '\n\n'.join(
         f'// ═══ {f} ═══\n{read(JS_DIR / f)}' for f in JS_ORDER
     )
+    replacement = f'<script>\n{js_combined}\n</script>'
     html = re.sub(
         r'<!-- NWN MDL Viewer — Module -->.*?(?=\n</body>)',
-        f'<script>\n{js_combined}\n</script>',
+        lambda m: replacement,
         html,
         flags=re.DOTALL
     )
