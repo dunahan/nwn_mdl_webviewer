@@ -20,7 +20,7 @@ SRC    = ROOT / 'index.html'
 CSS    = ROOT / 'css' / 'viewer.css'
 JS_DIR = ROOT / 'js'
 
-JJS_ORDER = [
+JS_ORDER = [
     'i18n.js',
     'plt_swatch.js',
     'palettes.js',
