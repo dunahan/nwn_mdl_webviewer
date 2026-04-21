@@ -22,6 +22,9 @@ JS_DIR = ROOT / 'js'
 
 JS_ORDER = [
     'i18n.js',
+    'plt_swatch.js',
+    'palettes.js',
+    'mtr.js',
     'parser.js',
     'scene.js',
     'scene_build.js',
@@ -52,13 +55,14 @@ def build():
     # Keep it — it's a <link rel="preconnect"> which is fine in single-file too.
 
     # 3. Inline all JS files
-    js_tags = '\n'.join(f'<script src="js/{f}"></script>' for f in JS_ORDER)
     js_combined = '\n\n'.join(
         f'// ═══ {f} ═══\n{read(JS_DIR / f)}' for f in JS_ORDER
     )
-    html = html.replace(
-        '<!-- NWN MDL Viewer — Module -->\n' + js_tags,
-        f'<script>\n{js_combined}\n</script>'
+    html = re.sub(
+        r'<!-- NWN MDL Viewer — Module -->.*?(?=\n</body>)',
+        f'<script>\n{js_combined}\n</script>',
+        html,
+        flags=re.DOTALL
     )
 
     # 4. Write output
