@@ -99,7 +99,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg);
   margin: 12px;
   border: 1px dashed var(--border);
   border-radius: 4px;
-  padding: 18px 10px;
+  padding: 10px 10px;
   text-align: center;
   cursor: pointer;
   transition: all 0.2s;
@@ -112,7 +112,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg);
   color: var(--gold2);
   background: rgba(200,164,74,0.05);
 }
-#drop-zone .icon { font-size: 26px; margin-bottom: 6px; display: block; }
+#drop-zone .icon { font-size: 20px; margin-bottom: 6px; display: block; }
 #file-input { display: none; }
 
 #model-info {
@@ -164,6 +164,38 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg);
 }
 .vis-toggle { cursor: pointer; font-size: 12px; color: var(--muted); flex-shrink: 0; }
 .vis-toggle:hover { color: var(--gold); }
+
+/* ── Node-Visibility-Toolbar ── */
+#node-toolbar {
+  display: none;          /* wird von buildNodeList() sichtbar gesetzt */
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 10px 6px;
+}
+.ntb-btn {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.ntb-btn:hover       { background: rgba(200,164,74,0.10); color: var(--gold); border-color: var(--gold); }
+.ntb-btn.ntb-active  { background: rgba(200,164,74,0.18); color: var(--gold); border-color: var(--gold); }
+/* "Alle/Keine" etwas heller/prominenter */
+#ntb-all, #ntb-none  { color: var(--text); }
+.ntb-sep {
+  width: 1px; height: 14px;
+  background: var(--border);
+  margin: 0 2px;
+  flex-shrink: 0;
+}
 
 .type-trimesh   { background: rgba(74,144,192,0.25); color: var(--mesh); }
 .type-danglymesh{ background: rgba(80,184,208,0.2);  color: #50b8d0; }
@@ -226,6 +258,113 @@ input[type=range] {
 #node-detail .nd-row { display: flex; justify-content: space-between; gap: 16px; color: var(--muted); line-height: 1.7; }
 #node-detail .nd-val { color: var(--text); }
 
+/* ── Mesh-Farben Dropdown (top-center im Viewport) ── */
+#color-dropdown {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+}
+#color-dropdown-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 5px 10px;
+  background: rgba(10,12,15,0.85);
+  backdrop-filter: blur(4px);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--muted);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+#color-dropdown-toggle:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+#color-dropdown-arrow {
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+}
+#color-dropdown.open #color-dropdown-arrow {
+  transform: rotate(180deg);
+}
+#color-dropdown-body {
+  display: none;
+  position: absolute;          /* ← neu: aus dem Fluss raus */
+  top: calc(100% + 3px);       /* ← neu: direkt unter dem Button */
+  left: 50%;                   /* ← neu: mittig zum Button */
+  transform: translateX(-50%); /* ← neu */
+  margin-top: 0;               /* statt margin-top: 3px */
+  background: rgba(10,12,15,0.92);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px 0 6px;
+  min-width: 200px;
+}
+#color-dropdown.open #color-dropdown-body {
+  display: block;
+}
+.cdrop-section {
+  padding: 0 10px 6px;
+}
+.cdrop-section + .cdrop-section {
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
+}
+.cdrop-heading {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+.cdrop-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 0;
+  gap: 8px;
+}
+.cdrop-row label {
+  color: var(--text);
+  font-size: 10px;
+  white-space: nowrap;
+  flex: 1;
+  cursor: default;
+}
+.cdrop-row input[type="color"] {
+  width: 28px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.cdrop-row input[type="color"]:hover {
+  border-color: var(--gold);
+}
+.cdrop-empty {
+  padding: 6px 10px;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: center;
+}
 /* ── Empty state ── */
 #empty-state {
   position: absolute; inset: 0;

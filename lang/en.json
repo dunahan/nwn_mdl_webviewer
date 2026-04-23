@@ -8,7 +8,7 @@
 
   "logo_subtitle":        "Neverwinter Nights 1 · Enhanced Edition",
 
-  "drop_title":           "Drop MDL + TGA/DDS/PLT here",
+  "drop_title":           "Drop MDL + Textures here",
   "drop_or":              "or click to open",
   "drop_hint":            "Multiple files at once supported",
 
@@ -16,6 +16,11 @@
 
   "scene_graph":          "Scene Graph",
   "no_file_loaded":       "No file loaded",
+  "ntb_all":              "All",
+  "ntb_none":             "None",
+  "colordrop_wok":        "WOK surfaces",
+  "colordrop_pwk":        "PWK regions",
+  "colordrop_label":      "WOK/PWK Mesh-Colors",
 
   "ctrl_wireframe":       "Wireframe",
   "ctrl_lighting":        "Lighting",
@@ -26,6 +31,8 @@
   "btn_rotate":           "Rotate",
   "btn_resetcam":         "↺ Camera",
   "btn_skeleton":         "Skeleton",
+  "btn_walkmesh":         "Walkmesh",
+  "btn_pwk":              "PWK",
 
   "anim_heading":         "Animations",
   "anim_speed":           "Speed:",

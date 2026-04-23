@@ -16,6 +16,11 @@
 
   "scene_graph":          "Szenen-Graph",
   "no_file_loaded":       "Keine Datei geladen",
+  "ntb_all":              "Alles",
+  "ntb_none":             "Nichts",
+  "colordrop_wok":        "WOK Oberflächen",
+  "colordrop_pwk":        "PWK Regionen",
+  "colordrop_label":      "WOK/PWK Mesh-Farben",
 
   "ctrl_wireframe":       "Gitterlinien",
   "ctrl_lighting":        "Beleuchtung",
@@ -26,6 +31,8 @@
   "btn_rotate":           "Rotation",
   "btn_resetcam":         "↺ Kamera",
   "btn_skeleton":         "Skelett",
+  "btn_walkmesh":         "Walkmesh",
+  "btn_pwk":              "PWK",
 
   "anim_heading":         "Animationen",
   "anim_speed":           "Tempo:",

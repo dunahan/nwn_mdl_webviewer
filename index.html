@@ -30,15 +30,15 @@
 
     <div id="drop-zone" onclick="document.getElementById('file-input').click()">
       <span class="icon">⬡</span>
-      <strong data-i18n="drop_title">MDL + Texturen ablegen</strong><br>
-      <span data-i18n="drop_or">oder klicken zum Öffnen</span><br>
-      <small style="color:var(--muted)" data-i18n="drop_hint">Mehrere Dateien gleichzeitig möglich</small>
+      <strong data-i18n="drop_title">Drop MDL + Textures here</strong><br>
+      <span data-i18n="drop_or">or click to open</span><br>
+      <small style="color:var(--muted)" data-i18n="drop_hint">Multiple files at once supported</small>
     </div>
-    <input type="file" id="file-input" accept=".mdl,.tga,.dds,.plt,.mtr,.png,.jpg,.txt" multiple>
+    <input type="file" id="file-input" accept=".mdl,.tga,.dds,.plt,.mtr,.wok,.pwk,.png,.jpg,.txt" multiple>
 
     <div id="texture-status" style="margin:0 12px 8px;display:none;">
       <div id="texture-header" onclick="toggleTextureList()">
-        <span data-i18n="textures_heading" style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">Texturen</span>
+        <span data-i18n="textures_heading" style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">Textures</span>
         <span class="tex-arrow open">▶</span>
       </div>
       <div id="texture-list" style="font-size:11px;line-height:1.8;"></div>
@@ -46,13 +46,26 @@
 
     <div id="model-info"></div>
 
-    <div id="section-title" data-i18n="scene_graph">Szenen-Graph</div>
-    <div id="node-list"><div style="padding:20px;color:var(--muted);font-size:11px;text-align:center;" data-i18n="no_file_loaded">Keine Datei geladen</div></div>
+    <div id="section-title" data-i18n="scene_graph">Scene Graph</div>
+    <div id="node-list"><div style="padding:20px;color:var(--muted);font-size:11px;text-align:center;" data-i18n="no_file_loaded">No file loaded</div></div>
+
+    <!-- ── Node-Visibility-Toolbar ── -->
+    <div id="node-toolbar">
+      <button class="ntb-btn" id="ntb-all"  onclick="nodeVisAll(true)"  data-i18n="ntb_all">All</button>
+      <button class="ntb-btn" id="ntb-none" onclick="nodeVisAll(false)" data-i18n="ntb_none">None</button>
+      <div class="ntb-sep"></div>
+      <button class="ntb-btn ntb-type" data-type="trimesh"   onclick="nodeVisToggleType('trimesh')">MESH</button>
+      <button class="ntb-btn ntb-type" data-type="skin"      onclick="nodeVisToggleType('skin')">SKIN</button>
+      <button class="ntb-btn ntb-type" data-type="dummy"     onclick="nodeVisToggleType('dummy')">DUMMY</button>
+      <button class="ntb-btn ntb-type" data-type="emitter"   onclick="nodeVisToggleType('emitter')">EMIT</button>
+      <button class="ntb-btn ntb-type" data-type="aabb"      onclick="nodeVisToggleType('aabb')">AABB</button>
+      <button class="ntb-btn ntb-type" data-type="danglymesh" onclick="nodeVisToggleType('danglymesh')">DANG</button>
+    </div>
 
     <!-- ── Animations-Panel ── -->
     <div id="anim-panel">
       <div id="anim-header" onclick="toggleAnimPanel()">
-        <span class="anim-header-title" data-i18n="anim_heading">Animationen</span>
+        <span class="anim-header-title" data-i18n="anim_heading">Animations</span>
         <span class="tex-arrow open">▶</span>
       </div>
       <div id="anim-body">
@@ -86,25 +99,29 @@
 
     <div id="controls-panel">
       <div class="ctrl-row">
-        <span class="ctrl-label" data-i18n="ctrl_wireframe">Gitterlinien</span>
+        <span class="ctrl-label" data-i18n="ctrl_wireframe">Wireframe</span>
         <input type="range" id="wire-opacity" min="0" max="100" value="0" oninput="updateWireframe(this.value)">
         <span class="ctrl-val" id="wire-val">0%</span>
       </div>
       <div class="ctrl-row">
-        <span class="ctrl-label" data-i18n="ctrl_lighting">Beleuchtung</span>
+        <span class="ctrl-label" data-i18n="ctrl_lighting">Lighting</span>
         <input type="range" id="light-intensity" min="0" max="200" value="100" oninput="updateLight(this.value)">
         <span class="ctrl-val" id="light-val">100%</span>
       </div>
       <div class="ctrl-row" style="gap:6px">
-        <button class="toggle-btn active" id="btn-normals" onclick="toggleNormals()" data-i18n="btn_normals">Normalen</button>
-        <button class="toggle-btn active" id="btn-grid"    onclick="toggleGrid()"    data-i18n="btn_grid">Raster</button>
-        <button class="toggle-btn active" id="btn-axes"    onclick="toggleAxes()"    data-i18n="btn_axes">Achsen</button>
+        <button class="toggle-btn active"   id="btn-normals"  onclick="toggleNormals()"   data-i18n="btn_normals">Normals</button>
+        <button class="toggle-btn active"   id="btn-grid"     onclick="toggleGrid()"      data-i18n="btn_grid">Grid</button>
+        <button class="toggle-btn active"   id="btn-axes"     onclick="toggleAxes()"      data-i18n="btn_axes">Axes</button>
       </div>
       <div class="ctrl-row" style="gap:6px">
-        <button class="toggle-btn"        id="btn-bbox"    onclick="toggleBBox()"       data-i18n="btn_bbox">BBox</button>
-        <button class="toggle-btn"        id="btn-rotate"  onclick="toggleAutoRotate()" data-i18n="btn_rotate">Rotation</button>
-        <button class="toggle-btn"        id="btn-resetcam" onclick="resetCamera()"     data-i18n="btn_resetcam">↺ Kamera</button>
-        <button class="toggle-btn"        id="btn-skeleton" onclick="toggleSkeleton()"  data-i18n="btn_skeleton">Skelett</button>
+        <button class="toggle-btn"        id="btn-bbox"     onclick="toggleBBox()"       data-i18n="btn_bbox">BBox</button>
+        <button class="toggle-btn"        id="btn-rotate"   onclick="toggleAutoRotate()" data-i18n="btn_rotate">Rotate</button>
+        <button class="toggle-btn"        id="btn-resetcam" onclick="resetCamera()"      data-i18n="btn_resetcam">↺ Camera</button>
+        <button class="toggle-btn"        id="btn-skeleton" onclick="toggleSkeleton()"   data-i18n="btn_skeleton">Skeleton</button>
+      </div>
+      <div class="ctrl-row" style="gap:6px">
+        <button class="toggle-btn" id="btn-pwk"      onclick="togglePWK()"       data-i18n="btn_pwk"      disabled>PWK</button>
+        <button class="toggle-btn" id="btn-walkmesh" onclick="toggleWalkMesh()"  data-i18n="btn_walkmesh" disabled>Walkmesh</button>
       </div>
     </div>
   </div>
@@ -115,12 +132,12 @@
 
     <div id="empty-state">
       <div class="es-icon">⬡</div>
-      <p data-i18n="empty_title">MDL Datei laden</p>
-      <small data-i18n="empty_hint">Drag &amp; Drop · ASCII-Format · Decompiliert</small>
+      <p data-i18n="empty_title">Load MDL File</p>
+      <small data-i18n="empty_hint">Drag &amp; Drop · ASCII-Format · Decompiled</small>
     </div>
 
     <div id="hud">
-      <span data-i18n="hud_camera">Kamera</span>&nbsp;|&nbsp;<span data-i18n="hud_orbit">LMB Orbit</span>&nbsp;·&nbsp;<span data-i18n="hud_zoom">RMB/Rad Zoom</span>&nbsp;·&nbsp;<span data-i18n="hud_pan">MMB Pan</span><br>
+      <span data-i18n="hud_camera">Camera</span>&nbsp;|&nbsp;<span data-i18n="hud_orbit">LMB Orbit</span>&nbsp;·&nbsp;<span data-i18n="hud_zoom">RMB/Wheel Zoom</span>&nbsp;·&nbsp;<span data-i18n="hud_pan">MMB Pan</span><br>
       <span data-i18n="hud_vertices">Vertices</span>:&nbsp;<span id="stat-verts">—</span>&nbsp;·&nbsp;
       <span data-i18n="hud_faces">Faces</span>:&nbsp;<span id="stat-faces">—</span>&nbsp;·&nbsp;
       <span data-i18n="hud_nodes">Nodes</span>:&nbsp;<span id="stat-nodes">—</span>
@@ -128,15 +145,46 @@
 
     <div id="node-detail"></div>
 
+    <!-- ── Mesh-Farben Dropdown (top-center im Viewport) ── -->
+    <div id="color-dropdown">
+      <button id="color-dropdown-toggle" onclick="toggleColorDropdown()" title="WOK/PWK Mesh-Colors">
+        <span id="color-dropdown-arrow">🎨</span>
+      </button>
+      <div id="color-dropdown-body">
+
+        <div class="cdrop-section" id="cdrop-wok-section" style="display:none">
+          <div class="cdrop-heading" data-i18n="colordrop_wok">WOK surfaces</div>
+          <div id="cdrop-wok-list"></div>
+        </div>
+
+        <div class="cdrop-section" id="cdrop-pwk-section" style="display:none">
+          <div class="cdrop-heading" data-i18n="colordrop_pwk">PWK regions</div>
+          <div class="cdrop-row">
+            <label data-i18n="colordrop_pwk_wg">Walk Geometry</label>
+            <input type="color" id="cpwk-wg"  value="#8833ff" oninput="updatePwkColor('wg',  this.value)">
+          </div>
+          <div class="cdrop-row">
+            <label data-i18n="colordrop_pwk_iop">Interaction Point</label>
+            <input type="color" id="cpwk-iop" value="#ffcc00" oninput="updatePwkColor('iop', this.value)">
+          </div>
+        </div>
+
+        <div id="cdrop-empty" class="cdrop-empty" data-i18n="no_file_loaded">
+          No file loaded
+        </div>
+
+      </div>
+    </div>
+    
     <div class="axes-label">
       <div class="ax"><div class="ax-dot" style="background:#e04040"></div>X</div>
-      <div class="ax"><div class="ax-dot" style="background:#40c040"></div><span data-i18n="axis_up">Y (oben)</span></div>
+      <div class="ax"><div class="ax-dot" style="background:#40c040"></div><span data-i18n="axis_up">Y (up)</span></div>
       <div class="ax"><div class="ax-dot" style="background:#4080e0"></div>Z</div>
     </div>
 
     <div id="statusbar">
-      <span data-i18n="status_prefix">Status</span>:&nbsp;<span id="status-msg" data-i18n="status_ready">Bereit — Datei ablegen oder öffnen</span>
-      <div id="log-toggle" onclick="toggleLogPanel()" title="Log ein-/ausblenden">
+      <span data-i18n="status_prefix">Status</span>:&nbsp;<span id="status-msg" data-i18n="status_ready">Ready — drop or open a file</span>
+      <div id="log-toggle" onclick="toggleLogPanel()" title="Toggle log">
         <span id="log-icon-sym">▲</span>
         <span id="log-count-badge" class="log-count"></span>
       </div>
@@ -155,18 +203,20 @@
   referrerpolicy="no-referrer"></script>
   
 <!-- NWN MDL Viewer — Module -->
-<script src="js/i18n.js"></script>
-<script src="js/plt_swatch.js"></script>
-<script src="js/palettes.js"></script>
-<script src="js/mtr.js"></script>
-<script src="js/parser.js"></script>
-<script src="js/scene.js"></script>
-<script src="js/scene_build.js"></script>
-<script src="js/textures.js"></script>
-<script src="js/session.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/log.js"></script>
-<script src="js/loader.js"></script>
-<script src="js/animation.js"></script>
+<script src="js/i18n.js"></script>        <!-- Translation --!>
+<script src="js/mtr.js"></script>         <!-- MRT Functions --!>
+<script src="js/plt_swatch.js"></script>  <!-- PLT Watcher / ColorPicker Definitions --!>
+<script src="js/palettes.js"></script>    <!-- PLT Functions --!>
+<script src="js/textures.js"></script>    <!-- Tex Functions --!>
+<script src="js/wok.js"></script>         <!-- WOK Functions --!>
+<script src="js/pwk.js"></script>         <!-- PWK Functions --!>
+<script src="js/parser.js"></script>      <!-- Parser Functions --!>
+<script src="js/scene.js"></script>       <!-- Scene Functions --!>
+<script src="js/scene_build.js"></script> <!-- Scene Build Functions --!>
+<script src="js/session.js"></script>     <!-- Session Functions --!>
+<script src="js/ui.js"></script>          <!-- UI Functions --!>
+<script src="js/log.js"></script>         <!-- Log Functions --!>
+<script src="js/loader.js"></script>      <!-- Loader Functions --!>
+<script src="js/animation.js"></script>   <!-- Animation Functions--!>
 </body>
 </html>
