@@ -7,6 +7,22 @@
 function buildNodeList(model) {
   const list = document.getElementById('node-list');
   list.innerHTML = '';
+
+  // Toolbar einblenden und Typ-Buttons anpassen
+  const toolbar = document.getElementById('node-toolbar');
+  if (toolbar) {
+    toolbar.style.display = 'flex';
+    // Typ-Buttons ausgrauen wenn kein Node dieses Typs vorhanden
+    const presentTypes = new Set(model.nodes.map(n => n.type));
+    toolbar.querySelectorAll('.ntb-type').forEach(btn => {
+      const t = btn.dataset.type;
+      btn.disabled = !presentTypes.has(t);
+      btn.style.opacity = presentTypes.has(t) ? '1' : '0.25';
+      btn.classList.remove('ntb-active');
+    });
+    // Typ-Button-Zustand initialisieren (alle sichtbar → alle aktiv)
+    nodeVisUpdateTypeButtons();
+  }
   for (const node of model.nodes) {
     const item = document.createElement('div');
     item.className = 'node-item';
@@ -57,6 +73,79 @@ function toggleNodeVisibility(name, item, btn, visibleIcon) {
   const onIcon  = visibleIcon || '⬡';
   const offIcon = '○';
   btn.textContent = obj.visible ? onIcon : offIcon;
+  nodeVisUpdateTypeButtons();   // Typ-Button-Zustand nachführen
+}
+
+// ─────────────────────────────────────────────
+//  Node-Toolbar-Aktionen
+// ─────────────────────────────────────────────
+
+// Alle Nodes ein- oder ausblenden
+function nodeVisAll(show) {
+  document.querySelectorAll('.node-item').forEach(item => {
+    const name = item.dataset.name;
+    const obj  = nodeObjects[name];
+    if (!obj) return;
+    obj.visible = show;
+    item.classList.toggle('hidden', !show);
+    const btn = item.querySelector('.vis-toggle');
+    if (btn) {
+      const isHex = btn.textContent === '⬡' || btn.textContent === '○';
+      btn.textContent = show ? (isHex ? '⬡' : '●') : '○';
+    }
+  });
+  nodeVisUpdateTypeButtons();
+}
+
+// Alle Nodes eines Typs gemeinsam umschalten:
+// Sind alle sichtbar → alle ausblenden; sonst → alle einblenden
+function nodeVisToggleType(type) {
+  const items = [...document.querySelectorAll(`.node-item`)].filter(el => {
+    const name = el.dataset.name;
+    const obj  = nodeObjects[name];
+    // Typ über userData.nodeData.type, Fallback über Badge-Text
+    if (!obj) return false;
+    const nodeType = (obj.userData.nodeData?.type || '').toLowerCase();
+    return nodeType === type;
+  });
+  if (items.length === 0) return;
+
+  const allVisible = items.every(el => {
+    const obj = nodeObjects[el.dataset.name];
+    return obj && obj.visible;
+  });
+  const show = !allVisible;   // wenn alle sichtbar → ausblenden, sonst → einblenden
+
+  items.forEach(item => {
+    const name = item.dataset.name;
+    const obj  = nodeObjects[name];
+    if (!obj) return;
+    obj.visible = show;
+    item.classList.toggle('hidden', !show);
+    const btn = item.querySelector('.vis-toggle');
+    if (btn) {
+      const isHex = btn.textContent === '⬡' || btn.textContent === '○';
+      btn.textContent = show ? (isHex ? '⬡' : '●') : '○';
+    }
+  });
+  nodeVisUpdateTypeButtons();
+}
+
+// Typ-Button-Zustand nachführen:
+// aktiv = mindestens ein Node dieses Typs ist sichtbar
+function nodeVisUpdateTypeButtons() {
+  const toolbar = document.getElementById('node-toolbar');
+  if (!toolbar) return;
+  toolbar.querySelectorAll('.ntb-type').forEach(btn => {
+    if (btn.disabled) return;
+    const type = btn.dataset.type;
+    const anyVisible = [...document.querySelectorAll('.node-item')].some(el => {
+      const obj = nodeObjects[el.dataset.name];
+      const nodeType = (obj?.userData.nodeData?.type || '').toLowerCase();
+      return nodeType === type && obj?.visible;
+    });
+    btn.classList.toggle('ntb-active', anyVisible);
+  });
 }
 
 function selectNode(name) {
@@ -380,6 +469,26 @@ function togglePLTPanel() {
   if (!body) return;
   body.classList.toggle('collapsed');
   if (arrow) arrow.classList.toggle('open');
+}
+
+// ─────────────────────────────────────────────
+//  Mesh-Farben Dropdown (Viewport top-center)
+// ─────────────────────────────────────────────
+function toggleColorDropdown() {
+  const dd = document.getElementById('color-dropdown');
+  if (dd) dd.classList.toggle('open');
+}
+
+// Dropdown bei Session-Reset schließen und Sektionen ausblenden
+function resetColorDropdown() {
+  const dd      = document.getElementById('color-dropdown');
+  const wokSec  = document.getElementById('cdrop-wok-section');
+  const pwkSec  = document.getElementById('cdrop-pwk-section');
+  const empty   = document.getElementById('cdrop-empty');
+  if (dd)     dd.classList.remove('open');
+  if (wokSec) wokSec.style.display = 'none';
+  if (pwkSec) pwkSec.style.display = 'none';
+  if (empty)  empty.style.display  = 'block';
 }
 
 // ─────────────────────────────────────────────

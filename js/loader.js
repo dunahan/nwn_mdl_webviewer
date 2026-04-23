@@ -11,6 +11,8 @@ function loadFiles(fileList) {
   const mdlFiles = files.filter(f => f.name.toLowerCase().endsWith('.mdl') || f.name.toLowerCase().endsWith('.txt'));
   const texFiles = files.filter(f => /\.(tga|png|jpg|jpeg|dds|plt)$/i.test(f.name));
   const mtrFiles = files.filter(f => /\.mtr$/i.test(f.name));
+  const wokFiles = files.filter(f => /\.wok$/i.test(f.name));
+  const pwkFiles = files.filter(f => /\.pwk$/i.test(f.name));
 
   if (mdlFiles.length === 0 && texFiles.length === 0 && mtrFiles.length === 0) {
     setStatus(L('status_no_files'));
@@ -66,6 +68,39 @@ function loadFiles(fileList) {
       logError(file.name + ' — ' + L('status_read_error'));
       mtrPending--;
       checkAllReady();
+    };
+    reader.readAsText(file);
+  }
+
+  // WOK-Dateien direkt als Text einlesen (unabhängig von MDL/Texturen)
+  for (const file of wokFiles) {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const wok = parseWOK(ev.target.result);
+        buildWalkMesh(wok);
+        // Walkmesh-Button im UI aktivieren
+        const btn = document.getElementById('btn-walkmesh');
+        if (btn) btn.disabled = false;
+      } catch (err) {
+        logError('WOK: ' + file.name + ' — ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  // PWK-Dateien direkt als Text einlesen
+  for (const file of pwkFiles) {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const pwk = parsePWK(ev.target.result);
+        buildPWKMesh(pwk);
+        const btn = document.getElementById('btn-pwk');
+        if (btn) btn.disabled = false;
+      } catch (err) {
+        logError('PWK: ' + file.name + ' — ' + err.message);
+      }
     };
     reader.readAsText(file);
   }

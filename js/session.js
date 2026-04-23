@@ -40,6 +40,37 @@ function clearSession(keepTextures = false) {
     skeletonHelper = null;
   }
 
+  // WOK bereinigen
+  if (typeof wokGroup !== 'undefined' && wokGroup) {
+    scene.remove(wokGroup);
+    wokGroup.traverse(c => {
+      if (c.geometry) c.geometry.dispose();
+      if (c.material) c.material.dispose();
+    });
+    wokGroup = null;
+    wokVisible = false;
+  }
+ 
+  // PWK bereinigen
+  if (typeof pwkGroup !== 'undefined' && pwkGroup) {
+    scene.remove(pwkGroup);
+    pwkGroup.traverse(c => {
+      if (c.geometry) c.geometry.dispose();
+      if (c.material) c.material.dispose();
+    });
+    pwkGroup = null;
+    pwkVisible = false;
+    const btnPwk = document.getElementById('btn-pwk');
+    if (btnPwk) { btnPwk.classList.remove('active'); btnPwk.disabled = true; }
+  }
+ 
+  // WOK-Button zurücksetzen
+  const btnWok = document.getElementById('btn-walkmesh');
+  if (btnWok) { btnWok.classList.remove('active'); btnWok.disabled = true; }
+
+  // Farb-Dropdown zurücksetzen
+  if (typeof resetColorDropdown === 'function') resetColorDropdown();
+
   // 2. Textur-Cache vom GPU entladen und leeren
   for (const key of Object.keys(textureCache)) {
     textureCache[key].dispose();
@@ -74,6 +105,8 @@ function clearSession(keepTextures = false) {
   // 4. UI zurücksetzen
   document.getElementById('node-list').innerHTML =
     '<div style="padding:20px;color:var(--muted);font-size:11px;text-align:center;">' + L('no_file_loaded') + '</div>';
+  const nodeToolbar = document.getElementById('node-toolbar');
+  if (nodeToolbar) nodeToolbar.style.display = 'none';
   document.getElementById('model-info').style.display    = 'none';
   document.getElementById('texture-status').style.display= 'none';
   const texList  = document.getElementById('texture-list');
