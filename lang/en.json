@@ -21,6 +21,8 @@
   "colordrop_wok":        "WOK surfaces",
   "colordrop_pwk":        "PWK regions",
   "colordrop_label":      "WOK/PWK Mesh-Colors",
+  "colordrop_pwk_wg":     "Walk Geometry",
+  "colordrop_pwk_iop":    "Interaction Point",
 
   "ctrl_wireframe":       "Wireframe",
   "ctrl_lighting":        "Lighting",

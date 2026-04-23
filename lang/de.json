@@ -21,6 +21,8 @@
   "colordrop_wok":        "WOK Oberflächen",
   "colordrop_pwk":        "PWK Regionen",
   "colordrop_label":      "WOK/PWK Mesh-Farben",
+  "colordrop_pwk_wg":     "Begehbarer Bereich",
+  "colordrop_pwk_iop":    "Interaktionspunkt",
 
   "ctrl_wireframe":       "Gitterlinien",
   "ctrl_lighting":        "Beleuchtung",
