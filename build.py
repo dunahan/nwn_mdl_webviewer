@@ -22,13 +22,15 @@ JS_DIR = ROOT / 'js'
 
 JS_ORDER = [
     'i18n.js',
+    'mtr.js',
     'plt_swatch.js',
     'palettes.js',
-    'mtr.js',
+    'textures.js',
+    'wok.js',
+    'pwk.js',
     'parser.js',
     'scene.js',
     'scene_build.js',
-    'textures.js',
     'session.js',
     'ui.js',
     'log.js',
