@@ -20,31 +20,46 @@ SRC    = ROOT / 'index.html'
 CSS    = ROOT / 'css' / 'viewer.css'
 JS_DIR = ROOT / 'js'
 
-JS_ORDER = [
-    'i18n.js',
-    'mtr.js',
-    'plt_swatch.js',
-    'palettes.js',
-    'textures.js',
-    'wok.js',
-    'pwk.js',
-    'parser.js',
-    'scene.js',
-    'scene_build.js',
-    'session.js',
-    'ui.js',
-    'log.js',
-    'loader.js',
-    'animation.js',
-]
-
 def read(path):
     return Path(path).read_text(encoding='utf-8')
+
+def extract_js_order(html: str) -> list[str]:
+    """
+    Liest die JS-Dateireihenfolge direkt aus der index.html.
+    Erfasst alle <script src="js/..."> Tags zwischen dem
+    '<!-- NWN MDL Viewer — Module -->' Kommentar und </body>.
+    """
+    # Abschnitt zwischen dem Modul-Kommentar und </body> isolieren
+    section_match = re.search(
+        r'<!-- NWN MDL Viewer — Module -->(.*?)</body>',
+        html,
+        re.DOTALL
+    )
+    if not section_match:
+        raise ValueError(
+            'Marker "<!-- NWN MDL Viewer — Module -->" nicht in index.html gefunden.'
+        )
+
+    section = section_match.group(1)
+
+    # Alle js/DATEINAME.js aus src-Attributen extrahieren
+    files = re.findall(r'<script\s+src="js/([^"]+\.js)"', section)
+
+    if not files:
+        raise ValueError(
+            'Keine <script src="js/..."> Tags nach dem Modul-Marker gefunden.'
+        )
+
+    return files
 
 def build():
     DIST.mkdir(exist_ok=True)
 
     html = read(SRC)
+
+    # 0. JS-Reihenfolge aus der HTML ableiten
+    js_order = extract_js_order(html)
+    print(f'  JS-Dateien ({len(js_order)}): {", ".join(js_order)}')
 
     # 1. Inline CSS
     css_content = read(CSS)
@@ -58,7 +73,7 @@ def build():
 
     # 3. Inline all JS files
     js_combined = '\n\n'.join(
-        f'// ═══ {f} ═══\n{read(JS_DIR / f)}' for f in JS_ORDER
+        f'// ═══ {f} ═══\n{read(JS_DIR / f)}' for f in js_order
     )
     replacement = f'<script>\n{js_combined}\n</script>'
     html = re.sub(
