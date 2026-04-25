@@ -270,7 +270,8 @@ function showModelInfo(model, verts, faces) {
 // ─────────────────────────────────────────────
 function updateWireframe(val) {
   wireOpacity = val / 100;
-  document.getElementById('wire-val').textContent = val + '%';
+  document.getElementById('wire-val').value = val;
+  document.getElementById('wire-opacity').value = val;
   if (modelGroup) {
     modelGroup.traverse(child => {
       if (child.isMesh && child.userData.isWireframe) {
@@ -282,10 +283,52 @@ function updateWireframe(val) {
 }
 
 function updateLight(val) {
-  document.getElementById('light-val').textContent = val + '%';
-  dirLight.intensity   = (val / 100) * 1.0;
-  dirLight2.intensity  = (val / 100) * 0.4;
-  ambientLight.intensity = (val / 100) * 0.35;
+  document.getElementById('light-val').value = val;
+  document.getElementById('light-intensity').value = val;
+  dirLight.intensity     = (val / 100) * 1.4;
+  dirLight2.intensity    = (val / 100) * 0.6;
+  ambientLight.intensity = (val / 100) * 0.5;
+}
+
+function updateMeshOpacity(val) {
+  meshOpacity = val / 100;
+  document.getElementById('mesh-val').value = val;
+  document.getElementById('mesh-opacity').value = val;
+  if (!modelGroup) return;
+  modelGroup.traverse(child => {
+    if (!child.isMesh || child.userData.isWireframe || child.userData.isAABB) return;
+    const mat = child.material;
+    if (!mat || !mat.isMeshStandardMaterial) return;
+    if (meshOpacity < 1.0) {
+      mat.transparent = true;
+      mat.opacity     = meshOpacity;
+      mat.depthWrite  = false;
+    } else {
+      // Auf Originalzustand zurücksetzen
+      mat.transparent = child.userData.baseTransparent || false;
+      mat.opacity     = child.userData.baseOpacity     ?? 1.0;
+      mat.depthWrite  = child.userData.baseDepthWrite  ?? true;
+    }
+    mat.needsUpdate = true;
+  });
+}
+
+// Hilfsfunktionen für bidirektionale Slider↔Textbox-Synchronisation
+function syncSlider(sliderId, input, updateFn) {
+  const slider = document.getElementById(sliderId);
+  const min = parseFloat(slider.min), max = parseFloat(slider.max);
+  let val = parseFloat(input.value);
+  if (isNaN(val)) return;
+  val = Math.max(min, Math.min(max, val));
+  slider.value = val;
+  window[updateFn](val);
+}
+
+function clampValInput(input, min, max) {
+  let val = parseFloat(input.value);
+  if (isNaN(val)) val = min;
+  val = Math.max(min, Math.min(max, val));
+  input.value = val;
 }
 
 function toggleNormals() {

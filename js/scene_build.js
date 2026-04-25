@@ -117,6 +117,10 @@ function buildScene(model) {
       const mesh = new THREE.Mesh(geo, mat);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
+      // Originalwerte merken — wird von updateMeshOpacity zum Zurücksetzen genutzt
+      mesh.userData.baseOpacity     = node.alpha;
+      mesh.userData.baseTransparent = useMeshAlpha || useTexAlpha;
+      mesh.userData.baseDepthWrite  = !useTexAlpha;
       obj = mesh;
 
       // Wireframe-Overlay: als Kind des eigentlichen Mesh einhängen,

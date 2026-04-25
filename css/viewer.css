@@ -219,10 +219,26 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg);
 .ctrl-row:last-child { margin-bottom: 0; }
 .ctrl-label { width: 80px; flex-shrink: 0; }
 input[type=range] {
-  flex: 1; height: 3px; accent-color: var(--gold);
+  flex: 1; max-width: 110px; height: 3px; accent-color: var(--gold);
   background: var(--border); border-radius: 2px; outline: none; border: none; cursor: pointer;
 }
 .ctrl-val { width: 36px; text-align: right; color: var(--text); }
+input[type=number].ctrl-val {
+  width: 40px; flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  font-family: var(--font-mono, 'Share Tech Mono', monospace);
+  font-size: 11px;
+  padding: 1px 3px;
+  text-align: right;
+  outline: none;
+  -moz-appearance: textfield;
+}
+input[type=number].ctrl-val::-webkit-inner-spin-button,
+input[type=number].ctrl-val::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number].ctrl-val:focus { border-color: var(--gold); }
 .toggle-btn {
   flex: 1; padding: 4px 8px; background: transparent;
   border: 1px solid var(--border); color: var(--muted);
@@ -232,6 +248,28 @@ input[type=range] {
 }
 .toggle-btn:hover { border-color: var(--gold); color: var(--gold); }
 .toggle-btn.active { border-color: var(--gold); color: var(--gold); background: rgba(200,164,74,0.08); }
+
+/* ── Pin-Button (neben WOK / PWK) ── */
+.pin-btn {
+  flex-shrink: 0;
+  padding: 2px 5px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  opacity: 0.45;
+  transition: opacity 0.15s, border-color 0.15s, transform 0.15s;
+  line-height: 1.4;
+  user-select: none;
+}
+.pin-btn:hover { opacity: 0.85; border-color: var(--gold); }
+.pin-btn.pinned {
+  opacity: 1;
+  border-color: var(--gold);
+  background: rgba(200,164,74,0.12);
+}
 
 /* ── Canvas area ── */
 #viewport { flex: 1; position: relative; overflow: hidden; }

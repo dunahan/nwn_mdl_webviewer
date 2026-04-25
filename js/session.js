@@ -119,6 +119,14 @@ function clearSession(keepTextures = false) {
   document.getElementById('stat-verts').textContent = '—';
   document.getElementById('stat-faces').textContent = '—';
   document.getElementById('stat-nodes').textContent = '—';
+
+  // Slider + Textboxen zurücksetzen
+  wireOpacity = 0;
+  meshOpacity = 1.0;
+  document.getElementById('wire-opacity').value = 0;
+  document.getElementById('wire-val').value      = 0;
+  document.getElementById('mesh-opacity').value  = 100;
+  document.getElementById('mesh-val').value      = 100;
 }
 
 function applyTexturesToScene() {
