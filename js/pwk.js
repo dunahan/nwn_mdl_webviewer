@@ -137,6 +137,7 @@ function parsePWK(text) {
 // ─────────────────────────────────────────────
 let pwkGroup   = null;
 let pwkVisible = false;
+let pwkPinned  = false;  // Pin-Flag: PWK beim Laden automatisch einblenden
 
 function buildPWKMesh(pwk) {
   // Altes PWK-Mesh entfernen
@@ -255,6 +256,12 @@ function buildPWKMesh(pwk) {
     pwkGroup.add(crossLines);
   }
 
+  // Wenn die Pinnadel aktiv ist, PWK automatisch einblenden
+  if (pwkPinned) {
+    pwkVisible = true;
+    const btn = document.getElementById('btn-pwk');
+    if (btn) { btn.classList.add('active'); btn.disabled = false; }
+  }
   pwkGroup.visible = pwkVisible;
   scene.add(pwkGroup);
   buildPwkColorPanel();
@@ -272,4 +279,13 @@ function togglePWK() {
   pwkGroup.visible = pwkVisible;
   const btn = document.getElementById('btn-pwk');
   if (btn) btn.classList.toggle('active', pwkVisible);
+}
+
+function togglePwkPin() {
+  pwkPinned = !pwkPinned;
+  const pin = document.getElementById('btn-pwk-pin');
+  if (pin) pin.classList.toggle('pinned', pwkPinned);
+  if (pin) pin.title = pwkPinned
+    ? 'PWK ist fixiert — bleibt beim Laden neuer Modelle erhalten'
+    : 'PWK beim nächsten Modell-Laden fixieren';
 }

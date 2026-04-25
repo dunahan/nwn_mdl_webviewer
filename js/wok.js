@@ -181,6 +181,7 @@ function parseWOK(text) {
 // ─────────────────────────────────────────────
 let wokGroup   = null;   // THREE.Group  (global, damit toggle funktioniert)
 let wokVisible = false;
+let wokPinned  = false;  // Pin-Flag: WOK beim Laden automatisch einblenden
 
 function buildWalkMesh(wok) {
   // Altes Walkmesh entfernen
@@ -255,6 +256,12 @@ function buildWalkMesh(wok) {
     }
   }
 
+  // Wenn die Pinnadel aktiv ist, Walkmesh automatisch einblenden
+  if (wokPinned) {
+    wokVisible = true;
+    const btn = document.getElementById('btn-walkmesh');
+    if (btn) { btn.classList.add('active'); btn.disabled = false; }
+  }
   wokGroup.visible = wokVisible;
   scene.add(wokGroup);
   buildWokColorPanel();
@@ -269,4 +276,14 @@ function toggleWalkMesh() {
   wokGroup.visible = wokVisible;
   const btn = document.getElementById('btn-walkmesh');
   if (btn) btn.classList.toggle('active', wokVisible);
+}
+
+function toggleWokPin() {
+  wokPinned = !wokPinned;
+  const pin = document.getElementById('btn-walkmesh-pin');
+  if (pin) pin.classList.toggle('pinned', wokPinned);
+  // Tooltip aktualisieren
+  if (pin) pin.title = wokPinned
+    ? 'Walkmesh ist fixiert — bleibt beim Laden neuer Modelle erhalten'
+    : 'Walkmesh beim nächsten Modell-Laden fixieren';
 }

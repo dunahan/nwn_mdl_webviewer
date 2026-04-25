@@ -100,13 +100,21 @@
     <div id="controls-panel">
       <div class="ctrl-row">
         <span class="ctrl-label" data-i18n="ctrl_wireframe">Wireframe</span>
-        <input type="range" id="wire-opacity" min="0" max="100" value="0" oninput="updateWireframe(this.value)">
-        <span class="ctrl-val" id="wire-val">0%</span>
+        <input type="range"  id="wire-opacity"   min="0" max="100" value="0"   oninput="updateWireframe(this.value)">
+        <input type="number" id="wire-val"   class="ctrl-val" min="0" max="100" value="0"
+               oninput="syncSlider('wire-opacity',this,'updateWireframe')" onblur="clampValInput(this,0,100)">
       </div>
       <div class="ctrl-row">
         <span class="ctrl-label" data-i18n="ctrl_lighting">Lighting</span>
-        <input type="range" id="light-intensity" min="0" max="200" value="100" oninput="updateLight(this.value)">
-        <span class="ctrl-val" id="light-val">100%</span>
+        <input type="range"  id="light-intensity" min="0" max="200" value="100" oninput="updateLight(this.value)">
+        <input type="number" id="light-val"  class="ctrl-val" min="0" max="200" value="100"
+               oninput="syncSlider('light-intensity',this,'updateLight')" onblur="clampValInput(this,0,200)">
+      </div>
+      <div class="ctrl-row">
+        <span class="ctrl-label" data-i18n="ctrl_mesh_opacity">Mesh</span>
+        <input type="range"  id="mesh-opacity"    min="0" max="100" value="100" oninput="updateMeshOpacity(this.value)">
+        <input type="number" id="mesh-val"   class="ctrl-val" min="0" max="100" value="100"
+               oninput="syncSlider('mesh-opacity',this,'updateMeshOpacity')" onblur="clampValInput(this,0,100)">
       </div>
       <div class="ctrl-row" style="gap:6px">
         <button class="toggle-btn active"   id="btn-normals"  onclick="toggleNormals()"   data-i18n="btn_normals">Normals</button>
@@ -120,8 +128,10 @@
         <button class="toggle-btn"        id="btn-skeleton" onclick="toggleSkeleton()"   data-i18n="btn_skeleton">Skeleton</button>
       </div>
       <div class="ctrl-row" style="gap:6px">
-        <button class="toggle-btn" id="btn-pwk"      onclick="togglePWK()"       data-i18n="btn_pwk"      disabled>PWK</button>
-        <button class="toggle-btn" id="btn-walkmesh" onclick="toggleWalkMesh()"  data-i18n="btn_walkmesh" disabled>Walkmesh</button>
+        <button class="toggle-btn" id="btn-pwk"          onclick="togglePWK()"       data-i18n="btn_pwk"      disabled>PWK</button>
+        <button class="pin-btn"    id="btn-pwk-pin"       onclick="togglePwkPin()"    title="PWK beim nächsten Modell-Laden fixieren">📌</button>
+        <button class="toggle-btn" id="btn-walkmesh"      onclick="toggleWalkMesh()"  data-i18n="btn_walkmesh" disabled>Walkmesh</button>
+        <button class="pin-btn"    id="btn-walkmesh-pin"  onclick="toggleWokPin()"    title="Walkmesh beim nächsten Modell-Laden fixieren">📌</button>
       </div>
     </div>
   </div>

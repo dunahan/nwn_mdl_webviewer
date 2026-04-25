@@ -54,6 +54,7 @@ let currentModel = null;
 let nodeObjects = {};    // name -> THREE.Object3D
 let selectedNodeName = null;
 let wireOpacity = 0;
+let meshOpacity = 1.0;
 
 // Name des Supermodells das noch erwartet wird (null = keins ausstehend)
 let pendingSupermodel = null;
