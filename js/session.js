@@ -285,6 +285,31 @@ function applyTexturesToScene() {
       mat.needsUpdate = true;
     }
   }
+  // ── Emitter-Preview-Quads aktualisieren ───────────────────────────────────
+  // Wird gebraucht wenn Texturen nachträglich geladen werden (nach dem Modell).
+  // In normalem Workflow (Texturen vor MDL) sind Quads bereits in buildScene texturiert.
+  for (const node of currentModel.nodes) {
+    if (node.type !== 'emitter') continue;
+    const obj = nodeObjects[node.name];
+    if (!obj || !obj.userData.hasEmitterPreview) continue;
+    const texName = node.emitterTexture;
+    if (!texName || !textureCache[texName]) continue;
+    const tex = textureCache[texName];
+    // Preview-Quad-Mesh innerhalb der Emitter-Gruppe finden
+    obj.traverse(child => {
+      if (child.userData.isEmitterPreview && child.material) {
+        child.material.map     = tex;
+        child.material.color.set(0xffffff);
+        child.material.opacity = 1.0;
+        if (child.userData.emitterBlend === 'additive') {
+          child.material.blending  = THREE.AdditiveBlending;
+          child.material.alphaTest = 0;
+        }
+        child.material.needsUpdate = true;
+      }
+    });
+  }
+
   return applied;
 }
 

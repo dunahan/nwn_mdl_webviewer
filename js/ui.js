@@ -164,6 +164,31 @@ function selectNode(name) {
   let extraRows = '';
   if (n.type === 'danglymesh') {
     extraRows = '<div class="nd-row"><span>' + L('nd_dangle_info_label') + '</span><span class="nd-val">' + L('nd_dangle_info') + '</span></div>';
+  } else if (n.type === 'emitter') {
+    const _rgb = c => 'rgb(' + c.map(v => Math.round(v*255)).join(',') + ')';
+    const _sw  = 'display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:4px;vertical-align:middle;background:';
+    const swS = '<span style="' + _sw + _rgb(n.colorStart) + '"></span>';
+    const swM = '<span style="' + _sw + _rgb(n.colorMid)   + '"></span>';
+    const swE = '<span style="' + _sw + _rgb(n.colorEnd)   + '"></span>';
+    extraRows =
+      '<div class="nd-section-header">Emitter</div>' +
+      '<div class="nd-row"><span>Texture</span><span class="nd-val">' + (n.emitterTexture || '\u2014') + '</span></div>' +
+      '<div class="nd-row"><span>Blend</span><span class="nd-val">' + (n.blend || '\u2014') + '</span></div>' +
+      '<div class="nd-row"><span>Update</span><span class="nd-val">' + (n.update || '\u2014') + '</span></div>' +
+      '<div class="nd-row"><span>Render</span><span class="nd-val">' + (n.renderMode || '\u2014') + '</span></div>' +
+      '<div class="nd-row"><span>Birthrate</span><span class="nd-val">' + n.birthrate + '/s</span></div>' +
+      '<div class="nd-row"><span>Life Exp</span><span class="nd-val">' + n.lifeExp + ' s</span></div>' +
+      '<div class="nd-row"><span>Velocity</span><span class="nd-val">' + n.velocity + (n.randvel ? ' \u00b1' + n.randvel : '') + '</span></div>' +
+      '<div class="nd-row"><span>Size Start\u2192End</span><span class="nd-val">' + n.sizeStart.toFixed(2) + ' \u2192 ' + n.sizeEnd.toFixed(2) + '</span></div>' +
+      '<div class="nd-row"><span>Alpha Start\u2192End</span><span class="nd-val">' + n.alphaStart.toFixed(2) + ' \u2192 ' + n.alphaEnd.toFixed(2) + '</span></div>' +
+      '<div class="nd-row"><span>Color</span><span class="nd-val">' + swS + swM + swE + '</span></div>' +
+      (n.grav    ? '<div class="nd-row"><span>Gravity</span><span class="nd-val">' + n.grav + '</span></div>' : '') +
+      (n.drag    ? '<div class="nd-row"><span>Drag</span><span class="nd-val">'    + n.drag + '</span></div>' : '') +
+      (n.spread  ? '<div class="nd-row"><span>Spread</span><span class="nd-val">'  + n.spread + '</span></div>' : '') +
+      (n.chunkName ? '<div class="nd-row"><span>ChunkModel</span><span class="nd-val">' + n.chunkName + '</span></div>' : '') +
+      ((n.xgrid > 1 || n.ygrid > 1)
+        ? '<div class="nd-row"><span>Sprite Grid</span><span class="nd-val">' + n.xgrid + ' \u00d7 ' + n.ygrid + ' (frame ' + n.frameStart + '\u2013' + n.frameEnd + ')</span></div>'
+        : '');
   }
 
   // ── MTR-Abschnitt ──────────────────────────────────────────────────
