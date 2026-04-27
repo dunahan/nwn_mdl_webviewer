@@ -180,8 +180,88 @@ function buildScene(model) {
       obj.add(wireMesh);
       obj.userData.isAABB = true;
 
+    } else if (node.type === 'emitter') {
+      // ── Emitter-Marker ────────────────────────────────────────────────
+      // Koordinatensystem-Hinweis:
+      //   modelGroup hat rotation.x = -π/2  →  R_x(-π/2) transformiert Vektoren:
+      //     lokal (x,y,z) → welt (x, z, -y)
+      //   Daraus folgt:
+      //     lokal -Z → welt +Y  (aufwärts, Partikelrichtung) ← Pfeile
+      //     lokal -Y → welt +Z  (zur Kamera)                 ← Preview-Quad
+      const group = new THREE.Group();
+
+      // Farbe aus colorStart, Fallback-Orange falls zu dunkel
+      const cs = node.colorStart || [1, 0.6, 0.1];
+      const lum = cs[0] * 0.299 + cs[1] * 0.587 + cs[2] * 0.114;
+      const emitColor = lum < 0.05
+        ? new THREE.Color(0xf0a030)
+        : new THREE.Color(cs[0], cs[1], cs[2]);
+
+      // Zentrum: Kugel
+      const sGeo = new THREE.SphereGeometry(0.06, 8, 6);
+      const sMat = new THREE.MeshBasicMaterial({ color: emitColor });
+      group.add(new THREE.Mesh(sGeo, sMat));
+
+      // Ring in XZ-Ebene (nach Rotation horizontal = Emitteröffnung)
+      const rGeo = new THREE.TorusGeometry(0.15, 0.012, 6, 20);
+      const rMat = new THREE.MeshBasicMaterial({ color: emitColor, transparent: true, opacity: 0.75 });
+      const ring = new THREE.Mesh(rGeo, rMat);
+      ring.rotation.x = Math.PI / 2;
+      group.add(ring);
+
+      // Richtungspfeile: lokal -Z → nach modelGroup-Rotation welt +Y (oben)
+      const arrowPts = new Float32Array([
+        // Mittelstrahl
+         0,    0,  0,       0,    0,  -0.22,
+        // Pfeilspitzen-Schenkel
+        -0.06, 0, -0.14,    0,    0,  -0.22,
+         0.06, 0, -0.14,    0,    0,  -0.22,
+        // Seitenstrahlen (Spread andeuten)
+        -0.12, 0,  0,      -0.08, 0,  -0.16,
+         0.12, 0,  0,       0.08, 0,  -0.16,
+      ]);
+      const aGeo = new THREE.BufferGeometry();
+      aGeo.setAttribute('position', new THREE.Float32BufferAttribute(arrowPts, 3));
+      const aMat = new THREE.LineBasicMaterial({ color: emitColor, transparent: true, opacity: 0.85 });
+      group.add(new THREE.LineSegments(aGeo, aMat));
+
+      // ── Textur-Preview-Quad ───────────────────────────────────────────
+      // PlaneGeometry hat Normal = lokal +Z.
+      // rotation.x = +π/2 dreht die Normale auf lokal -Y.
+      // Nach modelGroup-Rotation: lokal -Y → welt +Z (zur Kamera) → sichtbar.
+      const emTexName = node.emitterTexture || null;
+      const emTex     = emTexName ? textureCache[emTexName] : null;
+      // Größe aus sizeStart, Mindestgröße 0.15
+      const qSize = Math.max(node.sizeStart || 0.5, 0.15);
+      const qGeo  = new THREE.PlaneGeometry(qSize, qSize);
+      const qMat  = new THREE.MeshBasicMaterial({
+        transparent: true,
+        depthWrite:  false,
+        side:        THREE.DoubleSide,
+        alphaTest:   0.05,
+        color:       emTex ? 0xffffff : emitColor,
+        map:         emTex || null,
+        opacity:     emTex ? 1.0 : 0.0,   // unsichtbar bis Textur da
+      });
+      if ((node.blend || '').toLowerCase() === 'additive') {
+        qMat.blending = THREE.AdditiveBlending;
+        qMat.alphaTest = 0;
+      }
+      const quad = new THREE.Mesh(qGeo, qMat);
+      quad.rotation.x = Math.PI / 2;   // Normal → lokal -Y → welt +Z (zur Kamera)
+      quad.userData.isEmitterPreview  = true;
+      quad.userData.emitterTexName    = emTexName;
+      quad.userData.emitterBlend      = (node.blend || '').toLowerCase();
+      group.add(quad);
+
+      // userData am Gruppen-Objekt für applyTexturesToScene
+      group.userData.hasEmitterPreview = true;
+      group.userData.emitterTexName    = emTexName;
+
+      obj = group;
+
     } else {
-      // Dummy / emitter / etc → small sphere marker
+      // Dummy / light / reference / etc → kleine Kugel
       const geo = new THREE.SphereGeometry(0.04, 6, 6);
       const mat = new THREE.MeshBasicMaterial({ color: nodeColor(node.type) });
       obj = new THREE.Mesh(geo, mat);
@@ -233,7 +313,7 @@ function buildScene(model) {
     const size   = box.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
     orbit.target.copy(center);
-    orbit.radius = maxDim * 2.2;
+    orbit.radius = Math.max(maxDim * 2.2, 2.0);
     orbit.theta  = 0.5; orbit.phi = 1.1;
     updateCamera();
 
@@ -257,6 +337,16 @@ function buildScene(model) {
     const btnSkeleton = document.getElementById('btn-skeleton');
     skeletonHelper.visible = btnSkeleton ? btnSkeleton.classList.contains('active') : false;
     scene.add(skeletonHelper);
+  } else {
+    // Leere Box: Emitter-only Modell ohne messbare Ausdehnung (z.B. nur Emitter-Marker)
+    orbit.target.set(0, 0, 0);
+    orbit.radius = 3;
+    orbit.theta  = 0.5; orbit.phi = 1.1;
+    orbit.initTarget = new THREE.Vector3(0, 0, 0);
+    orbit.initRadius = 3;
+    orbit.initTheta  = 0.5;
+    orbit.initPhi    = 1.1;
+    updateCamera();
   }
 
   // Update stats

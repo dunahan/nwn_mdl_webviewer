@@ -299,12 +299,19 @@ function loadAllMDLFiles(mdlFiles) {
       }
     }
 
-    // Schritt 2: Kein Verweis → erstes Modell mit Geometrie nehmen
+    // Schritt 2: Kein Supermodel-Verweis → erstes Modell mit Geometrie bevorzugen,
+    // dann Fallback auf jedes Modell mit Nodes (emitter-only, EFFECT-Klasse usw.)
     if (!mainModel) {
       for (const model of Object.values(parsed)) {
         const hasMesh = model.nodes.some(n =>
           n.type === 'trimesh' || n.type === 'skin' || n.type === 'danglymesh');
         if (hasMesh) { mainModel = model; break; }
+      }
+    }
+    // Fallback: Modell ohne Mesh aber mit Nodes (z.B. fx_clouds: nur dummy + emitter)
+    if (!mainModel) {
+      for (const model of Object.values(parsed)) {
+        if (model.nodes.length > 0) { mainModel = model; break; }
       }
     }
 

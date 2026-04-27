@@ -168,6 +168,27 @@ function parseNode(lines, start) {
     alpha: 1.0,
     tilefade: 0,
     transparencyhint: 0,  // 0 = opak, 1 = Textur-Alpha nutzen (Decals, Splotches)
+    // ── Emitter-spezifische Properties ──────────────────────────
+    emitterTexture: '',   // "texture" in emitter-Nodes (Partikel-Textur)
+    blend:          '',   // 'Normal' | 'Lighten' | 'Additive' | ...
+    update:         '',   // 'Fountain' | 'Single' | 'Explosion' | ...
+    renderMode:     '',   // 'Normal' | 'Billboard_to_Local_Z' | 'Linked' | ...
+    xgrid: 1, ygrid: 1,   // Sprite-Sheet-Raster
+    alphaStart: 1, alphaMid: 1, alphaEnd: 0,
+    colorStart: [1,1,1], colorMid: [1,1,1], colorEnd: [1,1,1],
+    sizeStart: 1, sizeMid: 1, sizeEnd: 1,
+    birthrate:  0,
+    lifeExp:    1,
+    mass:       0,
+    velocity:   0,
+    randvel:    0,
+    spread:     0,
+    grav:       0,
+    drag:       0,
+    fps:        0,
+    frameStart: 0,
+    frameEnd:   0,
+    chunkName:  '',   // Chunk-Modell für Rock-Emitter (chunkName)
   };
 
   function tok(idx) { return lines[idx].trim().split(/\s+/).filter(x => x.length > 0); }
@@ -202,10 +223,40 @@ function parseNode(lines, start) {
     else if (k === 'diffuse')           node.diffuse = [num(t[1]), num(t[2]), num(t[3])];
     else if (k === 'specular')          node.specular = [num(t[1]), num(t[2]), num(t[3])];
     else if (k === 'shininess')         node.shininess = num(t[1]);
-    else if (k === 'render')            node.render = parseInt(t[1]) || 0;
+    else if (k === 'render') {
+      if (node.type === 'emitter') node.renderMode = t[1] || '';
+      else node.render = parseInt(t[1]) || 0;
+    }
     else if (k === 'alpha')             node.alpha = num(t[1]);
     else if (k === 'tilefade')          node.tilefade = parseInt(t[1]) || 0;
     else if (k === 'transparencyhint')  node.transparencyhint = parseInt(t[1]) || 0;
+    // ── Emitter-Properties ──────────────────────────────────────────────
+    else if (k === 'texture' && node.type === 'emitter') node.emitterTexture = (t[1]||'').toLowerCase();
+    else if (k === 'blend')             node.blend      = t[1] || '';
+    else if (k === 'update')            node.update     = t[1] || '';
+    else if (k === 'xgrid')             node.xgrid      = parseInt(t[1]) || 1;
+    else if (k === 'ygrid')             node.ygrid      = parseInt(t[1]) || 1;
+    else if (k === 'alphastart')        node.alphaStart = num(t[1]);
+    else if (k === 'alphamid')          node.alphaMid   = num(t[1]);
+    else if (k === 'alphaend')          node.alphaEnd   = num(t[1]);
+    else if (k === 'colorstart')        node.colorStart = [num(t[1]), num(t[2]), num(t[3])];
+    else if (k === 'colormid')          node.colorMid   = [num(t[1]), num(t[2]), num(t[3])];
+    else if (k === 'colorend')          node.colorEnd   = [num(t[1]), num(t[2]), num(t[3])];
+    else if (k === 'sizestart')         node.sizeStart  = num(t[1]);
+    else if (k === 'sizemid')           node.sizeMid    = num(t[1]);
+    else if (k === 'sizeend')           node.sizeEnd    = num(t[1]);
+    else if (k === 'birthrate')         node.birthrate  = num(t[1]);
+    else if (k === 'lifeexp')           node.lifeExp    = num(t[1]);
+    else if (k === 'mass')              node.mass       = num(t[1]);
+    else if (k === 'velocity')          node.velocity   = num(t[1]);
+    else if (k === 'randvel')           node.randvel    = num(t[1]);
+    else if (k === 'spread')            node.spread     = num(t[1]);
+    else if (k === 'grav')              node.grav       = num(t[1]);
+    else if (k === 'drag')              node.drag       = num(t[1]);
+    else if (k === 'fps')               node.fps        = num(t[1]);
+    else if (k === 'framestart')        node.frameStart = parseInt(t[1]) || 0;
+    else if (k === 'frameend')          node.frameEnd   = parseInt(t[1]) || 0;
+    else if (k === 'chunkname')         node.chunkName  = (t[1]||'').toLowerCase();
     else if (k === 'verts') {
       const count = parseInt(t[1]) || 0;
       for (let j = 0; j < count; j++) {
