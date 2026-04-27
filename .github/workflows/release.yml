@@ -26,9 +26,6 @@ on:
 permissions:
   contents: write
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -50,11 +47,13 @@ jobs:
 
       - name: Create source ZIP (excluding dist/)
         run: |
-          zip -r dist/nwn-mdl-webviewer-src.zip . \
-            --exclude "dist/*" \
-            --exclude ".git/*" \
-            --exclude "*.DS_Store" \
-            --exclude "__pycache__/*"
+          zip -r dist/nwn-mdl-webviewer-src.zip \
+            css/ \
+            docs/ \
+            js/ \
+            lang/ \
+            index.html \
+            build.py
 
       - name: Determine tag name
         id: tag
