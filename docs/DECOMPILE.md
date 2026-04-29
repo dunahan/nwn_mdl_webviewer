@@ -7,13 +7,20 @@ Here are step-by-step instructions for each platform.
 
 ## Method 1 — CleanModels EE (Bash/CLI-Application, Windows GUI) - Recommended, all platforms
 
-1. Download [CleanModelsEE]([https://github.com/virusman/nwnexplorer/releases](https://github.com/plenarius/cleanmodels/releases/tag/latest)
-   eventually download [Windows Gui](https://github.com/plenarius/cleanmodels-qt/releases/tag/latest)
-2. Setup last_dirs.pl or use commandline
+Grab the latest binary for your platform for [CleanModelsEE]([https://github.com/plenarius/cleanmodels/releases])
 
 ```bash
-cleanmodels-cli --decompile=true --pattern=*.mdl --indir=<PathToYourIn-Dir>/in --outdir=<PathToYourOut-Dir>/out
+# Decompile a binary MDL to ASCII (will overwrite the compiled file)
+cleanmodels decompile plc_torch.mdl plc_torch.mdl
+
+# Output to a separate folder (originals untouched and will produce ASCII files)
+cleanmodels repair -a -r haks/ cleaned/
+
+# Save everything (stdout + stderr)
+cleanmodels check -r -v models/ &> log.txt
 ```
+
+For more details, take a look at the [CleanModelsEE]([https://github.com/plenarius/cleanmodels/tree/v4-go-rewrite])
 
 ---
 
