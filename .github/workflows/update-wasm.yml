@@ -12,7 +12,7 @@ on:
       force:
         description: 'WASM auch dann ersetzen, wenn die Version gleich ist'
         required: false
-        default: 'false'
+        default: false
         type: boolean
 
   # 3. Von anderen Workflows aufrufbar (z.B. release.yml)
@@ -21,7 +21,7 @@ on:
       force:
         description: 'WASM auch dann ersetzen, wenn die Version gleich ist'
         required: false
-        default: 'false'
+        default: false
         type: boolean
     outputs:
       updated:
@@ -39,6 +39,9 @@ on:
 # ── Berechtigungen ───────────────────────────────────────────────────────────
 permissions:
   contents: write   # für den Commit
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 # ── Job ──────────────────────────────────────────────────────────────────────
 jobs:
@@ -155,8 +158,7 @@ jobs:
           fi
 
           echo "Extrahiere: $WASM_IN_ZIP"
-          unzip -j tmp_zip/upstream.zip "$WASM_IN_ZIP" -d wasm/
-          mv wasm/$(basename "$WASM_IN_ZIP") "${{ env.WASM_PATH }}"
+          unzip -jo tmp_zip/upstream.zip "$WASM_IN_ZIP" -d wasm/
           rm -rf tmp_zip
 
           SIZE=$(wc -c < "${{ env.WASM_PATH }}")

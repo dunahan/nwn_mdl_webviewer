@@ -152,7 +152,7 @@ function buildPWKMesh(pwk) {
 
   const totalFaces = pwk.meshNodes.reduce((s, n) => s + n.faces.length, 0);
   if (totalFaces === 0 && pwk.iop.length === 0) {
-    logWarn('PWK: Keine Geometrie oder Interaction Points gefunden.');
+    logWarn(L('pwk_no_geom'));
     return;
   }
 
@@ -266,11 +266,11 @@ function buildPWKMesh(pwk) {
   scene.add(pwkGroup);
   buildPwkColorPanel();
 
-  logInfo(
-    'PWK geladen: ' + pwk.meshNodes.length + ' Walk-Geometry-Node(s), ' +
-    totalFaces + ' Face(s), ' +
-    pwk.iop.length + ' Interaction Point(s)'
-  );
+  logInfo(fmt('pwk_loaded', {
+    nodes: pwk.meshNodes.length,
+    faces: totalFaces,
+    iop:   pwk.iop.length
+  }));
 }
 
 function togglePWK() {

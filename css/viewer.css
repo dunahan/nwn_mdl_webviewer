@@ -403,6 +403,66 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
   font-size: 10px;
   text-align: center;
 }
+/* ── Decompile Overlay ── */
+#decompile-overlay {
+  position: absolute; inset: 0;
+  background: rgba(10,12,15,0.82);
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 18px; z-index: 50;
+  backdrop-filter: blur(2px);
+}
+#decompile-overlay.active { display: flex; }
+
+.dcmp-spinner {
+  width: 48px; height: 48px;
+  border: 3px solid var(--border);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: dcmp-spin 0.9s linear infinite;
+}
+@keyframes dcmp-spin {
+  to { transform: rotate(360deg); }
+}
+
+.dcmp-title {
+  font-family: 'Cinzel', serif;
+  font-size: 13px; letter-spacing: 2px;
+  color: var(--gold); text-transform: uppercase;
+}
+.dcmp-file {
+  font-size: 10px; color: var(--muted);
+  letter-spacing: 1px; max-width: 280px;
+  text-align: center; word-break: break-all;
+}
+.dcmp-hint {
+  font-size: 9px; color: var(--border);
+  letter-spacing: 1px;
+  animation: dcmp-pulse 2s ease-in-out infinite;
+}
+@keyframes dcmp-pulse {
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 1.0; }
+}
+.dcmp-cancel-btn {
+  margin-top: 6px;
+  padding: 6px 22px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--muted);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+.dcmp-cancel-btn:hover {
+  border-color: #c04040;
+  color: #e06060;
+}
+
 /* ── Empty state ── */
 #empty-state {
   position: absolute; inset: 0;

@@ -140,6 +140,15 @@
   <div id="viewport">
     <canvas id="canvas"></canvas>
 
+    <!-- ── Decompile-Overlay ── -->
+    <div id="decompile-overlay">
+      <div class="dcmp-spinner"></div>
+      <div class="dcmp-title" data-i18n="dcmp_title">Decompiling…</div>
+      <div class="dcmp-file" id="dcmp-filename"></div>
+      <div class="dcmp-hint" data-i18n="dcmp_hint">Binary MDL · Please wait</div>
+      <button class="dcmp-cancel-btn" onclick="cancelDecompile()" data-i18n="dcmp_cancel">Cancel</button>
+    </div>
+
     <div id="empty-state">
       <div class="es-icon">⬡</div>
       <p data-i18n="empty_title">Load MDL File</p>
@@ -214,6 +223,8 @@
   
 <!-- NWN MDL Viewer — Module -->
 <script src="js/i18n.js"></script>        <!-- Translation --!>
+<script src="js/wasm_exec.js"></script>   <!-- Cleanmodels WASM --!>
+<script src="js/cleanmodels.js"></script> <!-- Binary Functions --!>
 <script src="js/mtr.js"></script>         <!-- MRT Functions --!>
 <script src="js/txi.js"></script>         <!-- TXI Functions --!>
 <script src="js/plt_swatch.js"></script>  <!-- PLT Watcher / ColorPicker Definitions --!>

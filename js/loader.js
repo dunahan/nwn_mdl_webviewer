@@ -83,7 +83,7 @@ function loadFiles(fileList) {
         const btn = document.getElementById('btn-walkmesh');
         if (btn) btn.disabled = false;
       } catch (err) {
-        logError('WOK: ' + file.name + ' — ' + err.message);
+        logError(fmt('err_wok_load', { name: file.name, msg: err.message }));
       }
     };
     reader.readAsText(file);
@@ -99,7 +99,7 @@ function loadFiles(fileList) {
         const btn = document.getElementById('btn-pwk');
         if (btn) btn.disabled = false;
       } catch (err) {
-        logError('PWK: ' + file.name + ' — ' + err.message);
+        logError(fmt('err_pwk_load', { name: file.name, msg: err.message }));
       }
     };
     reader.readAsText(file);
@@ -122,7 +122,7 @@ function loadFiles(fileList) {
           texLoaded++;
           setStatus(fmt('status_tex_loaded', { name: file.name, n: texLoaded, total: texFiles.length }));
         } catch(err) {
-          logError('TGA: ' + file.name + ' — ' + err.message);
+          logError(fmt('err_tga_load', { name: file.name, msg: err.message }));
           setStatus(fmt('status_tga_error', { name: file.name, msg: err.message }));
         }
         texPending--;
@@ -144,7 +144,7 @@ function loadFiles(fileList) {
           texLoaded++;
           setStatus(fmt('status_tex_loaded', { name: file.name, n: texLoaded, total: texFiles.length }));
         } catch(err) {
-          logError('DDS: ' + file.name + ' — ' + err.message);
+          logError(fmt('err_dds_load', { name: file.name, msg: err.message }));
           setStatus(fmt('status_tga_error', { name: file.name, msg: err.message }));
         }
         texPending--;
@@ -166,7 +166,7 @@ function loadFiles(fileList) {
           texLoaded++;
           setStatus(fmt('status_tex_loaded', { name: file.name, n: texLoaded, total: texFiles.length }));
         } catch(err) {
-          logError('PLT: ' + file.name + ' — ' + err.message);
+          logError(fmt('err_plt_load', { name: file.name, msg: err.message }));
           setStatus(fmt('status_tga_error', { name: file.name, msg: err.message }));
         }
         texPending--;
@@ -308,6 +308,7 @@ function loadAllMDLFiles(mdlFiles) {
         if (hasMesh) { mainModel = model; break; }
       }
     }
+    
     // Fallback: Modell ohne Mesh aber mit Nodes (z.B. fx_clouds: nur dummy + emitter)
     if (!mainModel) {
       for (const model of Object.values(parsed)) {
@@ -360,17 +361,60 @@ function loadAllMDLFiles(mdlFiles) {
   for (const file of mdlFiles) {
     const baseName = file.name.replace(/\.[^.]+$/, '').toLowerCase();
     const reader = new FileReader();
-    reader.onload = e => {
-      texts[baseName] = e.target.result;
+
+    reader.onload = async e => {
+      const buffer = e.target.result;  // ArrayBuffer
+
+      try {
+        // Binäres MDL erkennen und ggf. decompilieren
+        if (isBinaryMDL(buffer)) {
+          if (!cm.isReady()) {
+            logInfo(L('wasm_loading'));
+            try { await cm.ready(); } catch(wasmErr) {
+              logError(fmt('wasm_unavailable', { msg: wasmErr.message }));
+              logError(fmt('wasm_no_binary',   { name: file.name }));
+              pending--;
+              if (pending === 0) onAllRead();
+              return;
+            }
+          }
+          showDecompileOverlay(file.name);
+          logInfo(fmt('dcmp_decompiling', { name: file.name }));
+          try {
+            const ascii = await cm.decompile(buffer);
+            if (_decompileCancelled) return;
+            texts[baseName] = ascii;
+            logInfo(fmt('dcmp_done', { name: file.name }));
+          } catch (decompErr) {
+            if (!_decompileCancelled) {
+              logError(fmt('dcmp_error', { name: file.name, msg: decompErr.message }));
+            }
+          } finally {
+            if (!_decompileCancelled) hideDecompileOverlay();
+          }
+        } else {
+          // ASCII-MDL: direkt als Text dekodieren
+          texts[baseName] = new TextDecoder('utf-8').decode(buffer);
+        }
+      } catch (err) {
+        if (!_decompileCancelled) logError(file.name + ' — ' + err.message);
+      }
+
+      // Bei Abbruch: Ladevorgang komplett abbrechen, kein onAllRead()
+      if (_decompileCancelled) return;
+
       pending--;
       if (pending === 0) onAllRead();
     };
+
     reader.onerror = () => {
       logError(file.name + ' — ' + L('status_read_error'));
       pending--;
       if (pending === 0) onAllRead();
     };
-    reader.readAsText(file);
+
+    // Immer als ArrayBuffer lesen — wir entscheiden danach ASCII vs. Binär
+    reader.readAsArrayBuffer(file);
   }
 }
 
@@ -395,3 +439,41 @@ dropZone.addEventListener('drop', e => { loadFiles(e.dataTransfer.files); });
 document.getElementById('file-input').addEventListener('change', e => { loadFiles(e.target.files); e.target.value=''; });
 
 // ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+//  Decompile-Overlay
+// ─────────────────────────────────────────────
+
+// Flag: true = Nutzer hat Abbrechen geklickt,
+//        WASM läuft noch im Hintergrund aber das Ergebnis wird verworfen.
+let _decompileCancelled = false;
+
+function showDecompileOverlay(filename) {
+  _decompileCancelled = false;    // Jedes neue Decompile startet sauber
+  const overlay  = document.getElementById('decompile-overlay');
+  const fileLabel = document.getElementById('dcmp-filename');
+  if (!overlay) return;
+  if (fileLabel) fileLabel.textContent = filename;
+  // i18n auf die dynamischen Texte anwenden
+  overlay.querySelectorAll('[data-i18n]').forEach(el => {
+    const val = L(el.getAttribute('data-i18n'));
+    if (val) el.textContent = val;
+  });
+  overlay.classList.add('active');
+}
+
+function hideDecompileOverlay() {
+  const overlay = document.getElementById('decompile-overlay');
+  if (overlay) overlay.classList.remove('active');
+}
+
+// Wird vom Abbrechen-Button im Overlay aufgerufen.
+// Das WASM läuft im Hintergrund weiter bis es fertig ist —
+// das Ergebnis wird aber verworfen und die Session zurückgesetzt.
+function cancelDecompile() {
+  _decompileCancelled = true;
+  hideDecompileOverlay();
+  clearSession();
+  clearLog();
+  setStatus(L('dcmp_cancelled'));
+  logWarn(L('dcmp_cancelled'));
+}
