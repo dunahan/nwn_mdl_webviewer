@@ -1,6 +1,6 @@
 # ⬡ NWN MDL Viewer
 
-A browser-based 3D model viewer for **Neverwinter Nights 1: Enhanced Edition** decompiled ASCII `.mdl` files.  
+A browser-based 3D model viewer for **Neverwinter Nights 1: Enhanced Edition** binary AND decompiled ASCII `.mdl` files.  
 No installation, no server — just open `index.html` locally or use it directly via **GitHub Pages**.
 
 🌐 **Live Demo:** `https://dunahan.github.io/nwn_mdl_webviewer/`
@@ -17,7 +17,7 @@ No installation, no server — just open `index.html` locally or use it directly
 - **Wireframe Overlay** — Adjustable opacity slider
 - **Lighting Control** — Intensity slider
 - **Extras** — Auto-rotation, Bounding Box display, Grid toggle, Flat/Smooth shading
-- **Zero dependencies** — Only Three.js r128 (loaded from CDN); runs fully offline once cached
+- **Zero dependencies** — Only Three.js r152 (loaded from CDN); runs fully offline once cached
 
 ---
 
@@ -33,7 +33,7 @@ No installation, no server — just open `index.html` locally or use it directly
 
 1. Download the latest Release from GitHub.
 2. Open in browser (Chrome, Firefox, Edge)
-3. Drag .mdl + texture files (.tga, .dds) into the drop zone.
+3. Drag .mdl + texture files (.tga, .dds etc) into the drop zone.
 
 ### Option C — Local use (python3 needed!)
 
@@ -56,23 +56,27 @@ xdg-open index.html      # Linux
 ## 📁 File Format
 
 NWN stores models as **compiled binary** `.mdl` files.  
-This viewer requires the **decompiled ASCII format**.
+This viewer uses the [CleanModelsEE](https://github.com/plenarius/cleanmodels/tree/v4-go-rewrite) WASM release from plenarius to get the readable ASCII file.
+Despite everything, I recommend converting the binary model using Cleanmodels and ideally also repairing it.
 
-### How to decompile
+### How to decompile/repair
 
 **Using `cleanmodels`:**
 
+Grab the latest binary for your platform for [CleanModelsEE](https://github.com/plenarius/cleanmodels/releases)
+
 ```bash
-# Download from:
-# https://github.com/plenarius/cleanmodels/releases/tag/latest the client application and eventually
-# https://github.com/plenarius/cleanmodels-qt/releases/tag/latest for a gui
-# Now set up last_dirs.pl or use the gui for this. Create an in- and an out-directory where the cli is. (My suggestion: keep the directory structure simple.)
-# Instead you can use this command to convert a compiled model in the >/in< directory.
+# Decompile a binary MDL to ASCII (will overwrite the compiled file)
+cleanmodels decompile plc_torch.mdl plc_torch.mdl
 
-cleanmodels-cli --decompile=true --pattern=*.mdl --indir=<PathToYourIn-Dir>/in --outdir=<PathToYourOut-Dir>/out
+# Output to a separate folder (originals untouched and will produce ASCII files)
+cleanmodels repair -a -r haks/ cleaned/
 
-# This will create a ASCII file in the >/out< folder.
+# Save everything (stdout + stderr)
+cleanmodels check -r -v models/ &> log.txt
 ```
+
+For more details, take a look at the [CleanModelsEE]([https://github.com/plenarius/cleanmodels/tree/v4-go-rewrite])
 
 **Using `nwnmdlcomp`** (command line tool):
 
@@ -95,18 +99,25 @@ nwnmdlcomp -d c_dragon.mdl
 ## 📂 Project Structure
 
 ```
-nwn-mdl-viewer/
+nwn-mdl-webviewer/
 ├── index.html              # Main application (self-contained)
 ├── README.md               # This file
 ├── LICENSE                 # MIT License
+├── build.py                # Python script for building the release
 ├── .gitignore
-├── lang
+├── wasm/                   # Where the cleanmodel.wasm resides
+├── testfiles/              # some files for testing
+├── src-tauri/icons         # the generated icons for a Tauri build (later)
+├── scripts/                # scripts for manual building the resources for a offline version
+├── lang/
 │   ├── de.json             # German translation file
 │   ├── en.json             # English Translation file
-│   └── README.md	         # HowTo set up a new translation and integrate it
+│   └── README.md	        # HowTo set up a new translation and integrate it
+├── js/                     # JavaScript files
 ├── docs/
 │   ├── FORMAT.md           # NWN MDL format reference
 │   └── DECOMPILE.md        # Step-by-step decompilation guide
+├── css/                    # CSS definition
 └── .github/
     └── workflows/
         └── pages.yml       # GitHub Pages auto-deploy workflow
@@ -117,7 +128,7 @@ nwn-mdl-viewer/
 ## 🎮 Usage
 
 1. Open the viewer in your browser
-2. **Drag & drop** a decompiled `.mdl` file onto the viewport  
+2. **Drag & drop** a de-/compiled `.mdl` file onto the viewport  
    — or click the drop zone and pick a file
 3. Use the sidebar to inspect nodes and toggle visibility
 4. Click any node name in the list to see its details
@@ -158,15 +169,15 @@ nwn-mdl-viewer/
 | $\textcolor{orange}{\textsf{⚠}}$ | Orange | Warnung |
 | $\textcolor{darkgrey}{\textsf{·}}$ | Grey | Info |
 
-All error sources now write to the panel: TGA, DDS, MDL and FileReader errors — with timestamp and filename.
+All error sources now write to the panel: for example TGA, DDS, MDL and FileReader errors — with timestamp and filename.
 
 ---
 
 ## ⚠️ Known Limitations
 
-- **Animations**: Keyframe animations defined in `newanim` blocks are parsed (count shown) but not yet played back
-- **Binary MDL**: Only ASCII/decompiled format is supported
-- **Walkmesh**: AABB nodes are shown as markers but walkmesh geometry is not rendered separately
+- ~~**Animations**: Keyframe animations defined in `newanim` blocks are parsed (count shown) but not yet played back~~
+- ~~**Binary MDL**: Only ASCII/decompiled format is supported~~
+- ~~**Walkmesh**: AABB nodes are shown as markers but walkmesh geometry is not rendered separately~~
 
 ---
 
@@ -176,7 +187,7 @@ All error sources now write to the panel: TGA, DDS, MDL and FileReader errors �
 - [x] Animation playback (keyframe interpolation)
 - [ ] Export to glTF/OBJ
 - [ ] Multiple file loading (supermodel chain)
-- [ ] Walkmesh visualisation overlay
+- [x] Walkmesh visualisation overlay
 
 ---
 
