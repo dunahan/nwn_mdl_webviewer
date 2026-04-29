@@ -156,7 +156,6 @@ jobs:
 
           echo "Extrahiere: $WASM_IN_ZIP"
           unzip -jo tmp_zip/upstream.zip "$WASM_IN_ZIP" -d wasm/
-          mv wasm/$(basename "$WASM_IN_ZIP") "${{ env.WASM_PATH }}"
           rm -rf tmp_zip
 
           SIZE=$(wc -c < "${{ env.WASM_PATH }}")
