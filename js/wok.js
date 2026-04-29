@@ -266,8 +266,10 @@ function buildWalkMesh(wok) {
   scene.add(wokGroup);
   buildWokColorPanel();
   
-  logInfo('Walkmesh geladen: ' + wok.nodes.length + ' Node(s), ' +
-          wok.nodes.reduce((s, n) => s + n.faces.length, 0) + ' Faces');
+  logInfo(fmt('wok_loaded', {
+    nodes: wok.nodes.length,
+    faces: wok.nodes.reduce((s, n) => s + n.faces.length, 0)
+  }));
 }
 
 function toggleWalkMesh() {

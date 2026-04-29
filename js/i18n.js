@@ -72,7 +72,11 @@ const I18N_BUNDLE = {
     plt_layer_6:          'Leather 1',
     plt_layer_7:          'Leather 2',
     plt_layer_8:          'Tattoo 1',
-    plt_layer_9:          'Tattoo 2'
+    plt_layer_9:          'Tattoo 2',
+    dcmp_title:           'Decompiling…',
+    dcmp_hint:            'Binary MDL · Please wait',
+    dcmp_cancel:          'Cancel',
+    dcmp_cancelled:       'Decompile cancelled.'
   },
   de: {
     _meta: { language: 'Deutsch', code: 'de' },
@@ -135,7 +139,11 @@ const I18N_BUNDLE = {
     plt_layer_6:          'Leder 1',
     plt_layer_7:          'Leder 2',
     plt_layer_8:          'Tattoo 1',
-    plt_layer_9:          'Tattoo 2'
+    plt_layer_9:          'Tattoo 2',
+    dcmp_title:           'Dekompiliere…',
+    dcmp_hint:            'Binäres MDL · Bitte warten',
+    dcmp_cancel:          'Abbrechen',
+    dcmp_cancelled:       'Dekompilierung abgebrochen.'
   }
 };
 
