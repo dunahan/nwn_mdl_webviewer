@@ -1,13 +1,13 @@
 # ═══════════════════════════════════════════════════════════
 #  NWN MDL Viewer — Create GitHub Release
 #
-#  Runs build.py and publishes a downloadable release with:
-#    - nwn_mdl_viewer.html   (standalone single-file version)
-#    - nwn-mdl-viewer-src.zip (full source code)
+#  Ablauf:
+#    1. update-wasm   → stellt sicher dass cleanmodels.wasm aktuell ist
+#    2. release        → baut Standalone-HTML + Source-ZIP und veröffentlicht
 #
-#  Triggers:
-#    - Push of a version tag:  git tag v1.2.3 && git push --tags
-#    - Manual trigger via Actions tab (workflow_dispatch)
+#  Auslöser:
+#    - Push eines Version-Tags:  git tag v1.2.3 && git push --tags
+#    - Manuell über den Actions-Tab (workflow_dispatch)
 # ═══════════════════════════════════════════════════════════
 
 name: Create Release
@@ -27,12 +27,29 @@ permissions:
   contents: write
 
 jobs:
+
+  # ── Job 1: WASM aktuell halten ─────────────────────────────────────────────
+  # Ruft update-wasm.yml als reusable workflow auf. Wenn upstream kein neues
+  # Release hat, beendet sich dieser Job in ~10 Sekunden ohne Commit.
+  update-wasm:
+    uses: ./.github/workflows/update-wasm.yml
+    permissions:
+      contents: write
+
+  # ── Job 2: Build & Release ─────────────────────────────────────────────────
   release:
+    needs: update-wasm   # wartet bis update-wasm abgeschlossen ist
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      # Frischer Checkout — wichtig: update-wasm könnte einen neuen Commit
+      # gepusht haben (neue WASM-Version). Mit ref: main/master holen wir
+      # immer den neuesten Stand inklusive etwaiger WASM-Updates.
+      - name: Checkout (nach möglichem WASM-Update)
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 1
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -45,13 +62,15 @@ jobs:
       - name: Rename dist file for release
         run: cp dist/index.html dist/nwn_mdl_webviewer.html
 
-      - name: Create source ZIP (excluding dist/)
+      # Source-ZIP: jetzt mit wasm/ und scripts/ Verzeichnissen
+      - name: Create source ZIP
         run: |
           zip -r dist/nwn-mdl-webviewer-src.zip \
             css/ \
-            docs/ \
             js/ \
             lang/ \
+            wasm/ \
+            scripts/ \
             index.html \
             build.py
 
@@ -64,6 +83,16 @@ jobs:
             echo "name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
           fi
 
+      # WASM-Versionsinfo für die Release-Notes
+      - name: WASM-Version ermitteln
+        id: wasm_ver
+        run: |
+          VER="(unbekannt)"
+          if [ -f "wasm/cleanmodels.version" ]; then
+            VER=$(cat wasm/cleanmodels.version)
+          fi
+          echo "version=$VER" >> $GITHUB_OUTPUT
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -73,20 +102,27 @@ jobs:
             ## NWN MDL WebViewer ${{ steps.tag.outputs.name }}
 
             ### Downloads
-            | File | Description|
+            | Datei | Beschreibung |
             |---|---|
-            | `nwn_mdl_webviewer.html` | **Standalone-Version** — Simply open in your browser, no server required |
-            | `nwn-mdl-webviewer-src.zip` | Full source code (HTML + CSS + JS + lang/) |
+            | `nwn_mdl_webviewer.html` | **Standalone-Version** — einfach im Browser öffnen, kein Server nötig |
+            | `nwn-mdl-webviewer-src.zip` | Vollständiger Quellcode (HTML + CSS + JS + WASM + lang/) |
 
-            ### Using the release
-            1. Download `nwn_mdl_webviewer.html`
-            2. Open in browser (Chrome, Firefox, Edge)
-            3. Drag `.mdl` + texture files (`.tga`, `.dds`) into the drop zone.
+            ### Verwendung
+            1. `nwn_mdl_webviewer.html` herunterladen
+            2. Im Browser öffnen (Chrome, Firefox, Edge)
+            3. `.mdl` + Texturdateien (`.tga`, `.dds`) in die Drop-Zone ziehen
 
-            ### Supported formats
-            - ASCII MDL (decompiled with NWN Explorer or similar.)
-            - NWN/Bioware DDS (custom 20-Byte-Header, DXT1/DXT5)
+            ### Unterstützte Formate
+            - ASCII MDL (dekompiliert mit NWN Explorer o.ä.)
+            - Binäres MDL (wird automatisch via cleanmodels WASM dekompiliert)
+            - NWN/Bioware DDS (20-Byte-Header, DXT1/DXT5)
             - TGA (Type 2/10, 16/24/32-bit)
+            - PLT (BioWare Palette Texture)
+
+            ### Komponenten
+            | Komponente | Version |
+            |---|---|
+            | cleanmodels WASM | `${{ steps.wasm_ver.outputs.version }}` |
           draft: false
           prerelease: ${{ contains(steps.tag.outputs.name, '-') }}
           files: |

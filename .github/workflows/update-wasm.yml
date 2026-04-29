@@ -15,7 +15,23 @@ on:
         default: 'false'
         type: boolean
 
-  # 3. Automatisch bei eigenem Release (stellt sicher dass das Release
+  # 3. Von anderen Workflows aufrufbar (z.B. release.yml)
+  workflow_call:
+    inputs:
+      force:
+        description: 'WASM auch dann ersetzen, wenn die Version gleich ist'
+        required: false
+        default: 'false'
+        type: boolean
+    outputs:
+      updated:
+        description: 'true wenn eine neue Version eingespielt wurde'
+        value: ${{ jobs.update-wasm.outputs.updated }}
+      tag:
+        description: 'Eingespielter Upstream-Tag'
+        value: ${{ jobs.update-wasm.outputs.tag }}
+
+  # 4. Automatisch bei eigenem Release (stellt sicher dass das Release
   #    immer die aktuellste WASM-Version enthält)
   release:
     types: [published]
@@ -27,6 +43,9 @@ permissions:
 # ── Job ──────────────────────────────────────────────────────────────────────
 jobs:
   update-wasm:
+    outputs:
+      updated: ${{ steps.check.outputs.update }}
+      tag:     ${{ steps.upstream.outputs.tag }}
     runs-on: ubuntu-latest
     env:
       UPSTREAM: plenarius/cleanmodels
