@@ -12,7 +12,7 @@ on:
       force:
         description: 'WASM auch dann ersetzen, wenn die Version gleich ist'
         required: false
-        default: 'false'
+        default: false
         type: boolean
 
   # 3. Von anderen Workflows aufrufbar (z.B. release.yml)
@@ -21,7 +21,7 @@ on:
       force:
         description: 'WASM auch dann ersetzen, wenn die Version gleich ist'
         required: false
-        default: 'false'
+        default: false
         type: boolean
     outputs:
       updated:
