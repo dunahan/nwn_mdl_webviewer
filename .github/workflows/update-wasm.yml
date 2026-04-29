@@ -1,0 +1,194 @@
+name: Update cleanmodels WASM
+
+# ── Auslöser ────────────────────────────────────────────────────────────────
+on:
+  # 1. Nightly-Check — jeden Tag um 03:00 UTC
+  schedule:
+    - cron: '0 3 * * *'
+
+  # 2. Manuell auslösbar (mit optionalem Force-Flag)
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'WASM auch dann ersetzen, wenn die Version gleich ist'
+        required: false
+        default: 'false'
+        type: boolean
+
+  # 3. Automatisch bei eigenem Release (stellt sicher dass das Release
+  #    immer die aktuellste WASM-Version enthält)
+  release:
+    types: [published]
+
+# ── Berechtigungen ───────────────────────────────────────────────────────────
+permissions:
+  contents: write   # für den Commit
+
+# ── Job ──────────────────────────────────────────────────────────────────────
+jobs:
+  update-wasm:
+    runs-on: ubuntu-latest
+    env:
+      UPSTREAM: plenarius/cleanmodels
+      WASM_PATH: wasm/cleanmodels.wasm
+      B64_PATH:  js/cleanmodels_wasm.js
+
+    steps:
+
+      # ── 1. Repo auschecken ──────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # ── 2. Aktuellsten Upstream-Release ermitteln ───────────────────────
+      - name: Upstream-Release-Info holen
+        id: upstream
+        run: |
+          RELEASE_JSON=$(curl -sSf \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${{ env.UPSTREAM }}/releases/latest")
+
+          TAG=$(echo "$RELEASE_JSON" | jq -r '.tag_name')
+          URL=$(echo "$RELEASE_JSON" | jq -r '
+            .assets[]
+            | select(.name == "cleanmodels.wasm")
+            | .browser_download_url')
+
+          if [ -z "$URL" ] || [ "$URL" = "null" ]; then
+            echo "::error::Kein cleanmodels.wasm Asset im Release $TAG gefunden."
+            exit 1
+          fi
+
+          echo "tag=$TAG"   >> "$GITHUB_OUTPUT"
+          echo "url=$URL"   >> "$GITHUB_OUTPUT"
+          echo "Upstream-Release: $TAG — $URL"
+
+      # ── 3. Aktuelle lokale Version prüfen ──────────────────────────────
+      #    Wir speichern den Tag in wasm/cleanmodels.version (1 Zeile)
+      - name: Lokale Version prüfen
+        id: check
+        run: |
+          VERSION_FILE="wasm/cleanmodels.version"
+          LOCAL_TAG="(keine)"
+          if [ -f "$VERSION_FILE" ]; then
+            LOCAL_TAG=$(cat "$VERSION_FILE")
+          fi
+
+          UPSTREAM_TAG="${{ steps.upstream.outputs.tag }}"
+          FORCE="${{ github.event.inputs.force }}"
+
+          echo "Lokal: $LOCAL_TAG  |  Upstream: $UPSTREAM_TAG  |  Force: $FORCE"
+
+          if [ "$LOCAL_TAG" = "$UPSTREAM_TAG" ] && [ "$FORCE" != "true" ]; then
+            echo "update=false" >> "$GITHUB_OUTPUT"
+            echo "Bereits aktuell — kein Update nötig."
+          else
+            echo "update=true"  >> "$GITHUB_OUTPUT"
+            echo "Update wird durchgeführt: $LOCAL_TAG → $UPSTREAM_TAG"
+          fi
+
+      # ── 4. WASM herunterladen ───────────────────────────────────────────
+      - name: WASM herunterladen
+        if: steps.check.outputs.update == 'true'
+        run: |
+          mkdir -p wasm
+          curl -sSfL "${{ steps.upstream.outputs.url }}" -o "${{ env.WASM_PATH }}"
+
+          SIZE=$(wc -c < "${{ env.WASM_PATH }}")
+          echo "Heruntergeladen: $SIZE Bytes"
+
+          # Versionsdatei aktualisieren
+          echo "${{ steps.upstream.outputs.tag }}" > wasm/cleanmodels.version
+
+      # ── 5. Base64-JS für file://-Modus generieren ──────────────────────
+      - name: cleanmodels_wasm.js generieren
+        if: steps.check.outputs.update == 'true'
+        run: |
+          TAG="${{ steps.upstream.outputs.tag }}"
+          WASM="${{ env.WASM_PATH }}"
+          OUT="${{ env.B64_PATH }}"
+
+          mkdir -p js
+
+          # base64 ohne Zeilenumbrüche (MIME-Style), dann als JS-Variable
+          B64=$(base64 -w 0 "$WASM")
+
+          cat > "$OUT" << JSEOF
+          /* cleanmodels.wasm — Base64-kodiert für file://-Modus
+             Upstream-Version : ${TAG}
+             Generiert        : $(date -u '+%Y-%m-%dT%H:%M:%SZ')
+             Quelle           : https://github.com/${{ env.UPSTREAM }}/releases/tag/${TAG}
+             ACHTUNG: Diese Datei wird automatisch durch den GitHub-Actions-
+             Workflow update-wasm.yml aktualisiert. Nicht manuell bearbeiten.
+          */
+          // eslint-disable-next-line
+          var CM_WASM_B64 = "${B64}";
+          JSEOF
+
+          SIZE=$(wc -c < "$OUT")
+          echo "Generiert: $OUT ($SIZE Bytes)"
+
+      # ── 6. SHA-256-Prüfsumme für Transparenz loggen ────────────────────
+      - name: SHA-256 prüfen und loggen
+        if: steps.check.outputs.update == 'true'
+        run: |
+          sha256sum "${{ env.WASM_PATH }}" | tee wasm/cleanmodels.wasm.sha256
+          echo "SHA-256 in wasm/cleanmodels.wasm.sha256 gespeichert."
+
+      # ── 7. Änderungen committen ─────────────────────────────────────────
+      - name: Commit und Push
+        if: steps.check.outputs.update == 'true'
+        run: |
+          TAG="${{ steps.upstream.outputs.tag }}"
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            "${{ env.WASM_PATH }}" \
+            "${{ env.B64_PATH }}"  \
+            wasm/cleanmodels.version \
+            wasm/cleanmodels.wasm.sha256
+
+          git commit -m "chore: cleanmodels WASM → ${TAG}
+
+          Upstream: https://github.com/${{ env.UPSTREAM }}/releases/tag/${TAG}
+          SHA-256 : $(cat wasm/cleanmodels.wasm.sha256 | cut -d' ' -f1)
+          Auslöser: ${{ github.event_name }}"
+
+          git push
+
+      # ── 8. Release-Asset anhängen (nur bei eigenem Release-Event) ───────
+      - name: WASM als Release-Asset hochladen
+        if: >
+          steps.check.outputs.update == 'true' &&
+          github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ env.WASM_PATH }}
+            ${{ env.B64_PATH }}
+            wasm/cleanmodels.wasm.sha256
+
+      # ── 9. Zusammenfassung ──────────────────────────────────────────────
+      - name: Job-Zusammenfassung schreiben
+        if: always()
+        run: |
+          TAG="${{ steps.upstream.outputs.tag }}"
+          UPDATED="${{ steps.check.outputs.update }}"
+          {
+            echo "## cleanmodels WASM Update"
+            echo ""
+            if [ "$UPDATED" = "true" ]; then
+              echo "✅ **Aktualisiert auf \`${TAG}\`**"
+              echo ""
+              echo "| Datei | Größe |"
+              echo "|-------|-------|"
+              echo "| \`${{ env.WASM_PATH }}\` | $(wc -c < ${{ env.WASM_PATH }}) Bytes |"
+              echo "| \`${{ env.B64_PATH }}\` | $(wc -c < ${{ env.B64_PATH }}) Bytes |"
+            else
+              echo "ℹ️ **Bereits aktuell** — kein Update nötig."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
