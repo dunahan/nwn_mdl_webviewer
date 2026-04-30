@@ -412,12 +412,31 @@ function buildScene(model) {
     // Vertex-Model-Space = vertex_local + skin_node_position
     // skin_node_position ist der MDL-Pivot-Offset (NWN-Space).
     const [spx, spy, spz] = node.position;   // skin node pivot in NWN model space
+    const [oax, oay, oaz, oangle] = node.orientation;
+    
+    // Skin-Node-Rotation auf Bind-Positionen anwenden
+    const skinQuat = axisAngleToQuat(oax, oay, oaz, oangle);
+    const hasRot = Math.abs(1.0 - Math.abs(skinQuat.w)) > 1e-4;
+    const rotMat = hasRot
+      ? new THREE.Matrix4().makeRotationFromQuaternion(skinQuat)
+      : null;
+    
     const rawPos = geo.attributes.position.array;
     const bindPos = new Float32Array(rawPos.length);
-    for (let k = 0; k < rawPos.length; k += 3) {
+    const _vtmp = new THREE.Vector3();
+    
+/*  for (let k = 0; k < rawPos.length; k += 3) {
       bindPos[k]     = rawPos[k]     + spx;
       bindPos[k + 1] = rawPos[k + 1] + spy;
       bindPos[k + 2] = rawPos[k + 2] + spz;
+    }*/
+    
+    for (let k = 0; k < rawPos.length; k += 3) {
+      _vtmp.set(rawPos[k], rawPos[k + 1], rawPos[k + 2]);
+      if (rotMat) _vtmp.applyMatrix4(rotMat);
+      bindPos[k]     = _vtmp.x + spx;
+      bindPos[k + 1] = _vtmp.y + spy;
+      bindPos[k + 2] = _vtmp.z + spz;
     }
     geo.userData.bindPositions = bindPos;
 
