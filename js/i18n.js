@@ -76,7 +76,22 @@ const I18N_BUNDLE = {
     dcmp_title:           'Decompiling…',
     dcmp_hint:            'Binary MDL · Please wait',
     dcmp_cancel:          'Cancel',
-    dcmp_cancelled:       'Decompile cancelled.'
+    dcmp_cancelled:       'Decompile cancelled.',
+    // cleanmodels-wasm module messages
+    cm_start:             '[cleanmodels] Start, mode: {mode}',
+    cm_no_wasm_exec:      '[cleanmodels] wasm_exec.js missing.',
+    cm_script_error:      'Script load error: {src}',
+    cm_loading_b64:       '[cleanmodels] Loading {src}',
+    cm_b64_missing:       '{src} missing.',
+    cm_b64_decoded:       '[cleanmodels] Base64 decoded: {size} MB',
+    cm_wasm_loaded:       '[cleanmodels] WASM loaded: {size} MB',
+    cm_instantiated:      '[cleanmodels] Instance created, starting go.run()…',
+    cm_timeout:           'cleanmodels: Timeout — window.cleanmodels not available.',
+    cm_ready:             '[cleanmodels] Module ready. Version: {ver}',
+    cm_load_error:        '[cleanmodels] Load error:',
+    cm_unknown_error:     'Unknown error',
+    cm_decompile_error:   'cleanmodels.decompile: {msg}',
+    cm_decompile_ok:      '[cleanmodels] Decompilation successful, {n} characters.'
   },
   de: {
     _meta: { language: 'Deutsch', code: 'de' },
@@ -143,7 +158,22 @@ const I18N_BUNDLE = {
     dcmp_title:           'Dekompiliere…',
     dcmp_hint:            'Binäres MDL · Bitte warten',
     dcmp_cancel:          'Abbrechen',
-    dcmp_cancelled:       'Dekompilierung abgebrochen.'
+    dcmp_cancelled:       'Dekompilierung abgebrochen.',
+    // cleanmodels-wasm Modul-Meldungen
+    cm_start:             '[cleanmodels] Start, Modus: {mode}',
+    cm_no_wasm_exec:      '[cleanmodels] wasm_exec.js fehlt.',
+    cm_script_error:      'Script-Ladefehler: {src}',
+    cm_loading_b64:       '[cleanmodels] Lade {src}',
+    cm_b64_missing:       '{src} fehlt.',
+    cm_b64_decoded:       '[cleanmodels] Base64 dekodiert: {size} MB',
+    cm_wasm_loaded:       '[cleanmodels] WASM geladen: {size} MB',
+    cm_instantiated:      '[cleanmodels] Instanz erzeugt, go.run() wird gestartet…',
+    cm_timeout:           'cleanmodels: Timeout — window.cleanmodels nicht verfügbar.',
+    cm_ready:             '[cleanmodels] Modul bereit. Version: {ver}',
+    cm_load_error:        '[cleanmodels] Ladefehler:',
+    cm_unknown_error:     'Unbekannter Fehler',
+    cm_decompile_error:   'cleanmodels.decompile: {msg}',
+    cm_decompile_ok:      '[cleanmodels] Dekompilierung erfolgreich, {n} Zeichen.'
   }
 };
 

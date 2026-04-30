@@ -1,0 +1,32 @@
+{
+  "name": "High Contrast",
+  "author": "Built-in",
+  "description": "Maximum contrast with larger text. Suitable for visually impaired users or bright environments.",
+  "variables": {
+    "--bg":           "#000000",
+    "--panel":        "#111111",
+    "--border":       "#ffffff",
+    "--gold":         "#ffffff",
+    "--gold2":        "#ffff00",
+    "--amber":        "#ff8800",
+    "--text":         "#ffffff",
+    "--muted":        "#cccccc",
+    "--mesh":         "#44aaff",
+    "--dummy":        "#44ee44",
+    "--skin":         "#ff44ff",
+    "--emitter":      "#ffaa00",
+    "--danglymesh":   "#00ffee",
+    "--aabb":         "#ffcc00",
+    "--red":          "#ff4444",
+    "--red-light":    "#ff7777",
+    "--log-error":    "#ff4444",
+    "--log-warn":     "#ffaa00",
+    "--scrollbar":    "#888888",
+    "--bg-rgb":       "0, 0, 0",
+    "--gold-rgb":     "255, 255, 255",
+    "--font-size-base":  "16px",
+    "--font-size-small": "14px",
+    "--font-size-label": "13px",
+    "--font-size-tiny":  "12px"
+  }
+}

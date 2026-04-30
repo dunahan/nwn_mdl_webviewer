@@ -44,6 +44,8 @@ Add `?lang=XX` to the URL, where `XX` is the filename without `.json`:
 | `super_*` | Messages regarding Supermodel/Animation merging. |
 | `err_*` | Error messages for invalid files or parsing issues. |
 | `plt_*` | Labels for the PLT (Pixel Look-up Table) color picker. |
+| dcmp_* | UI strings for the MDL decompiler process. |
+| cm_* | Technical log messages for the cleanmodels WASM module (supports placeholders like {mode}, {ver}, {size}). |
 
 ### Placeholder Dictionary
 These variables are replaced dynamically at runtime and must not be translated.
@@ -57,6 +59,10 @@ These variables are replaced dynamically at runtime and must not be translated.
 | `{msg}` | System error message | "Texture error: file.tga — **Invalid Header**" |
 | `{lang}` | Name of the language | "Language loaded: **Français**" |
 | `{super}` | Name of a Supermodel | "Please load **human.mdl** additionally" |
+| `{mode}` | Cleanmodels mode | "[cleanmodels] Start, mode: {mode}"
+| `{ver}` | Version of Cleanmodels | "[cleanmodels] Module ready. Version: {ver}" |
+| `{size}` | Filesize in MB | "[cleanmodels] WASM loaded: {size} MB" |
+| `{src}` | File source/name | "Script load error: {src}", |
 
 ---
 
