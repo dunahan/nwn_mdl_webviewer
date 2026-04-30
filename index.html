@@ -25,6 +25,13 @@
           <option value="en">English</option>
           <option value="de">Deutsch</option>
         </select>
+        <select id="theme-select" onchange="onThemeSelect(this.value)" title="Theme">
+          <option value="default">◑ Default</option>
+          <option value="high-contrast">◐ High Contrast</option>
+          <option value="__custom__">📂 Custom…</option>
+        </select>
+        <input type="file" id="theme-file-input" accept=".json" style="display:none"
+               onchange="loadCustomThemeFile(this.files[0]); this.value=''">
       </div>
     </div>
 

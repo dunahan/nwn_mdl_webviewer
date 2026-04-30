@@ -560,3 +560,155 @@ function resetColorDropdown() {
 }
 
 // ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+//  Theme System
+//  Eingebaute Themes sind als JS-Objekte eingebettet,
+//  damit der Viewer auch über file:// funktioniert
+//  (fetch() ist auf file:// vom Browser blockiert).
+// ─────────────────────────────────────────────
+
+const BUILTIN_THEMES = {
+  'default': {
+    name: 'Default',
+    variables: {
+      '--bg':              '#0a0c0f',
+      '--bg-rgb':          '10, 12, 15',
+      '--panel':           '#10141a',
+      '--border':          '#2a3040',
+      '--gold':            '#c8a44a',
+      '--gold-rgb':        '200, 164, 74',
+      '--gold2':           '#e8c870',
+      '--amber':           '#f08030',
+      '--text':            '#d0c8b8',
+      '--muted':           '#6a7080',
+      '--mesh':            '#4a90c0',
+      '--dummy':           '#70b870',
+      '--skin':            '#c070c0',
+      '--emitter':         '#f0a030',
+      '--danglymesh':      '#50b8d0',
+      '--aabb':            '#e8a020',
+      '--red':             '#c04040',
+      '--red-light':       '#e06060',
+      '--log-error':       '#e05050',
+      '--log-warn':        '#e0a030',
+      '--scrollbar':       '#606880',
+      '--font-size-base':  '13px',
+      '--font-size-small': '11px',
+      '--font-size-label': '10px',
+      '--font-size-tiny':  '9px'
+    }
+  },
+  'high-contrast': {
+    name: 'High Contrast',
+    variables: {
+      '--bg':              '#000000',
+      '--bg-rgb':          '0, 0, 0',
+      '--panel':           '#111111',
+      '--border':          '#ffffff',
+      '--gold':            '#ffffff',
+      '--gold-rgb':        '255, 255, 255',
+      '--gold2':           '#ffff00',
+      '--amber':           '#ff8800',
+      '--text':            '#ffffff',
+      '--muted':           '#cccccc',
+      '--mesh':            '#44aaff',
+      '--dummy':           '#44ee44',
+      '--skin':            '#ff44ff',
+      '--emitter':         '#ffaa00',
+      '--danglymesh':      '#00ffee',
+      '--aabb':            '#ffcc00',
+      '--red':             '#ff4444',
+      '--red-light':       '#ff7777',
+      '--log-error':       '#ff4444',
+      '--log-warn':        '#ffaa00',
+      '--scrollbar':       '#888888',
+      '--font-size-base':  '16px',
+      '--font-size-small': '14px',
+      '--font-size-label': '13px',
+      '--font-size-tiny':  '12px'
+    }
+  }
+};
+
+let _currentThemeVars = {};
+
+/**
+ * Wendet ein Theme-Objekt auf :root an.
+ * @param {object} theme - Objekt mit { name, variables }
+ */
+function applyTheme(theme) {
+  const root = document.documentElement;
+  for (const key of Object.keys(_currentThemeVars)) {
+    root.style.removeProperty(key);
+  }
+  _currentThemeVars = {};
+  if (!theme || !theme.variables) return;
+  for (const [key, value] of Object.entries(theme.variables)) {
+    root.style.setProperty(key, value);
+    _currentThemeVars[key] = value;
+  }
+}
+
+/**
+ * Aktiviert ein eingebautes Theme anhand seines Schlüssels.
+ * @param {string} name - 'default' oder 'high-contrast'
+ */
+function loadBuiltinTheme(name) {
+  const theme = BUILTIN_THEMES[name] || BUILTIN_THEMES['default'];
+  applyTheme(theme);
+  localStorage.setItem('nwn-theme', name);
+}
+
+/**
+ * Lädt eine vom Nutzer gewählte JSON-Datei als Custom-Theme.
+ * @param {File} file
+ */
+function loadCustomThemeFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const theme = JSON.parse(e.target.result);
+      if (!theme.variables) throw new Error('Feld "variables" fehlt.');
+      applyTheme(theme);
+      localStorage.setItem('nwn-theme', '__custom__');
+      const sel = document.getElementById('theme-select');
+      if (sel) sel.value = '__custom__';
+    } catch (err) {
+      alert(`Theme-Fehler: ${err.message}`);
+    }
+  };
+  reader.readAsText(file);
+}
+
+/**
+ * Handler für das Theme-Dropdown.
+ * @param {string} value - Gewählter Wert im <select>
+ */
+function onThemeSelect(value) {
+  if (value === '__custom__') {
+    document.getElementById('theme-file-input').click();
+  } else {
+    loadBuiltinTheme(value);
+  }
+}
+
+/**
+ * Initialisiert das Theme-System beim Start.
+ * Custom-Themes können bei file:// nicht wiederhergestellt werden
+ * (kein Dateisystem-Zugriff ohne Nutzer-Geste) — Fallback auf Default.
+ */
+function initTheme() {
+  const saved = localStorage.getItem('nwn-theme') || 'default';
+  const sel   = document.getElementById('theme-select');
+  const name  = (saved === '__custom__' || !BUILTIN_THEMES[saved]) ? 'default' : saved;
+  if (sel) sel.value = name;
+  loadBuiltinTheme(name);
+}
+
+// Initialisierung beim DOM-Ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initTheme);
+} else {
+  initTheme();
+}
