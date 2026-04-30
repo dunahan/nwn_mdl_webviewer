@@ -34,7 +34,7 @@ const cm = (() => {
       const s = document.createElement('script');
       s.src = src;
       s.onload  = resolve;
-      s.onerror = () => reject(new Error('Script-Ladefehler: ' + src));
+      s.onerror = () => reject(new Error(fmt('cm_script_error', { src })));
       document.head.appendChild(s);
     });
   }
@@ -50,17 +50,17 @@ const cm = (() => {
           resolve();
         } else if (Date.now() - start > timeout) {
           clearInterval(interval);
-          reject(new Error('cleanmodels: Timeout — window.cleanmodels nicht verfügbar.'));
+          reject(new Error(L('cm_timeout')));
         }
       }, 20);
     });
   }
 
   async function _load() {
-    console.info('[cleanmodels] Start, Modus:', _isFile ? 'file://' : 'HTTP');
+    console.info(fmt('cm_start', { mode: _isFile ? 'file://' : 'HTTP' }));
 
     if (typeof Go === 'undefined') {
-      _readyReject(new Error('[cleanmodels] wasm_exec.js fehlt.'));
+      _readyReject(new Error(L('cm_no_wasm_exec')));
       return;
     }
 
@@ -70,22 +70,22 @@ const cm = (() => {
 
       if (_isFile) {
         if (typeof CM_WASM_B64 === 'undefined') {
-          console.info('[cleanmodels] Lade', CM_WASM_B64_JS);
+          console.info(fmt('cm_loading_b64', { src: CM_WASM_B64_JS }));
           await _loadScript(CM_WASM_B64_JS);
         }
         if (typeof CM_WASM_B64 === 'undefined') {
-          throw new Error(CM_WASM_B64_JS + ' fehlt.');
+          throw new Error(fmt('cm_b64_missing', { src: CM_WASM_B64_JS }));
         }
         const bin = atob(CM_WASM_B64);
         const buf = new Uint8Array(bin.length);
         for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
         wasmBuffer = buf.buffer;
-        console.info('[cleanmodels] Base64 dekodiert:', (wasmBuffer.byteLength / 1048576).toFixed(2), 'MB');
+        console.info(fmt('cm_b64_decoded', { size: (wasmBuffer.byteLength / 1048576).toFixed(2) }));
       } else {
         const resp = await fetch(CM_WASM_PATH);
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         wasmBuffer = await resp.arrayBuffer();
-        console.info('[cleanmodels] WASM geladen:', (wasmBuffer.byteLength / 1048576).toFixed(2), 'MB');
+        console.info(fmt('cm_wasm_loaded', { size: (wasmBuffer.byteLength / 1048576).toFixed(2) }));
       }
 
       // ── 2. Instanz erzeugen und go.run() starten ─────────────────
@@ -94,7 +94,7 @@ const cm = (() => {
       const wasm     = await WebAssembly.compile(wasmBuffer);
       const instance = await WebAssembly.instantiate(wasm, go.importObject);
 
-      console.info('[cleanmodels] Instanz erzeugt, go.run() wird gestartet…');
+      console.info(L('cm_instantiated'));
       go.run(instance);
 
       // ── 3. Auf window.cleanmodels warten ─────────────────────────
@@ -103,11 +103,11 @@ const cm = (() => {
       _moduleReady = true;
       _readyResolve();
 
-      const ver = window.cleanmodels.version ? window.cleanmodels.version() : '(unbekannt)';
-      console.info('[cleanmodels] Modul bereit. Version:', ver);
+      const ver = window.cleanmodels.version ? window.cleanmodels.version() : '?';
+      console.info(fmt('cm_ready', { ver }));
 
     } catch (err) {
-      console.error('[cleanmodels] Ladefehler:', err);
+      console.error(L('cm_load_error'), err);
       _readyReject(err);
     }
   }
@@ -118,10 +118,10 @@ const cm = (() => {
     const bytes  = new Uint8Array(buffer);
     const result = window.cleanmodels.decompile(bytes);
     if (!result || !result.ok) {
-      const msg = (result && result.error) ? result.error : 'Unbekannter Fehler';
-      throw new Error('cleanmodels.decompile: ' + msg);
+      const msg = (result && result.error) ? result.error : L('cm_unknown_error');
+      throw new Error(fmt('cm_decompile_error', { msg }));
     }
-    console.info('[cleanmodels] Dekompilierung erfolgreich,', result.ascii.length, 'Zeichen.');
+    console.info(fmt('cm_decompile_ok', { n: result.ascii.length }));
     return result.ascii;
   }
 
