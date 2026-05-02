@@ -12,7 +12,7 @@ Add `?lang=XX` to the URL, where `XX` is the filename without `.json`:
 * **GitHub Pages:** `https://your-name.github.io/nwn-mdl-viewer/?lang=en`
 * **Local Server:** `http://localhost:8080/?lang=en`
 
-> **Note:** When opening `index.html` directly from the filesystem (`file://`), the browser cannot load external JSON files due to security restrictions. The viewer will fall back to the built-in German strings automatically.
+> **Note:** When opening `index.html` directly from the filesystem (`file://`), the browser cannot load external JSON files due to security restrictions. The viewer will fall back to the built-in English strings automatically.
 > To test translations locally, use a simple HTTP server:
 > ```bash
 > python3 -m http.server 8080
@@ -39,13 +39,16 @@ Add `?lang=XX` to the URL, where `XX` is the filename without `.json`:
 | `ntb_*` / `colordrop_*` | Mesh visibility and Walkmesh (WOK/PWK) color settings. |
 | `anim_*` | Animation playback controls. |
 | `nd_*` | Node Detail panel (shows specific data for the selected node). |
+| `nd_em_*` | Particle Emitter specific properties in the Node Detail panel. |
 | `info_*` | Model Info panel (general statistics like vertex count). |
 | `status_*` | Bottom status bar messages (supports placeholders). |
 | `super_*` | Messages regarding Supermodel/Animation merging. |
-| `err_*` | Error messages for invalid files or parsing issues. |
+| `err_*` | Error messages for invalid files, parsing issues, or missing themes. |
 | `plt_*` | Labels for the PLT (Pixel Look-up Table) color picker. |
-| dcmp_* | UI strings for the MDL decompiler process. |
-| cm_* | Technical log messages for the cleanmodels WASM module (supports placeholders like {mode}, {ver}, {size}). |
+| `dcmp_*` | UI strings for the MDL decompiler process. |
+| `cm_*` | Technical log messages for the cleanmodels WASM module. |
+| `wasm_*` | Status and error messages for the WASM decompiler module loading. |
+| `log_em_*` | Log messages for the particle Emitter system initialization and errors. |
 
 ### Placeholder Dictionary
 These variables are replaced dynamically at runtime and must not be translated.
@@ -59,10 +62,11 @@ These variables are replaced dynamically at runtime and must not be translated.
 | `{msg}` | System error message | "Texture error: file.tga — **Invalid Header**" |
 | `{lang}` | Name of the language | "Language loaded: **Français**" |
 | `{super}` | Name of a Supermodel | "Please load **human.mdl** additionally" |
-| `{mode}` | Cleanmodels mode | "[cleanmodels] Start, mode: {mode}"
+| `{mode}` | Cleanmodels mode | "[cleanmodels] Start, mode: {mode}" |
 | `{ver}` | Version of Cleanmodels | "[cleanmodels] Module ready. Version: {ver}" |
 | `{size}` | Filesize in MB | "[cleanmodels] WASM loaded: {size} MB" |
-| `{src}` | File source/name | "Script load error: {src}", |
+| `{src}` | File source/name | "Script load error: {src}" |
+| `{tex}` | Name of a texture file | "(texture pending: \"{tex}\")" |
 
 ---
 
@@ -83,6 +87,9 @@ Neverwinter Nights uses a 10-layer palette system for dynamic coloring of armors
 ### Supermodel Logic (`super_*`)
 If a model references a Supermodel for animations, these strings guide the user to load the required additional `.mdl` files to enable animations.
 
+### Particle Emitters (`nd_em_*`, `log_em_*`)
+NWN uses emitter nodes for particle effects. These keys cover the various physics, timing, and rendering properties (like birthrate, life expectancy, drag, gravity, etc.) displayed in the node details panel when an emitter is selected.
+
 ---
 
 ## Troubleshooting
@@ -97,7 +104,7 @@ If a model references a Supermodel for animations, these strings guide the user 
 
 | Datei | Sprache | Status |
 |-------|---------|--------|
-| `de.json` | Deutsch | Standard / Default |
-| `en.json` | English | Maintained |
+| `en.json` | English | Standard / Default |
+| `de.json` | Deutsch | Maintained |
 
 Contributions welcome — submit a pull request!
