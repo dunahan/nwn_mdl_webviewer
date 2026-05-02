@@ -19,7 +19,7 @@ const I18N_BUNDLE = {
     textures_heading:'Textures', scene_graph:'Scene Graph',
     no_file_loaded:'No file loaded', ctrl_wireframe:'Wireframe',
     ctrl_lighting:'Lighting', ctrl_mesh_opacity:'Mesh', btn_normals:'Normals', btn_grid:'Grid', btn_walkmesh:'Walkmesh', btn_pwk:'PWK',
-    btn_bbox:'BBox', btn_axes:'Axes', btn_rotate:'Rotate', btn_resetcam:'↺ Camera', btn_skeleton:'Skeleton',
+    btn_bbox:'BBox', btn_axes:'Axes', btn_rotate:'Rotate', btn_resetcam:'↺ Camera', btn_skeleton:'Skeleton', btn_floor:'Floor',
     ntb_all:'All', ntb_none:'None', colordrop_wok: 'WOK surfaces', colordrop_pwk: 'PWK regions', colordrop_label: "WOK/PWK Mesh-Colors",
     colordrop_pwk_wg: 'Walk Geometry', colordrop_pwk_iop: 'Interaction Point', anim_heading:'Animations', anim_speed:'Speed:',
     empty_title:'Load MDL File',
@@ -27,14 +27,18 @@ const I18N_BUNDLE = {
     hud_camera:'Camera', hud_orbit:'LMB Orbit', hud_zoom:'RMB/Wheel Zoom',
     hud_pan:'MMB Pan', hud_vertices:'Vertices', hud_faces:'Faces',
     hud_nodes:'Nodes', axis_up:'Y (up)',
-    status_ready:'Ready — drop or open a file', status_prefix:'Status',
+    sidebar_toggle_title:'Toggle sidebar', log_toggle_title:'Toggle log',
+    // nodes scene graph
     nd_type:'Type', nd_parent:'Parent', nd_vertices:'Vertices',
     nd_faces:'Faces', nd_bitmap:'Bitmap', nd_position:'Position',
     nd_diffuse:'Diffuse', nd_alpha:'Alpha',
     nd_dangle_info:'Physics Mesh', nd_dangle_info_label:'Type Info',
+    // info msgs
     info_supermodel:'Supermodel', info_class:'Class', info_nodes:'Nodes',
     info_vertices:'Vertices', info_faces:'Triangles', info_anims:'Animations',
     info_meshes_suffix:'Meshes', vis_toggle_title:'Toggle visibility',
+    // status msgs
+    status_ready:'Ready — drop or open a file', status_prefix:'Status',
     status_loading:'Loading {n} file(s)…',
     status_tex_loaded:'Texture loaded: {name} ({n}/{total})',
     status_tex_applied:'{n} texture(s) applied to existing model.',
@@ -51,6 +55,7 @@ const I18N_BUNDLE = {
     err_no_nodes:'No nodes found. Is this a decompiled ASCII file?',
     err_parse_title:'Parse error:',
     err_parse_hint:'Please make sure the file is a decompiled ASCII .mdl file.',
+    // supermodel animations
     super_no_anims:'Supermodel "{name}" has no animations.',
     super_anims_merged:'Supermodel "{name}": {n} animations applied.',
     super_anims_loaded:'Animations from "{name}" loaded — {n} animations available.',
@@ -59,9 +64,8 @@ const I18N_BUNDLE = {
     super_pending_warn:'Model "{name}" references supermodel "{super}".',
     super_pending_info:'→ Please load "{super}.mdl" additionally to activate animations.',
     super_pending_status:'Supermodel "{super}" required → please load additionally.',
+    // plt functions
     plt_heading:          'PLT Layers',
-    sidebar_toggle_title: 'Toggle sidebar',
-    log_toggle_title:     'Toggle log',
     plt_row_label:        'Row ',
     plt_layer_0:          'Skin',
     plt_layer_1:          'Hair',
@@ -73,6 +77,7 @@ const I18N_BUNDLE = {
     plt_layer_7:          'Leather 2',
     plt_layer_8:          'Tattoo 1',
     plt_layer_9:          'Tattoo 2',
+    // decompile loading msg
     dcmp_title:           'Decompiling…',
     dcmp_hint:            'Binary MDL · Please wait',
     dcmp_cancel:          'Cancel',
@@ -91,7 +96,48 @@ const I18N_BUNDLE = {
     cm_load_error:        '[cleanmodels] Load error:',
     cm_unknown_error:     'Unknown error',
     cm_decompile_error:   'cleanmodels.decompile: {msg}',
-    cm_decompile_ok:      '[cleanmodels] Decompilation successful, {n} characters.'
+    cm_decompile_ok:      '[cleanmodels] Decompilation successful, {n} characters.',
+    // WASM / Decompiler
+    wasm_loading:         '[WASM] Loading decompiler…',
+    wasm_unavailable:     '[WASM] Decompiler unavailable: {msg}',
+    wasm_no_binary:       '[WASM] No binary found for "{name}".',
+    dcmp_decompiling:     '[cleanmodels] Decompiling "{name}"…',
+    dcmp_done:            '[cleanmodels] "{name}" done.',
+    dcmp_error:           '[cleanmodels] "{name}" error: {msg}',
+    // File load errors
+    err_wok_load:         'WOK "{name}": {msg}',
+    err_pwk_load:         'PWK "{name}": {msg}',
+    err_tga_load:         'TGA "{name}": {msg}',
+    err_dds_load:         'DDS "{name}": {msg}',
+    err_plt_load:         'PLT "{name}": {msg}',
+    // Emitter node detail panel
+    nd_em_section:        'Emitter',
+    nd_em_texture:        'Texture',
+    nd_em_blend:          'Blend',
+    nd_em_update:         'Update',
+    nd_em_render:         'Render',
+    nd_em_birthrate:      'Birthrate',
+    nd_em_birthrate_unit: '/s',
+    nd_em_lifeexp:        'Life Exp',
+    nd_em_lifeexp_unit:   ' s',
+    nd_em_velocity:       'Velocity',
+    nd_em_size:           'Size Start\u2192End',
+    nd_em_alpha:          'Alpha Start\u2192End',
+    nd_em_color:          'Color',
+    nd_em_grav:           'Gravity',
+    nd_em_drag:           'Drag',
+    nd_em_spread:         'Spread',
+    nd_em_chunk:          'Chunk Model',
+    nd_em_grid:           'Sprite Grid',
+    nd_em_grid_frame:     'frame',
+    nd_em_birthrate_key:  '[animated]',
+    // Theme / misc errors
+    err_theme_load:       'Theme error: {msg}',
+    err_theme_variables:  'Field "variables" missing.',
+    // Emitter log messages
+    log_em_init:          '[Emitter] "{name}" initialised',
+    log_em_init_pending:  ' (texture pending: "{tex}")',
+    log_em_error:         '[Emitter] "{name}" error: {msg}'
   },
   de: {
     _meta: { language: 'Deutsch', code: 'de' },
@@ -101,7 +147,7 @@ const I18N_BUNDLE = {
     textures_heading:'Texturen', scene_graph:'Szenen-Graph',
     no_file_loaded:'Keine Datei geladen', ctrl_wireframe:'Gitterlinien',
     ctrl_lighting:'Beleuchtung', ctrl_mesh_opacity:'Mesh', btn_normals:'Normalen', btn_grid:'Raster', btn_walkmesh:'Walkmesh', btn_pwk:'PWK',
-    btn_bbox:'BBox', btn_axes:'Achsen', btn_rotate:'Rotation', btn_resetcam:'↺ Kamera', btn_skeleton:'Skelett',
+    btn_bbox:'BBox', btn_axes:'Achsen', btn_rotate:'Rotation', btn_resetcam:'↺ Kamera', btn_skeleton:'Skelett', btn_floor:'Boden',
     ntb_all:'Alles', ntb_none:'Nichts', colordrop_wok: 'WOK Oberflächen', colordrop_pwk: 'PWK Regionen', colordrop_label: "WOK/PWK Mesh-Farben",
     colordrop_pwk_wg: 'Begehbarer Bereich', colordrop_pwk_iop: 'Interaktionspunkt', anim_heading:'Animationen', anim_speed:'Tempo:',
     empty_title:'MDL Datei laden',
@@ -109,14 +155,18 @@ const I18N_BUNDLE = {
     hud_camera:'Kamera', hud_orbit:'LMB Orbit', hud_zoom:'RMB/Rad Zoom',
     hud_pan:'MMB Pan', hud_vertices:'Vertices', hud_faces:'Faces',
     hud_nodes:'Nodes', axis_up:'Y (oben)',
-    status_ready:'Bereit — Datei ablegen oder öffnen', status_prefix:'Status',
+    sidebar_toggle_title:'Sidebar ein-/ausblenden', log_toggle_title:'Log ein-/ausblenden',
+    // nodes scene graph
     nd_type:'Typ', nd_parent:'Eltern', nd_vertices:'Vertices',
     nd_faces:'Faces', nd_bitmap:'Bitmap', nd_position:'Position',
     nd_diffuse:'Diffuse', nd_alpha:'Alpha',
     nd_dangle_info:'Physik-Mesh', nd_dangle_info_label:'Typ-Info',
+    // info msgs
     info_supermodel:'Supermodel', info_class:'Klasse', info_nodes:'Nodes',
     info_vertices:'Vertices', info_faces:'Dreiecke', info_anims:'Animationen',
     info_meshes_suffix:'Meshes', vis_toggle_title:'Sichtbarkeit umschalten',
+    // status msgs
+    status_ready:'Bereit — Datei ablegen oder öffnen', status_prefix:'Status',
     status_loading:'Lade {n} Datei(en)…',
     status_tex_loaded:'Textur geladen: {name} ({n}/{total})',
     status_tex_applied:'{n} Textur(en) auf bestehendes Modell angewendet.',
@@ -133,6 +183,7 @@ const I18N_BUNDLE = {
     err_no_nodes:'Keine Nodes gefunden. Ist die Datei im ASCII-Format?',
     err_parse_title:'Fehler beim Parsen:',
     err_parse_hint:'Stellen Sie sicher, dass es sich um eine decompilierte ASCII .mdl Datei handelt.',
+    // supermodel animations
     super_no_anims:'Supermodel "{name}" hat keine Animationen.',
     super_anims_merged:'Supermodel "{name}": {n} Animationen übernommen.',
     super_anims_loaded:'Animationen von "{name}" geladen — {n} Animationen verfügbar.',
@@ -141,9 +192,8 @@ const I18N_BUNDLE = {
     super_pending_warn:'Modell "{name}" verweist auf Supermodel "{super}".',
     super_pending_info:'→ Bitte "{super}.mdl" zusätzlich laden um Animationen zu aktivieren.',
     super_pending_status:'Supermodel "{super}" benötigt → bitte zusätzlich laden.',
+    // plt functions
     plt_heading:          'PLT Layer',
-    sidebar_toggle_title: 'Sidebar ein-/ausblenden',
-    log_toggle_title:     'Log ein-/ausblenden',
     plt_row_label:        'Zeile ',
     plt_layer_0:          'Haut',
     plt_layer_1:          'Haar',
@@ -155,6 +205,7 @@ const I18N_BUNDLE = {
     plt_layer_7:          'Leder 2',
     plt_layer_8:          'Tattoo 1',
     plt_layer_9:          'Tattoo 2',
+    // decompile loading msg
     dcmp_title:           'Dekompiliere…',
     dcmp_hint:            'Binäres MDL · Bitte warten',
     dcmp_cancel:          'Abbrechen',
@@ -173,7 +224,48 @@ const I18N_BUNDLE = {
     cm_load_error:        '[cleanmodels] Ladefehler:',
     cm_unknown_error:     'Unbekannter Fehler',
     cm_decompile_error:   'cleanmodels.decompile: {msg}',
-    cm_decompile_ok:      '[cleanmodels] Dekompilierung erfolgreich, {n} Zeichen.'
+    cm_decompile_ok:      '[cleanmodels] Dekompilierung erfolgreich, {n} Zeichen.',
+    // WASM / Dekompiler
+    wasm_loading:         '[WASM] Dekompiler wird geladen…',
+    wasm_unavailable:     '[WASM] Dekompiler nicht verfügbar: {msg}',
+    wasm_no_binary:       '[WASM] Keine Binärdatei für „{name}" gefunden.',
+    dcmp_decompiling:     '[cleanmodels] Dekompiliere „{name}"…',
+    dcmp_done:            '[cleanmodels] „{name}" fertig.',
+    dcmp_error:           '[cleanmodels] „{name}" Fehler: {msg}',
+    // Datei-Ladefehler
+    err_wok_load:         'WOK „{name}": {msg}',
+    err_pwk_load:         'PWK „{name}": {msg}',
+    err_tga_load:         'TGA „{name}": {msg}',
+    err_dds_load:         'DDS „{name}": {msg}',
+    err_plt_load:         'PLT „{name}": {msg}',
+    // Emitter Node-Detail-Panel
+    nd_em_section:        'Emitter',
+    nd_em_texture:        'Textur',
+    nd_em_blend:          'Blend',
+    nd_em_update:         'Update',
+    nd_em_render:         'Render',
+    nd_em_birthrate:      'Geburtsrate',
+    nd_em_birthrate_unit: '/s',
+    nd_em_lifeexp:        'Lebensdauer',
+    nd_em_lifeexp_unit:   ' s',
+    nd_em_velocity:       'Geschwindigkeit',
+    nd_em_size:           'Größe Start\u2192Ende',
+    nd_em_alpha:          'Alpha Start\u2192Ende',
+    nd_em_color:          'Farbe',
+    nd_em_grav:           'Schwerkraft',
+    nd_em_drag:           'Luftwiderstand',
+    nd_em_spread:         'Streuung',
+    nd_em_chunk:          'Chunk-Modell',
+    nd_em_grid:           'Sprite-Raster',
+    nd_em_grid_frame:     'Frame',
+    nd_em_birthrate_key:  '[animiert]',
+    // Theme / sonstige Fehler
+    err_theme_load:       'Theme-Fehler: {msg}',
+    err_theme_variables:  'Feld "variables" fehlt.',
+    // Emitter-Log-Meldungen
+    log_em_init:          '[Emitter] "{name}" initialisiert',
+    log_em_init_pending:  ' (Textur ausstehend: "{tex}")',
+    log_em_error:         '[Emitter] "{name}" Fehler: {msg}'
   }
 };
 
