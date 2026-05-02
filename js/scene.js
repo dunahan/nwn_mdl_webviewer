@@ -42,6 +42,20 @@ scene.add(dirLight2);
 const gridHelper = new THREE.GridHelper(10, 20, 0x4a5a6a, 0x3a4858);
 scene.add(gridHelper);
 
+// Undurchsichtiger Einschlagsboden (standardmäßig ausgeblendet)
+const floorGeo  = new THREE.PlaneGeometry(20, 20);
+const floorMat  = new THREE.MeshStandardMaterial({
+  color:     0x1a1f26,
+  roughness: 0.85,
+  metalness: 0.05,
+  side:      THREE.FrontSide,
+});
+const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+floorMesh.rotation.x = -Math.PI / 2;   // XY-Plane → horizontal
+floorMesh.receiveShadow = true;
+floorMesh.visible = false;
+scene.add(floorMesh);
+
 // Axes
 const axesHelper = new THREE.AxesHelper(0.5);
 scene.add(axesHelper);

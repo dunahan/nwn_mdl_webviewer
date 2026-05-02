@@ -287,6 +287,7 @@ function animate(time) {
     updateCamera();
   }
   tickAnimation(dt);
+  if (typeof tickAllEmitters === 'function') tickAllEmitters(dt);
   renderer.render(scene, camera);
 }
 animate(0);

@@ -87,6 +87,9 @@ function clearSession(keepTextures = false) {
     delete invertedTexCache[key];
   }
 
+  // Partikel-Emitter bereinigen (vor nodeObjects-Reset, da Emitter nodeObjects nutzen)
+  if (typeof clearAllEmitters === 'function') clearAllEmitters();
+
   // 3. Interne Zustände zurücksetzen
   nodeObjects        = {};
   selectedNodeName   = null;
@@ -309,6 +312,9 @@ function applyTexturesToScene() {
       }
     });
   }
+
+  // ── Partikel-Emitter: Texturen aktualisieren (nachträgliches Laden) ─────────
+  if (typeof refreshEmitterTextures === 'function') refreshEmitterTextures();
 
   return applied;
 }

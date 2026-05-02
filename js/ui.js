@@ -170,24 +170,28 @@ function selectNode(name) {
     const swS = '<span style="' + _sw + _rgb(n.colorStart) + '"></span>';
     const swM = '<span style="' + _sw + _rgb(n.colorMid)   + '"></span>';
     const swE = '<span style="' + _sw + _rgb(n.colorEnd)   + '"></span>';
+    // Birthrate: animierter Key hat Vorrang über statischen Wert
+    const birthrateVal = (n._birthrateKeys && n._birthrateKeys.length > 0)
+      ? L('nd_em_birthrate_key')
+      : (n.birthrate + L('nd_em_birthrate_unit'));
     extraRows =
-      '<div class="nd-section-header">Emitter</div>' +
-      '<div class="nd-row"><span>Texture</span><span class="nd-val">' + (n.emitterTexture || '\u2014') + '</span></div>' +
-      '<div class="nd-row"><span>Blend</span><span class="nd-val">' + (n.blend || '\u2014') + '</span></div>' +
-      '<div class="nd-row"><span>Update</span><span class="nd-val">' + (n.update || '\u2014') + '</span></div>' +
-      '<div class="nd-row"><span>Render</span><span class="nd-val">' + (n.renderMode || '\u2014') + '</span></div>' +
-      '<div class="nd-row"><span>Birthrate</span><span class="nd-val">' + n.birthrate + '/s</span></div>' +
-      '<div class="nd-row"><span>Life Exp</span><span class="nd-val">' + n.lifeExp + ' s</span></div>' +
-      '<div class="nd-row"><span>Velocity</span><span class="nd-val">' + n.velocity + (n.randvel ? ' \u00b1' + n.randvel : '') + '</span></div>' +
-      '<div class="nd-row"><span>Size Start\u2192End</span><span class="nd-val">' + n.sizeStart.toFixed(2) + ' \u2192 ' + n.sizeEnd.toFixed(2) + '</span></div>' +
-      '<div class="nd-row"><span>Alpha Start\u2192End</span><span class="nd-val">' + n.alphaStart.toFixed(2) + ' \u2192 ' + n.alphaEnd.toFixed(2) + '</span></div>' +
-      '<div class="nd-row"><span>Color</span><span class="nd-val">' + swS + swM + swE + '</span></div>' +
-      (n.grav    ? '<div class="nd-row"><span>Gravity</span><span class="nd-val">' + n.grav + '</span></div>' : '') +
-      (n.drag    ? '<div class="nd-row"><span>Drag</span><span class="nd-val">'    + n.drag + '</span></div>' : '') +
-      (n.spread  ? '<div class="nd-row"><span>Spread</span><span class="nd-val">'  + n.spread + '</span></div>' : '') +
-      (n.chunkName ? '<div class="nd-row"><span>ChunkModel</span><span class="nd-val">' + n.chunkName + '</span></div>' : '') +
+      '<div class="nd-section-header">' + L('nd_em_section') + '</div>' +
+      '<div class="nd-row"><span>' + L('nd_em_texture')  + '</span><span class="nd-val">' + (n.emitterTexture || '\u2014') + '</span></div>' +
+      '<div class="nd-row"><span>' + L('nd_em_blend')    + '</span><span class="nd-val">' + (n.blend || '\u2014') + '</span></div>' +
+      '<div class="nd-row"><span>' + L('nd_em_update')   + '</span><span class="nd-val">' + (n.update || '\u2014') + '</span></div>' +
+      '<div class="nd-row"><span>' + L('nd_em_render')   + '</span><span class="nd-val">' + (n.renderMode || '\u2014') + '</span></div>' +
+      '<div class="nd-row"><span>' + L('nd_em_birthrate') + '</span><span class="nd-val">' + birthrateVal + '</span></div>' +
+      '<div class="nd-row"><span>' + L('nd_em_lifeexp')  + '</span><span class="nd-val">' + n.lifeExp + L('nd_em_lifeexp_unit') + '</span></div>' +
+      '<div class="nd-row"><span>' + L('nd_em_velocity') + '</span><span class="nd-val">' + n.velocity + (n.randvel ? ' \u00b1' + n.randvel : '') + '</span></div>' +
+      '<div class="nd-row"><span>' + L('nd_em_size')     + '</span><span class="nd-val">' + n.sizeStart.toFixed(2) + ' \u2192 ' + n.sizeEnd.toFixed(2) + '</span></div>' +
+      '<div class="nd-row"><span>' + L('nd_em_alpha')    + '</span><span class="nd-val">' + n.alphaStart.toFixed(2) + ' \u2192 ' + n.alphaEnd.toFixed(2) + '</span></div>' +
+      '<div class="nd-row"><span>' + L('nd_em_color')    + '</span><span class="nd-val">' + swS + swM + swE + '</span></div>' +
+      (n.grav    ? '<div class="nd-row"><span>' + L('nd_em_grav')   + '</span><span class="nd-val">' + n.grav   + '</span></div>' : '') +
+      (n.drag    ? '<div class="nd-row"><span>' + L('nd_em_drag')   + '</span><span class="nd-val">' + n.drag   + '</span></div>' : '') +
+      (n.spread  ? '<div class="nd-row"><span>' + L('nd_em_spread') + '</span><span class="nd-val">' + n.spread + '</span></div>' : '') +
+      (n.chunkName ? '<div class="nd-row"><span>' + L('nd_em_chunk') + '</span><span class="nd-val">' + n.chunkName + '</span></div>' : '') +
       ((n.xgrid > 1 || n.ygrid > 1)
-        ? '<div class="nd-row"><span>Sprite Grid</span><span class="nd-val">' + n.xgrid + ' \u00d7 ' + n.ygrid + ' (frame ' + n.frameStart + '\u2013' + n.frameEnd + ')</span></div>'
+        ? '<div class="nd-row"><span>' + L('nd_em_grid') + '</span><span class="nd-val">' + n.xgrid + ' \u00d7 ' + n.ygrid + ' (' + L('nd_em_grid_frame') + ' ' + n.frameStart + '\u2013' + n.frameEnd + ')</span></div>'
         : '');
   }
 
@@ -263,7 +267,16 @@ function selectNode(name) {
   }
 
   detail.innerHTML =
-    '<div class="nd-title">' + n.name + '</div>' +
+    '<div id="node-detail-handle">' +
+      '<span class="nd-title">' + n.name + '</span>' +
+      '<span class="nd-zoom-btns">' +
+        '<button class="nd-zoom-btn" onclick="nodeDetailZoom(-1)" title="Smaller">−</button>' +
+        '<button class="nd-zoom-btn" onclick="nodeDetailZoom(0)"  title="Reset">○</button>' +
+        '<button class="nd-zoom-btn" onclick="nodeDetailZoom(1)"  title="Larger">＋</button>' +
+      '</span>' +
+      '<span class="nd-drag-icon">☰</span>' +
+    '</div>' +
+    '<div id="node-detail-body">' +
     '<div class="nd-row"><span>' + L('nd_type')     + '</span><span class="nd-val">' + n.type + '</span></div>' +
     '<div class="nd-row"><span>' + L('nd_parent')   + '</span><span class="nd-val">' + n.parent + '</span></div>' +
     '<div class="nd-row"><span>' + L('nd_vertices') + '</span><span class="nd-val">' + n.verts.length + '</span></div>' +
@@ -273,7 +286,10 @@ function selectNode(name) {
     '<div class="nd-row"><span>' + L('nd_diffuse')  + '</span><span class="nd-val">' + n.diffuse.map(v=>v.toFixed(2)).join(', ') + '</span></div>' +
     '<div class="nd-row"><span>' + L('nd_alpha')    + '</span><span class="nd-val">' + n.alpha.toFixed(2) + '</span></div>' +
     extraRows +
-    mtrSection;
+    mtrSection +
+    '</div>';
+  // Drag-Logik an den neuen Handle binden (innerHTML ersetzt DOM → neu registrieren)
+  initNodeDetailDrag();
 }
 
 function showModelInfo(model, verts, faces) {
@@ -374,6 +390,12 @@ function toggleGrid() {
   const btn = document.getElementById('btn-grid');
   btn.classList.toggle('active');
   gridHelper.visible = btn.classList.contains('active');
+}
+
+function toggleFloor() {
+  const btn = document.getElementById('btn-floor');
+  btn.classList.toggle('active');
+  floorMesh.visible = btn.classList.contains('active');
 }
 
 function toggleBBox() {
@@ -669,13 +691,13 @@ function loadCustomThemeFile(file) {
   reader.onload = (e) => {
     try {
       const theme = JSON.parse(e.target.result);
-      if (!theme.variables) throw new Error('Feld "variables" fehlt.');
+      if (!theme.variables) throw new Error(L('err_theme_variables'));
       applyTheme(theme);
       localStorage.setItem('nwn-theme', '__custom__');
       const sel = document.getElementById('theme-select');
       if (sel) sel.value = '__custom__';
     } catch (err) {
-      alert(`Theme-Fehler: ${err.message}`);
+      alert(fmt('err_theme_load', { msg: err.message }));
     }
   };
   reader.readAsText(file);
@@ -712,3 +734,112 @@ if (document.readyState === 'loading') {
 } else {
   initTheme();
 }
+
+// ─────────────────────────────────────────────
+//  Node-Detail-Panel — Drag to move
+// ─────────────────────────────────────────────
+(function () {
+  // Gespeicherte Position {x, y} in Viewport-Koordinaten.
+  // null = noch nicht initialisiert → Default unten-rechts beim ersten Öffnen.
+  let _pos = null;
+  let dragging = false;
+  let startX, startY, startL, startT;
+
+  // mousemove / mouseup nur einmal registrieren (nicht bei jedem Node-Klick neu)
+  window.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const panel = document.getElementById('node-detail');
+    const vp    = document.getElementById('viewport');
+    const pr    = vp.getBoundingClientRect();
+    let newL = startL + (e.clientX - startX);
+    let newT = startT + (e.clientY - startY);
+    newL = Math.max(0, Math.min(pr.width  - panel.offsetWidth,  newL));
+    newT = Math.max(0, Math.min(pr.height - panel.offsetHeight, newT));
+    panel.style.left = newL + 'px';
+    panel.style.top  = newT + 'px';
+    _pos = { x: newL, y: newT };
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    const handle = document.getElementById('node-detail-handle');
+    if (handle) handle.style.cursor = 'grab';
+  });
+
+  function initNodeDetailDrag() {
+    const panel  = document.getElementById('node-detail');
+    const handle = document.getElementById('node-detail-handle');
+    if (!panel || !handle) return;
+
+    // Sicherstellen dass bottom/right nie aktiv sind — die würden mit left/top
+    // ein Strecken anstelle einer Verschiebung auslösen.
+    panel.style.bottom = 'auto';
+    panel.style.right  = 'auto';
+
+    if (!_pos) {
+      // Default-Position: unten-rechts im Viewport, 12px Abstand.
+      // Panel kurz rendern um die echte Größe zu lesen.
+      const wasHidden = panel.style.display === 'none';
+      if (wasHidden) {
+        panel.style.visibility = 'hidden';
+        panel.style.display    = 'block';
+      }
+      const vp = document.getElementById('viewport');
+      const pr = vp.getBoundingClientRect();
+      _pos = {
+        x: pr.width  - panel.offsetWidth  - 12,
+        y: pr.height - panel.offsetHeight - 12,
+      };
+      if (wasHidden) {
+        panel.style.display    = 'none';
+        panel.style.visibility = '';
+      }
+    }
+
+    // Position bei jedem Aufruf setzen (innerHTML-Reset löscht inline-Styles nicht,
+    // aber _pos stellt die letzte bekannte Position wieder her).
+    panel.style.left = _pos.x + 'px';
+    panel.style.top  = _pos.y + 'px';
+
+    // mousedown direkt auf dem Handle — ersetzt alten Listener durch removeEventListener
+    const onMouseDown = e => {
+      if (e.button !== 0) return;
+      dragging = true;
+      startX   = e.clientX;
+      startY   = e.clientY;
+      startL   = _pos.x;
+      startT   = _pos.y;
+      handle.style.cursor = 'grabbing';
+      e.preventDefault();
+    };
+    // Alten Listener entfernen bevor neu gesetzt (innerHTML baut neuen Handle)
+    handle.removeEventListener('mousedown', handle._dragHandler);
+    handle._dragHandler = onMouseDown;
+    handle.addEventListener('mousedown', onMouseDown);
+  }
+
+  // Zoom-Funktion: step=-1 kleiner, 0=reset, 1=größer
+  const ZOOM_STEPS = [8, 9, 10, 11, 12, 14, 16];
+  let _zoomIdx = 2;  // Default = 10px (index 2)
+  function nodeDetailZoom(step) {
+    if (step === 0) _zoomIdx = 2;
+    else _zoomIdx = Math.max(0, Math.min(ZOOM_STEPS.length - 1, _zoomIdx + step));
+    const body = document.getElementById('node-detail-body');
+    if (body) body.style.fontSize = ZOOM_STEPS[_zoomIdx] + 'px';
+    // Position neu berechnen damit Panel nicht aus dem Viewport rutscht
+    const panel = document.getElementById('node-detail');
+    const vp    = document.getElementById('viewport');
+    if (panel && vp && _pos) {
+      const pr = vp.getBoundingClientRect();
+      _pos.x = Math.min(_pos.x, pr.width  - panel.offsetWidth);
+      _pos.y = Math.min(_pos.y, pr.height - panel.offsetHeight);
+      panel.style.left = _pos.x + 'px';
+      panel.style.top  = _pos.y + 'px';
+    }
+  }
+  window.nodeDetailZoom = nodeDetailZoom;
+
+  // Exportieren damit showNodeDetail() es aufrufen kann
+  window.initNodeDetailDrag = initNodeDetailDrag;
+})();

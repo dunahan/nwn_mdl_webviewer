@@ -197,14 +197,24 @@ function buildScene(model) {
         ? new THREE.Color(0xf0a030)
         : new THREE.Color(cs[0], cs[1], cs[2]);
 
+      // Marker-Deckkraft: 50 % wenn der Emitter aktiv ist (Partikel übernehmen die Darstellung),
+      // sonst volle Opazität als Platzhalter-Indikator.
+      // Ein Emitter gilt als aktiv wenn entweder statische birthrate > 0 ODER
+      // birthratekey in einer Animation vorhanden ist.
+      const hasAnimBirthrate = (model.animations || []).some(
+        anim => (anim.nodes[node.name]?.emitterKeys?.birthrate?.length ?? 0) > 0
+      );
+      const markerActive = (node.birthrate > 0 || hasAnimBirthrate) && node.emitterTexture;
+      const markerOpacity = markerActive ? 0.5 : 1.0;
+
       // Zentrum: Kugel
       const sGeo = new THREE.SphereGeometry(0.06, 8, 6);
-      const sMat = new THREE.MeshBasicMaterial({ color: emitColor });
+      const sMat = new THREE.MeshBasicMaterial({ color: emitColor, transparent: markerActive, opacity: markerOpacity });
       group.add(new THREE.Mesh(sGeo, sMat));
 
       // Ring in XZ-Ebene (nach Rotation horizontal = Emitteröffnung)
       const rGeo = new THREE.TorusGeometry(0.15, 0.012, 6, 20);
-      const rMat = new THREE.MeshBasicMaterial({ color: emitColor, transparent: true, opacity: 0.75 });
+      const rMat = new THREE.MeshBasicMaterial({ color: emitColor, transparent: true, opacity: 0.75 * markerOpacity });
       const ring = new THREE.Mesh(rGeo, rMat);
       ring.rotation.x = Math.PI / 2;
       group.add(ring);
@@ -222,7 +232,7 @@ function buildScene(model) {
       ]);
       const aGeo = new THREE.BufferGeometry();
       aGeo.setAttribute('position', new THREE.Float32BufferAttribute(arrowPts, 3));
-      const aMat = new THREE.LineBasicMaterial({ color: emitColor, transparent: true, opacity: 0.85 });
+      const aMat = new THREE.LineBasicMaterial({ color: emitColor, transparent: true, opacity: 0.85 * markerOpacity });
       group.add(new THREE.LineSegments(aGeo, aMat));
 
       // ── Textur-Preview-Quad ───────────────────────────────────────────
@@ -252,6 +262,9 @@ function buildScene(model) {
       quad.userData.isEmitterPreview  = true;
       quad.userData.emitterTexName    = emTexName;
       quad.userData.emitterBlend      = (node.blend || '').toLowerCase();
+      // Preview-Quad ausblenden wenn der Partikel-Emitter aktiv ist —
+      // dann übernimmt emitter.js die Darstellung.
+      quad.visible = !markerActive;
       group.add(quad);
 
       // userData am Gruppen-Objekt für applyTexturesToScene
@@ -479,6 +492,12 @@ function buildScene(model) {
   // skinMat = currentBone × inverseBind = identity, d.h. jeder Vertex landet
   // exakt an seiner Bind-Position (vertex_local + skin_node_pivot).
   applySkinning();
+
+  // ── Schritt 4: Partikel-Emitter starten ────────────────────────────────────
+  // initAllEmitters() erzeugt für jeden aktiven Emitter-Node einen Partikel-Pool.
+  // Texturen aus textureCache werden direkt genutzt — wenn sie noch nicht geladen
+  // sind, sorgt refreshEmitterTextures() in applyTexturesToScene() für den Start.
+  if (typeof initAllEmitters === 'function') initAllEmitters(model);
 }
 
 // ─────────────────────────────────────────────

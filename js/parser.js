@@ -78,18 +78,31 @@ function parseMDL(text) {
 }
 
 // Liest alle Keyframes eines Animations-Nodes.
-// Gibt { name, data: { posKeys, oriKeys }, next } zurück.
-// posKeys: [{t, x, y, z}, ...]
-// oriKeys: [{t, ax, ay, az, angle}, ...]
+// Gibt { name, data: { posKeys, oriKeys, emitterKeys }, next } zurück.
+// posKeys:     [{t, x, y, z}, ...]
+// oriKeys:     [{t, ax, ay, az, angle}, ...]
+// emitterKeys: { birthrate: [{t, vals:[v]}, ...], colorend: [{t, vals:[r,g,b]}, ...], ... }
 function parseFullAnimNode(lines, start) {
   const hdr = lines[start].trim().split(/\s+/);
   const name = hdr[2] || '';
-  const data = { posKeys: [], oriKeys: [] };
+  const data = { posKeys: [], oriKeys: [], emitterKeys: {} };
   let i = start + 1;
 
   function tok(idx) { return lines[idx].trim().split(/\s+/).filter(x => x.length > 0); }
   function num(s)   { const v = parseFloat(s); return isNaN(v) ? 0 : v; }
 
+  // Anzahl der Datenwerte pro bekanntem Emitter-Controller-Key
+  // (alles was nicht explizit gelistet ist, bekommt 1 Wert als Fallback)
+  const EMITTER_KEY_COLS = {
+    birthrate: 1, velocity: 1, randvel: 1, spread: 1,
+    grav: 1, drag: 1, fps: 1, mass: 1, lifeexp: 1, particlerot: 1,
+    alphastart: 1, alphamid: 1, alphaend: 1,
+    sizestart: 1, sizemid: 1, sizeend: 1,
+    colorstart: 3, colormid: 3, colorend: 3,
+  };
+
+  // Jedes Schlüsselwort (nicht-numerischer Token) beendet den aktuellen Datenblock.
+  // endlist verbraucht zusätzlich seine eigene Zeile.
   function readAllKeys(startIdx, minCols, count) {
     const keys = [];
     let j = startIdx, read = 0;
@@ -97,8 +110,8 @@ function parseFullAnimNode(lines, start) {
       const t2 = tok(j);
       const k0 = (t2[0] || '').toLowerCase();
       if (k0 === 'endlist') { j++; break; }
-      if (k0 === 'endnode' || k0 === 'node' || k0 === 'orientationkey' ||
-          k0 === 'positionkey' || k0 === 'scalekey') break;
+      // Jedes alphabetische Schlüsselwort (neuer Block oder endnode) bricht ab
+      if (isNaN(parseFloat(t2[0])) && t2[0] !== '') break;
       if (t2.length >= minCols + 1) {
         const time = parseFloat(t2[0]);
         if (!isNaN(time)) keys.push({ t: time, vals: t2.slice(1, minCols + 1).map(num) });
@@ -125,6 +138,18 @@ function parseFullAnimNode(lines, start) {
       const count = (t.length > 1 && !isNaN(parseInt(t[1]))) ? parseInt(t[1]) : 0;
       const res = readAllKeys(i + 1, 3, count);
       data.posKeys = res.keys.map(k => ({ t: k.t, x: k.vals[0], y: k.vals[1], z: k.vals[2] }));
+      i = res.next;
+      continue;
+    } else if (k !== 'scalekey' && k.endsWith('key')) {
+      // ── Generischer Emitter-Controller-Key ─────────────────────────────
+      // Format: <baseName>key <count>
+      //           <time> <val> [<val2> <val3>]
+      //           ...
+      const baseName = k.slice(0, -3);  // 'birthratekey' → 'birthrate'
+      const cols  = EMITTER_KEY_COLS[baseName] ?? 1;
+      const count = (t.length > 1 && !isNaN(parseInt(t[1]))) ? parseInt(t[1]) : 0;
+      const res = readAllKeys(i + 1, cols, count);
+      data.emitterKeys[baseName] = res.keys;
       i = res.next;
       continue;
     }
