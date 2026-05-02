@@ -1,6 +1,6 @@
 # ⬡ NWN MDL Viewer
 
-A browser-based 3D model viewer for **Neverwinter Nights 1: Enhanced Edition** binary AND decompiled ASCII `.mdl` files.  
+A browser-based 3D model viewer for **Neverwinter Nights 1: Enhanced Edition** binary AND decompiled ASCII `.mdl` files.
 No installation, no server — just open `index.html` locally or use it directly via **GitHub Pages**.
 
 🌐 **Live Demo:** `https://dunahan.github.io/nwn_mdl_webviewer/`
@@ -55,7 +55,7 @@ xdg-open index.html      # Linux
 
 ## 📁 File Format
 
-NWN stores models as **compiled binary** `.mdl` files.  
+NWN stores models as **compiled binary** `.mdl` files.
 This viewer uses the [CleanModelsEE](https://github.com/plenarius/cleanmodels/tree/v4-go-rewrite) WASM release from plenarius to get the readable ASCII file.
 Despite everything, I recommend converting the binary model using Cleanmodels and ideally also repairing it.
 
@@ -128,7 +128,7 @@ nwn-mdl-webviewer/
 ## 🎮 Usage
 
 1. Open the viewer in your browser
-2. **Drag & drop** a de-/compiled `.mdl` file onto the viewport  
+2. **Drag & drop** a de-/compiled `.mdl` file onto the viewport
    — or click the drop zone and pick a file
 3. Use the sidebar to inspect nodes and toggle visibility
 4. Click any node name in the list to see its details
@@ -145,11 +145,11 @@ nwn-mdl-webviewer/
 
 ### Features for Enhanced Edition models (MTR)
 
-| Symbol | Meaning |
-| -- | -- |
-| $\textcolor{gold}{\textsf{✓ gold}}$ | Texture loaded and active |
-| $\textcolor{yellow}{\textsf{? amber}}$ | Referenced in MTR, but file not loaded |
-| $\textcolor{darkgrey}{\textsf{— grey}}$ | Slot not defined in MTR |
+| Symbol | Color | Meaning |
+| -- | -- | -- |
+| $\textcolor{gold}{\textsf{✓}}$ | gold | Texture loaded and active |
+| $\textcolor{yellow}{\textsf{?}}$ | amber | Referenced in MTR, but file not loaded |
+| $\textcolor{darkgrey}{\textsf{—}}$ | grey | Slot not defined in MTR |
 
 ### Error Log
 
@@ -178,6 +178,7 @@ All error sources now write to the panel: for example TGA, DDS, MDL and FileRead
 - ~~**Animations**: Keyframe animations defined in `newanim` blocks are parsed (count shown) but not yet played back~~
 - ~~**Binary MDL**: Only ASCII/decompiled format is supported~~
 - ~~**Walkmesh**: AABB nodes are shown as markers but walkmesh geometry is not rendered separately~~
+- Not every model has been tested yet, so there may still be display errors.
 
 ---
 
@@ -195,7 +196,7 @@ All error sources now write to the panel: for example TGA, DDS, MDL and FileRead
 
 | Technology | Version | Purpose |
 |-----------|---------|---------|
-| [Three.js](https://threejs.org/) | r128 | 3D rendering (WebGL) |
+| [Three.js](https://threejs.org/) | r152 | 3D rendering (WebGL) |
 | Vanilla JS | ES2020 | MDL parser, UI logic |
 | HTML/CSS | — | UI (no framework) |
 | [Cinzel](https://fonts.google.com/specimen/Cinzel) | — | Display font (Google Fonts) |
