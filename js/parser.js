@@ -191,6 +191,7 @@ function parseNode(lines, start) {
     shininess: 0,
     render: 1,
     alpha: 1.0,
+    selfIllumColor: null, // [r,g,b] oder null — nur bei EFFECT-Nodes
     tilefade: 0,
     transparencyhint: 0,  // 0 = opak, 1 = Textur-Alpha nutzen (Decals, Splotches)
     // ── Emitter-spezifische Properties ──────────────────────────
@@ -253,6 +254,7 @@ function parseNode(lines, start) {
       else node.render = parseInt(t[1]) || 0;
     }
     else if (k === 'alpha')             node.alpha = num(t[1]);
+    else if (k === 'selfillumcolor')    node.selfIllumColor = [num(t[1]), num(t[2]), num(t[3])];
     else if (k === 'tilefade')          node.tilefade = parseInt(t[1]) || 0;
     else if (k === 'transparencyhint')  node.transparencyhint = parseInt(t[1]) || 0;
     // ── Emitter-Properties ──────────────────────────────────────────────

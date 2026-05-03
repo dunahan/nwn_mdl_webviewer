@@ -282,6 +282,54 @@ function loadAllMDLFiles(mdlFiles) {
       return;
     }
 
+    // ── Fall C: Multi-Part Assembly (z.B. Waffenteile _b_ / _m_ / _t_) ──────
+    // Mehrere MDLs geladen, alle mit Geometrie, keines referenziert ein anderes
+    // als Supermodel → als mehrteiliges Modell zusammensetzen.
+    {
+      const allParsed = Object.values(parsed);
+      if (allParsed.length > 1) {
+
+        // Supermodel-Namen aus allen geladenen Modellen sammeln
+        const superNames = new Set(
+          allParsed
+            .map(m => (m.supermodel || '').toLowerCase())
+            .filter(sm => sm && sm !== 'null' && sm !== '')
+        );
+
+        // Kandidaten: haben Geometrie + sind nicht das Supermodel eines anderen + haben ggfs Effekte
+        const parts = allParsed.filter(m =>
+          !superNames.has(m.name.toLowerCase()) &&
+          m.nodes.some(n => n.type !== 'dummy')
+        );
+
+
+        // Nur wenn ALLE Kandidaten komplett unabhängig sind (kein setsupermodel)
+        const allIndependent = parts.every(m => {
+          const sm = (m.supermodel || '').toLowerCase();
+          return !sm || sm === 'null' || sm === '';
+        });
+
+        if (parts.length > 1 && allIndependent) {
+          // Alphabetisch sortieren → deterministisch (_b_ → _m_ → _t_)
+          parts.sort((a, b) => a.name.localeCompare(b.name));
+          const base = parts[0];
+
+          for (let i = 1; i < parts.length; i++) {
+            for (const node of parts[i].nodes) {
+              base.nodes.push(node);
+            }
+            logInfo(fmt('log_multi_part', { part: parts[i].name, base: base.name }));
+          }
+
+          buildScene(base);
+          const n = applyTexturesToScene();
+          if (n > 0) setStatus(fmt('status_model_tex', { name: base.name, n }));
+          return;
+        }
+      }
+    }
+    // ── Ende Fall C ────────────────────────────────────────────────────────
+
     // ── Fall B: Hauptmodell bestimmen ─────────────────────────────────
     // Regel: Das Hauptmodell hat einen setsupermodel-Verweis auf ein ANDERES Modell
     //        (also NICHT NULL und NICHT sich selbst).
@@ -308,7 +356,7 @@ function loadAllMDLFiles(mdlFiles) {
         if (hasMesh) { mainModel = model; break; }
       }
     }
-    
+
     // Fallback: Modell ohne Mesh aber mit Nodes (z.B. fx_clouds: nur dummy + emitter)
     if (!mainModel) {
       for (const model of Object.values(parsed)) {

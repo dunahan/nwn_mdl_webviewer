@@ -285,6 +285,17 @@ function applyTexturesToScene() {
         mat.emissiveIntensity = 1.0;
       }
 
+      // selfillumcolor → emissiveMap nachträglich setzen (EFFECT-Modelle)
+      // Nur wenn scene_build es noch nicht gesetzt hat (Textur kam nach dem MDL).
+      if (node.selfIllumColor && !mat.emissiveMap) {
+        const [sr, sg, sb] = node.selfIllumColor;
+        if ((sr > 0 || sg > 0 || sb > 0)) {
+          mat.emissiveMap       = tex;
+          mat.emissive.setRGB(sr, sg, sb);
+          mat.emissiveIntensity = 1.0;
+        }
+      }
+
       mat.needsUpdate = true;
     }
   }
