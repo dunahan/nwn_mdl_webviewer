@@ -52,6 +52,7 @@ const I18N_BUNDLE = {
     status_lang_fallback:'Language file not found — using English.',
     status_mtr_loaded: 'MTR loaded: {name}',
     status_mtr_error:  'MTR error: {name} — {msg}',
+    // error msg
     err_no_nodes:'No nodes found. Is this a decompiled ASCII file?',
     err_parse_title:'Parse error:',
     err_parse_hint:'Please make sure the file is a decompiled ASCII .mdl file.',
@@ -137,7 +138,10 @@ const I18N_BUNDLE = {
     // Emitter log messages
     log_em_init:          '[Emitter] "{name}" initialised',
     log_em_init_pending:  ' (texture pending: "{tex}")',
-    log_em_error:         '[Emitter] "{name}" error: {msg}'
+    log_em_error:         '[Emitter] "{name}" error: {msg}',
+    log_em_tex_pending:   '(texture pending: "{tex}")',
+    // multipart msg
+    log_multi_part:       'Multi-Part: "{part}" merged into "{base}"'
   },
   de: {
     _meta: { language: 'Deutsch', code: 'de' },
@@ -180,6 +184,7 @@ const I18N_BUNDLE = {
     status_lang_fallback:'Sprache nicht gefunden — Englisch als Fallback.',
     status_mtr_loaded: 'MTR geladen: {name}',
     status_mtr_error:  'MTR-Fehler: {name} — {msg}',
+    // Error msg
     err_no_nodes:'Keine Nodes gefunden. Ist die Datei im ASCII-Format?',
     err_parse_title:'Fehler beim Parsen:',
     err_parse_hint:'Stellen Sie sicher, dass es sich um eine decompilierte ASCII .mdl Datei handelt.',
@@ -262,10 +267,13 @@ const I18N_BUNDLE = {
     // Theme / sonstige Fehler
     err_theme_load:       'Theme-Fehler: {msg}',
     err_theme_variables:  'Feld "variables" fehlt.',
-    // Emitter-Log-Meldungen
+    // Log-Meldungen
     log_em_init:          '[Emitter] "{name}" initialisiert',
     log_em_init_pending:  ' (Textur ausstehend: "{tex}")',
-    log_em_error:         '[Emitter] "{name}" Fehler: {msg}'
+    log_em_error:         '[Emitter] "{name}" Fehler: {msg}',
+    log_em_tex_pending:   '(Textur ausstehend: "{tex}")',
+    // multipart msg
+    log_multi_part:       'Multi-Part: "{part}" → "{base}" zusammengeführt'
   }
 };
 

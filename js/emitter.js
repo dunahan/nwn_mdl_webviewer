@@ -360,12 +360,12 @@ function initAllEmitters(model) {
       emitterInstances[node.name] = new NWNEmitter(node);
       const texOk  = !!textureCache[node.emitterTexture];
       const keyTag = node._birthrateKeys ? ' [birthratekey]' : '';
-      logInfo('[Emitter] "' + node.name + '" initialisiert'
-        + (texOk ? '' : ' (Textur ausstehend: "' + node.emitterTexture + '")')
+      logInfo(fmt('log_em_init', { name: node.name })
+        + (texOk ? '' : ' ' + fmt('log_em_tex_pending', { tex: node.emitterTexture }))
         + keyTag
       );
     } catch (err) {
-      logWarn('[Emitter] "' + node.name + '" Fehler: ' + err.message);
+      logWarn(fmt('log_em_error', { name: node.name, msg: err.message }));
     }
   }
 }

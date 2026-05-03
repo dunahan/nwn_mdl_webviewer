@@ -114,6 +114,18 @@ function buildScene(model) {
       // Wenn Bitmap referenziert aber Textur noch nicht geladen: Hinweis-Farbe
       if (node.bitmap && !tex) mat.color.set(nodeColor(node.type));
 
+      // selfillumcolor → Emissive (EFFECT-Modelle mit Eigenleuchten, z. B. vdr_globemin, vim_cntglobe)
+      // WICHTIG: emissiveMap = tex setzen, damit die *Textur* selbst leuchtet und nicht
+      // das gesamte Material weiß wird (mat.emissive ohne Map = Vollfarbe über alles).
+      if (node.selfIllumColor) {
+        const [sr, sg, sb] = node.selfIllumColor;
+        if ((sr > 0 || sg > 0 || sb > 0) && tex) {
+          mat.emissiveMap       = tex;
+          mat.emissive.setRGB(sr, sg, sb);
+          mat.emissiveIntensity = 1.0;
+        }
+      }
+
       const mesh = new THREE.Mesh(geo, mat);
       mesh.castShadow = true;
       mesh.receiveShadow = true;

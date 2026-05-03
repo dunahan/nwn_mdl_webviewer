@@ -73,6 +73,30 @@ function applyAnimFrame(anim, time) {
         obj.quaternion.copy(axisAngleToQuat(r.ax, r.ay, r.az, r.angle));
       }
     }
+
+    // Alpha interpolieren (alphakey — EFFECT-Modelle animieren Mesh-Transparenz)
+    const aKeys = data.emitterKeys && data.emitterKeys.alpha;
+    if (aKeys && aKeys.length > 0) {
+      let alpha;
+      if (time <= aKeys[0].t) {
+        alpha = aKeys[0].vals[0];
+      } else if (time >= aKeys[aKeys.length - 1].t) {
+        alpha = aKeys[aKeys.length - 1].vals[0];
+      } else {
+        let lo = 0, hi = aKeys.length - 1;
+        while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (aKeys[mid].t <= time) lo = mid; else hi = mid; }
+        const a = aKeys[lo], b = aKeys[hi];
+        const frac = (b.t === a.t) ? 0 : (time - a.t) / (b.t - a.t);
+        alpha = a.vals[0] + (b.vals[0] - a.vals[0]) * frac;
+      }
+      // meshOpacity-Slider berücksichtigen (globale Variable aus scene.js / ui.js)
+      const mats = obj.material ? (Array.isArray(obj.material) ? obj.material : [obj.material]) : [];
+      for (const mat of mats) {
+        mat.opacity     = alpha * (typeof meshOpacity === 'number' ? meshOpacity : 1.0);
+        mat.transparent = true;
+        mat.visible     = mat.opacity > 0.001;
+      }
+    }
   }
 }
 
