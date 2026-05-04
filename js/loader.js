@@ -243,6 +243,54 @@ function mergeAnimationsFromSupermodel(mainModel, superModel) {
 }
 
 // ─────────────────────────────────────────────
+//  Fehlende-Texturen-Report
+// ─────────────────────────────────────────────
+function logMissingTextures(model) {
+  if (!model) return;
+  const needed = new Set();
+
+  for (const node of model.nodes) {
+    // MTR-Pfad: materialname → MTR-Cache → Textur-Slots prüfen
+    const mtrKey = node.materialname
+      ? node.materialname.toLowerCase()
+      : (node.bitmap ? node.bitmap.toLowerCase() : null);
+    const mtr = mtrKey ? (mtrCache[mtrKey] || null) : null;
+
+    if (mtr) {
+      for (let i = 0; i <= 5; i++) {
+        if (mtr.textures[i]) needed.add(mtr.textures[i].toLowerCase());
+      }
+    } else {
+      // Direkte Bitmap- und Textur-Slots aus dem MDL-Node
+      if (node.bitmap) needed.add(node.bitmap.toLowerCase());
+      if (node.textures) {
+        for (const t of node.textures) {
+          if (t && t !== 'null') needed.add(t.toLowerCase());
+        }
+      }
+    }
+
+    // Emitter-Textur
+    if (node.emitterTexture) needed.add(node.emitterTexture.toLowerCase());
+  }
+
+  // Platzhalter und bereits geladene Texturen herausfiltern
+  const missing = [...needed].filter(
+    name => name && name !== 'null' && name !== '' && !textureCache[name]
+  );
+
+  if (missing.length === 0) {
+    logInfo(L('tex_missing_none'));
+    return;
+  }
+
+  logWarn(fmt('tex_missing_header', { n: missing.length }));
+  for (const name of missing) {
+    logWarn('  ✕ ' + name);
+  }
+}
+
+// ─────────────────────────────────────────────
 //  MDL-Loader  (Einzel- oder Mehrfach-Dateien)
 // ─────────────────────────────────────────────
 function loadAllMDLFiles(mdlFiles) {
@@ -323,6 +371,7 @@ function loadAllMDLFiles(mdlFiles) {
 
           buildScene(base);
           const n = applyTexturesToScene();
+          logMissingTextures(base);
           if (n > 0) setStatus(fmt('status_model_tex', { name: base.name, n }));
           return;
         }
@@ -385,6 +434,7 @@ function loadAllMDLFiles(mdlFiles) {
     // Szene mit der Geometrie des Hauptmodells aufbauen
     buildScene(mainModel);
     const n = applyTexturesToScene();
+    logMissingTextures(mainModel);
     if (n > 0) setStatus(fmt('status_model_tex', { name: mainModel.name, n }));
 
     // Supermodel-Animationen direkt anwenden

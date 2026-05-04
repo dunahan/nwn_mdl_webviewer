@@ -141,7 +141,10 @@ const I18N_BUNDLE = {
     log_em_error:         '[Emitter] "{name}" error: {msg}',
     log_em_tex_pending:   '(texture pending: "{tex}")',
     // multipart msg
-    log_multi_part:       'Multi-Part: "{part}" merged into "{base}"'
+    log_multi_part:       'Multi-Part: "{part}" merged into "{base}"',
+    // missing texture report
+    tex_missing_none:     'All referenced textures loaded ✓',
+    tex_missing_header:   'Missing textures ({n}) — not yet loaded:'
   },
   de: {
     _meta: { language: 'Deutsch', code: 'de' },
@@ -273,7 +276,10 @@ const I18N_BUNDLE = {
     log_em_error:         '[Emitter] "{name}" Fehler: {msg}',
     log_em_tex_pending:   '(Textur ausstehend: "{tex}")',
     // multipart msg
-    log_multi_part:       'Multi-Part: "{part}" → "{base}" zusammengeführt'
+    log_multi_part:       'Multi-Part: "{part}" → "{base}" zusammengeführt',
+    // Fehlende-Texturen-Report
+    tex_missing_none:     'Alle referenzierten Texturen geladen ✓',
+    tex_missing_header:   'Fehlende Texturen ({n}) — noch nicht geladen:'
   }
 };
 

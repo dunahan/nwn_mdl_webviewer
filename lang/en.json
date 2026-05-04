@@ -176,5 +176,7 @@
   "err_theme_variables":  "Field \"variables\" missing.",
   "log_em_init":          "[Emitter] \"{name}\" initialised",
   "log_em_init_pending":  " (texture pending: \"{tex}\")",
-  "log_em_error":         "[Emitter] \"{name}\" error: {msg}"
+  "log_em_error":         "[Emitter] \"{name}\" error: {msg}",
+  "tex_missing_none":     "All referenced textures loaded ✓",
+  "tex_missing_header":   "Missing textures ({n}) — not yet loaded:"
 }
