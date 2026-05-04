@@ -30,6 +30,7 @@
   --font-size-small: 11px;
   --font-size-label: 10px;
   --font-size-tiny:  9px;
+  --font-size-log:   12px;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: 'Share Tech Mono', monospace; font-size: var(--font-size-base); }
@@ -538,7 +539,7 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
 #log-panel.open { max-height: 180px; }
 #log-entries {
   overflow-y: auto; max-height: 180px;
-  padding: 6px 12px 8px; font-size: 10px; line-height: 1.8;
+  padding: 6px 12px 8px; font-size: var(--font-size-log); line-height: 1.8;
 }
 #log-entries::-webkit-scrollbar { width: 4px; }
 #log-entries::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 2px; }
@@ -548,7 +549,7 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
 .log-entry.log-info  .log-icon { color: var(--muted); }
 .log-icon  { flex-shrink: 0; width: 10px; }
 .log-msg   { color: var(--text); flex: 1; word-break: break-all; }
-.log-time  { color: var(--muted); flex-shrink: 0; font-size: 9px; }
+.log-time  { color: var(--muted); flex-shrink: 0; font-size: calc(var(--font-size-log) - 1px); }
 
 /* Log-Toggle-Button in Statusbar */
 #log-toggle {
@@ -556,12 +557,12 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
   display: flex; align-items: center; gap: 4px;
   color: var(--muted); padding: 0 4px; border-radius: 2px;
   transition: color 0.15s; user-select: none;
-  font-size: 10px;
+  font-size: var(--font-size-log);
 }
 #log-toggle:hover { color: var(--gold); }
 #log-toggle.has-errors { color: var(--log-error); }
 #log-toggle.has-warns  { color: var(--log-warn); }
-#log-toggle .log-count { font-size: 9px; }
+#log-toggle .log-count { font-size: calc(var(--font-size-log) - 1px); }
 
 /* Scrollbar for sidebar */
 #sidebar ::-webkit-scrollbar { width: 4px; }

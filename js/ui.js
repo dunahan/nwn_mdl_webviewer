@@ -617,7 +617,8 @@ const BUILTIN_THEMES = {
       '--font-size-base':  '13px',
       '--font-size-small': '11px',
       '--font-size-label': '10px',
-      '--font-size-tiny':  '9px'
+      '--font-size-tiny':  '9px',
+      '--font-size-log':   '12px'
     }
   },
   'high-contrast': {
@@ -647,7 +648,8 @@ const BUILTIN_THEMES = {
       '--font-size-base':  '16px',
       '--font-size-small': '14px',
       '--font-size-label': '13px',
-      '--font-size-tiny':  '12px'
+      '--font-size-tiny':  '12px',
+      '--font-size-log':   '14px'
     }
   }
 };
