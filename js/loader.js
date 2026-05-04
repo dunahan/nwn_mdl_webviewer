@@ -14,7 +14,8 @@ function loadFiles(fileList) {
   const wokFiles = files.filter(f => /\.wok$/i.test(f.name));
   const pwkFiles = files.filter(f => /\.pwk$/i.test(f.name));
 
-  if (mdlFiles.length === 0 && texFiles.length === 0 && mtrFiles.length === 0) {
+  if (mdlFiles.length === 0 && texFiles.length === 0 && mtrFiles.length === 0
+      && wokFiles.length === 0 && pwkFiles.length === 0) {
     setStatus(L('status_no_files'));
     return;
   }
@@ -42,6 +43,7 @@ function loadFiles(fileList) {
       loadAllMDLFiles(mdlFiles);
     } else if (currentModel) {
       const n = applyTexturesToScene();
+      resolveMissingTextures();
       setStatus(fmt('status_tex_applied', { n }));
     }
   }
@@ -243,6 +245,100 @@ function mergeAnimationsFromSupermodel(mainModel, superModel) {
 }
 
 // ─────────────────────────────────────────────
+//  Fehlende-Texturen-Report
+// ─────────────────────────────────────────────
+
+// DOM-Referenzen der Log-Einträge: texname → <div.log-entry>
+// '__header__' ist der Zähler-Eintrag oben.
+const _missingTexEntries = {};
+
+function logMissingTextures(model) {
+  if (!model) return;
+
+  // Alte Referenzen beim Neu-Laden verwerfen
+  for (const key of Object.keys(_missingTexEntries)) delete _missingTexEntries[key];
+
+  const needed = new Set();
+
+  for (const node of model.nodes) {
+    // MTR-Pfad: materialname → MTR-Cache → Textur-Slots prüfen
+    const mtrKey = node.materialname
+      ? node.materialname.toLowerCase()
+      : (node.bitmap ? node.bitmap.toLowerCase() : null);
+    const mtr = mtrKey ? (mtrCache[mtrKey] || null) : null;
+
+    if (mtr) {
+      for (let i = 0; i <= 5; i++) {
+        if (mtr.textures[i]) needed.add(mtr.textures[i].toLowerCase());
+      }
+    } else {
+      // Direkte Bitmap- und Textur-Slots aus dem MDL-Node
+      if (node.bitmap) needed.add(node.bitmap.toLowerCase());
+      if (node.textures) {
+        for (const t of Object.values(node.textures)) {
+          if (t && t !== 'null') needed.add(t.toLowerCase());
+        }
+      }
+    }
+
+    // Emitter-Textur
+    if (node.emitterTexture) needed.add(node.emitterTexture.toLowerCase());
+  }
+
+  // Platzhalter und bereits geladene Texturen herausfiltern
+  const missing = [...needed].filter(
+    name => name && name !== 'null' && name !== '' && !textureCache[name]
+  );
+
+  const logEntries = document.getElementById('log-entries');
+
+  if (missing.length === 0) {
+    logInfo(L('tex_missing_none'));
+    return;
+  }
+
+  logWarn(fmt('tex_missing_header', { n: missing.length }));
+  _missingTexEntries['__header__'] = logEntries.lastElementChild;
+
+  for (const name of missing) {
+    logWarn('  ✕ ' + name);
+    _missingTexEntries[name] = logEntries.lastElementChild;
+  }
+}
+
+// Wird aufgerufen wenn Texturen nachgeladen werden (ohne neues MDL).
+// Entfernt aufgelöste Einträge aus dem Log und aktualisiert den Header-Zähler.
+function resolveMissingTextures() {
+  if (Object.keys(_missingTexEntries).length === 0) return;
+
+  let remaining = 0;
+
+  for (const [name, el] of Object.entries(_missingTexEntries)) {
+    if (name === '__header__') continue;
+    if (textureCache[name]) {
+      el?.parentNode?.removeChild(el);
+      delete _missingTexEntries[name];
+    } else {
+      remaining++;
+    }
+  }
+
+  const headerEl = _missingTexEntries['__header__'];
+  if (!headerEl) return;
+
+  if (remaining === 0) {
+    // Alle aufgelöst: Header entfernen, ✓-Meldung loggen
+    headerEl.parentNode?.removeChild(headerEl);
+    delete _missingTexEntries['__header__'];
+    logInfo(L('tex_missing_none'));
+  } else {
+    // Zähler im Header aktualisieren
+    const msgSpan = headerEl.querySelector('.log-msg');
+    if (msgSpan) msgSpan.textContent = fmt('tex_missing_header', { n: remaining });
+  }
+}
+
+// ─────────────────────────────────────────────
 //  MDL-Loader  (Einzel- oder Mehrfach-Dateien)
 // ─────────────────────────────────────────────
 function loadAllMDLFiles(mdlFiles) {
@@ -323,6 +419,7 @@ function loadAllMDLFiles(mdlFiles) {
 
           buildScene(base);
           const n = applyTexturesToScene();
+          logMissingTextures(base);
           if (n > 0) setStatus(fmt('status_model_tex', { name: base.name, n }));
           return;
         }
@@ -385,6 +482,7 @@ function loadAllMDLFiles(mdlFiles) {
     // Szene mit der Geometrie des Hauptmodells aufbauen
     buildScene(mainModel);
     const n = applyTexturesToScene();
+    logMissingTextures(mainModel);
     if (n > 0) setStatus(fmt('status_model_tex', { name: mainModel.name, n }));
 
     // Supermodel-Animationen direkt anwenden

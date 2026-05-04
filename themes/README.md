@@ -124,6 +124,7 @@ The same applies to `--gold` → `--gold-rgb`.
 | `--font-size-small` | `11px` | Small text (texture list, node list) |
 | `--font-size-label` | `10px` | Labels, panel titles |
 | `--font-size-tiny` | `9px` | Very small text (badges, speed buttons) |
+| `--font-size-log` | `12px` | Log panel text (entries, timestamp, toggle) |
 
 ---
 
@@ -161,7 +162,8 @@ You can copy and customize this template directly. Save it as `mein-theme.json`:
     "--font-size-base":  "13px",
     "--font-size-small": "11px",
     "--font-size-label": "10px",
-    "--font-size-tiny":  "9px"
+    "--font-size-tiny":  "9px",
+    "--font-size-log":   "12px"
   }
 }
 ```
