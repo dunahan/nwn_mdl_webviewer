@@ -264,7 +264,7 @@ function logMissingTextures(model) {
       // Direkte Bitmap- und Textur-Slots aus dem MDL-Node
       if (node.bitmap) needed.add(node.bitmap.toLowerCase());
       if (node.textures) {
-        for (const t of node.textures) {
+        for (const t of Object.values(node.textures)) {
           if (t && t !== 'null') needed.add(t.toLowerCase());
         }
       }
