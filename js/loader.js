@@ -42,6 +42,7 @@ function loadFiles(fileList) {
       loadAllMDLFiles(mdlFiles);
     } else if (currentModel) {
       const n = applyTexturesToScene();
+      resolveMissingTextures();
       setStatus(fmt('status_tex_applied', { n }));
     }
   }
@@ -245,8 +246,17 @@ function mergeAnimationsFromSupermodel(mainModel, superModel) {
 // ─────────────────────────────────────────────
 //  Fehlende-Texturen-Report
 // ─────────────────────────────────────────────
+
+// DOM-Referenzen der Log-Einträge: texname → <div.log-entry>
+// '__header__' ist der Zähler-Eintrag oben.
+const _missingTexEntries = {};
+
 function logMissingTextures(model) {
   if (!model) return;
+
+  // Alte Referenzen beim Neu-Laden verwerfen
+  for (const key of Object.keys(_missingTexEntries)) delete _missingTexEntries[key];
+
   const needed = new Set();
 
   for (const node of model.nodes) {
@@ -279,14 +289,51 @@ function logMissingTextures(model) {
     name => name && name !== 'null' && name !== '' && !textureCache[name]
   );
 
+  const logEntries = document.getElementById('log-entries');
+
   if (missing.length === 0) {
     logInfo(L('tex_missing_none'));
     return;
   }
 
   logWarn(fmt('tex_missing_header', { n: missing.length }));
+  _missingTexEntries['__header__'] = logEntries.lastElementChild;
+
   for (const name of missing) {
     logWarn('  ✕ ' + name);
+    _missingTexEntries[name] = logEntries.lastElementChild;
+  }
+}
+
+// Wird aufgerufen wenn Texturen nachgeladen werden (ohne neues MDL).
+// Entfernt aufgelöste Einträge aus dem Log und aktualisiert den Header-Zähler.
+function resolveMissingTextures() {
+  if (Object.keys(_missingTexEntries).length === 0) return;
+
+  let remaining = 0;
+
+  for (const [name, el] of Object.entries(_missingTexEntries)) {
+    if (name === '__header__') continue;
+    if (textureCache[name]) {
+      el?.parentNode?.removeChild(el);
+      delete _missingTexEntries[name];
+    } else {
+      remaining++;
+    }
+  }
+
+  const headerEl = _missingTexEntries['__header__'];
+  if (!headerEl) return;
+
+  if (remaining === 0) {
+    // Alle aufgelöst: Header entfernen, ✓-Meldung loggen
+    headerEl.parentNode?.removeChild(headerEl);
+    delete _missingTexEntries['__header__'];
+    logInfo(L('tex_missing_none'));
+  } else {
+    // Zähler im Header aktualisieren
+    const msgSpan = headerEl.querySelector('.log-msg');
+    if (msgSpan) msgSpan.textContent = fmt('tex_missing_header', { n: remaining });
   }
 }
 
