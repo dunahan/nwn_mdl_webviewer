@@ -14,7 +14,8 @@ function loadFiles(fileList) {
   const wokFiles = files.filter(f => /\.wok$/i.test(f.name));
   const pwkFiles = files.filter(f => /\.pwk$/i.test(f.name));
 
-  if (mdlFiles.length === 0 && texFiles.length === 0 && mtrFiles.length === 0) {
+  if (mdlFiles.length === 0 && texFiles.length === 0 && mtrFiles.length === 0
+      && wokFiles.length === 0 && pwkFiles.length === 0) {
     setStatus(L('status_no_files'));
     return;
   }
