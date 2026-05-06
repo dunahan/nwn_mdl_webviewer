@@ -141,7 +141,11 @@ const I18N_BUNDLE = {
     log_em_error:         '[Emitter] "{name}" error: {msg}',
     log_em_tex_pending:   '(texture pending: "{tex}")',
     // multipart msg
-    log_multi_part:       'Multi-Part: "{part}" merged into "{base}"',
+    log_char_part:        'Multi-Part: "{part}" merged into "{base}"',
+    log_char_assembly:    'Multi-Part model loading...',
+    log_char_positioned:  'Character parts positioned via bounding-box stacking',
+    log_char_skeleton:    'Base skeleton found: {name} — using exact attachment positions',
+    log_char_bone:        'Part {part} → bone {bone} (Z: {z})',
     // missing texture report
     tex_missing_none:     'All referenced textures loaded ✓',
     tex_missing_header:   'Missing textures ({n}) — not yet loaded:',
@@ -281,7 +285,11 @@ const I18N_BUNDLE = {
     log_em_error:         '[Emitter] "{name}" Fehler: {msg}',
     log_em_tex_pending:   '(Textur ausstehend: "{tex}")',
     // multipart msg
-    log_multi_part:       'Multi-Part: "{part}" → "{base}" zusammengeführt',
+    log_char_part:        'Multi-Part: "{part}" → "{base}" zusammengeführt',
+    log_char_assembly:    'Multi-Part Modell wird geladen...',
+    log_char_positioned:  'Charakterteile per Bounding-Box gestapelt',
+    log_char_skeleton:    'Basis-Skelett gefunden: {name} — exakte Attachment-Positionen werden verwendet',
+    log_char_bone:        'Teil {part} → Knochen {bone} (Z: {z})',
     // Fehlende-Texturen-Report
     tex_missing_none:     'Alle referenzierten Texturen geladen ✓',
     tex_missing_header:   'Fehlende Texturen ({n}) — noch nicht geladen:',
@@ -366,6 +374,9 @@ async function switchLanguage(code) {
   const url = new URL(window.location);
   url.searchParams.set('lang', currentLangCode);
   history.replaceState(null, '', url);
+
+  // Log-Einträge mit gespeichertem i18n-Schlüssel neu übersetzen
+  if (typeof retranslateLog === 'function') retranslateLog();
 }
 
 // Beim Start: Sprache aus URL-Parameter oder Browser-Sprache ermitteln

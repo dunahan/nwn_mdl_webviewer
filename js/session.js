@@ -334,7 +334,7 @@ function applyTexturesToScene() {
 //  Textur-Sidebar aktualisieren
 // ─────────────────────────────────────────────
 function updateTextureUI() {
-  const keys = Object.keys(textureCache);
+  const keys = Object.keys(textureCache).sort((a, b) => a.localeCompare(b));
   const panel = document.getElementById('texture-status');
   const list  = document.getElementById('texture-list');
   if (keys.length === 0) { panel.style.display = 'none'; return; }

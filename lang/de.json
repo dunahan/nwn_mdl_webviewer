@@ -3,12 +3,12 @@
     "language": "Deutsch",
     "code": "de",
     "author": "",
-    "version": "1.1"
+    "version": "1.2"
   },
 
   "logo_subtitle":        "Neverwinter Nights 1 · Enhanced Edition",
 
-  "drop_title":           "MDL + TGA/DDS/PLT ablegen",
+  "drop_title":           "MDL + Texturen ablegen",
   "drop_or":              "oder klicken zum Öffnen",
   "drop_hint":            "Mehrere Dateien gleichzeitig möglich",
 
@@ -87,8 +87,8 @@
   "status_no_files":      "Keine .mdl oder .tga Dateien erkannt.",
   "status_read_error":    "Fehler beim Lesen der Datei.",
   "status_tga_error":     "Textur-Fehler: {name} — {msg}",
-  "status_lang_loaded":   "Sprache geladen: {lang}",
-  "status_lang_fallback": "Sprache nicht gefunden — Fallback auf Englisch.",
+  "status_lang_loaded":   "Sprache: {lang}",
+  "status_lang_fallback": "Sprache nicht gefunden — Englisch als Fallback.",
   "status_mtr_loaded":    "MTR geladen: {name}",
   "status_mtr_error":     "MTR-Fehler: {name} — {msg}",
 
@@ -108,7 +108,7 @@
   "sidebar_toggle_title": "Sidebar ein-/ausblenden",
   "log_toggle_title":     "Log ein-/ausblenden",
 
-  "plt_heading":          "PLT Layers",
+  "plt_heading":          "PLT Layer",
   "plt_row_label":        "Zeile ",
   "plt_layer_0":          "Haut",
   "plt_layer_1":          "Haar",
@@ -176,7 +176,14 @@
   "err_theme_variables":  "Feld \"variables\" fehlt.",
   "log_em_init":          "[Emitter] \"{name}\" initialisiert",
   "log_em_init_pending":  " (Textur ausstehend: \"{tex}\")",
+  "log_em_tex_pending":   "(Textur ausstehend: \"{tex}\")",
   "log_em_error":         "[Emitter] \"{name}\" Fehler: {msg}",
+
+  "log_char_part":        "Multi-Part: \"{part}\" → \"{base}\" zusammengeführt",
+  "log_char_assembly":    "Multi-Part Modell wird geladen...",
+  "log_char_positioned":  "Charakterteile per Bounding-Box gestapelt",
+  "log_char_skeleton":    "Basis-Skelett gefunden: {name} — exakte Attachment-Positionen werden verwendet",
+  "log_char_bone":        "Teil {part} → Knochen {bone} (Z: {z})",
   
   "tex_missing_none":     "Alle referenzierten Texturen geladen ✓",
   "tex_missing_header":   "Fehlende Texturen ({n}) — noch nicht geladen:",
