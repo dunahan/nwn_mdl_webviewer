@@ -59,9 +59,9 @@ function loadFiles(fileList) {
     reader.onload = ev => {
       try {
         mtrCache[key] = parseMTR(ev.target.result);
-        logInfo(fmt('status_mtr_loaded', { name: file.name }));
+        logInfoI18n('status_mtr_loaded', { name: file.name });
       } catch(err) {
-        logError(fmt('status_mtr_error', { name: file.name, msg: err.message }));
+        logErrorI18n('status_mtr_error', { name: file.name, msg: err.message });
       }
       mtrPending--;
       checkAllReady();
@@ -85,7 +85,7 @@ function loadFiles(fileList) {
         const btn = document.getElementById('btn-walkmesh');
         if (btn) btn.disabled = false;
       } catch (err) {
-        logError(fmt('err_wok_load', { name: file.name, msg: err.message }));
+        logErrorI18n('err_wok_load', { name: file.name, msg: err.message });
       }
     };
     reader.readAsText(file);
@@ -101,7 +101,7 @@ function loadFiles(fileList) {
         const btn = document.getElementById('btn-pwk');
         if (btn) btn.disabled = false;
       } catch (err) {
-        logError(fmt('err_pwk_load', { name: file.name, msg: err.message }));
+        logErrorI18n('err_pwk_load', { name: file.name, msg: err.message });
       }
     };
     reader.readAsText(file);
@@ -124,7 +124,7 @@ function loadFiles(fileList) {
           texLoaded++;
           setStatus(fmt('status_tex_loaded', { name: file.name, n: texLoaded, total: texFiles.length }));
         } catch(err) {
-          logError(fmt('err_tga_load', { name: file.name, msg: err.message }));
+          logErrorI18n('err_tga_load', { name: file.name, msg: err.message });
           setStatus(fmt('status_tga_error', { name: file.name, msg: err.message }));
         }
         texPending--;
@@ -146,7 +146,7 @@ function loadFiles(fileList) {
           texLoaded++;
           setStatus(fmt('status_tex_loaded', { name: file.name, n: texLoaded, total: texFiles.length }));
         } catch(err) {
-          logError(fmt('err_dds_load', { name: file.name, msg: err.message }));
+          logErrorI18n('err_dds_load', { name: file.name, msg: err.message });
           setStatus(fmt('status_tga_error', { name: file.name, msg: err.message }));
         }
         texPending--;
@@ -168,7 +168,7 @@ function loadFiles(fileList) {
           texLoaded++;
           setStatus(fmt('status_tex_loaded', { name: file.name, n: texLoaded, total: texFiles.length }));
         } catch(err) {
-          logError(fmt('err_plt_load', { name: file.name, msg: err.message }));
+          logErrorI18n('err_plt_load', { name: file.name, msg: err.message });
           setStatus(fmt('status_tga_error', { name: file.name, msg: err.message }));
         }
         texPending--;
@@ -208,7 +208,7 @@ function loadFiles(fileList) {
 // ─────────────────────────────────────────────
 function mergeAnimationsFromSupermodel(mainModel, superModel) {
   if (superModel.animations.length === 0) {
-    logWarn(fmt('super_no_anims', { name: superModel.name }));
+    logWarnI18n('super_no_anims', { name: superModel.name });
     return;
   }
 
@@ -241,7 +241,7 @@ function mergeAnimationsFromSupermodel(mainModel, superModel) {
     }
   }
 
-  logInfo(fmt('super_anims_merged', { name: superModel.name, n: superModel.animations.length }));
+  logInfoI18n('super_anims_merged', { name: superModel.name, n: superModel.animations.length });
 }
 
 // ─────────────────────────────────────────────
@@ -293,11 +293,11 @@ function logMissingTextures(model) {
   const logEntries = document.getElementById('log-entries');
 
   if (missing.length === 0) {
-    logInfo(L('tex_missing_none'));
+    logInfoI18n('tex_missing_none');
     return;
   }
 
-  logWarn(fmt('tex_missing_header', { n: missing.length }));
+  logWarnI18n('tex_missing_header', { n: missing.length });
   _missingTexEntries['__header__'] = logEntries.lastElementChild;
 
   for (const name of missing) {
@@ -330,12 +330,180 @@ function resolveMissingTextures() {
     // Alle aufgelöst: Header entfernen, ✓-Meldung loggen
     headerEl.parentNode?.removeChild(headerEl);
     delete _missingTexEntries['__header__'];
-    logInfo(L('tex_missing_none'));
+    logInfoI18n('tex_missing_none');
   } else {
     // Zähler im Header aktualisieren
     const msgSpan = headerEl.querySelector('.log-msg');
     if (msgSpan) msgSpan.textContent = fmt('tex_missing_header', { n: remaining });
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Character-Part Positionierung  (Fall D)
+//
+//  Modus A – Mit Basis-Skelett (z.B. pmh0.mdl):
+//    Traversiert die Node-Hierarchie des Skeletts, berechnet Weltpositionen
+//    aller Attachment-Nodes (_g-Suffixe) und platziert jedes Part exakt dort.
+//
+//  Modus B – Ohne Skelett (Fallback):
+//    Bounding-Box-Stacking entlang der NWN-Z-Achse (Z = hoch).
+// ─────────────────────────────────────────────────────────────────────────────
+function positionCharacterParts(charParts, skeletonModel) {
+  if (typeof scene === 'undefined' || typeof THREE === 'undefined') return;
+
+  // ── Hilfsfunktionen ──────────────────────────────────────────────────────
+
+  // "pmh0_chest001" → "chest"
+  function partKey(name) {
+    const m = name.match(/^pm[a-z]\d_([a-z]+)\d+$/i);
+    return m ? m[1].toLowerCase() : '';
+  }
+  function findPart(keyword) {
+    return charParts.find(p => partKey(p.name) === keyword) || null;
+  }
+  function findRoot(partName) {
+    return scene.getObjectByName(partName) || null;
+  }
+
+  // ── Phase 0: Alle Parts auf Ursprung zurücksetzen ─────────────────────────
+  // (Binary-MDL-Attachment-Offsets aus buildScene eliminieren)
+  for (const part of charParts) {
+    const root = findRoot(part.name);
+    if (root) root.position.set(0, 0, 0);
+  }
+  scene.updateMatrixWorld(true);
+
+  // ══════════════════════════════════════════════════════════════════════════
+  //  Modus A: Skelett-basierte Positionierung
+  // ══════════════════════════════════════════════════════════════════════════
+  if (skeletonModel) {
+
+    // NWN Part-Kürzel → Attachment-Node-Name im Skelett
+    // Quelle: pmh0.mdl-Analyse (gilt für alle pm[mf][0-9].mdl Basisskelette)
+    const BONE_MAP = {
+      'chest':  'torso_g',
+      'pelvis': 'pelvis_g',
+      'belt':   'belt_g1',
+      'neck':   'neck_g',
+      'head':   'head_g',
+      'shol':   'Lbicep_g',    // Schulterplatte: Schultergelenk links
+      'shor':   'Rbicep_g',    //                 Schultergelenk rechts
+      'bicepl': 'Lbicep_g',    // Oberarm links
+      'bicepr': 'Rbicep_g',    // Oberarm rechts
+      'forel':  'lforearm_g',  // Unterarm links
+      'forer':  'rforearm_g',  // Unterarm rechts
+      'handl':  'lhand_g',     // Hand links
+      'handr':  'rhand_g',     // Hand rechts
+      'legl':   'lthigh_g',    // Oberschenkel links
+      'legr':   'rthigh_g',    // Oberschenkel rechts
+      'shinl':  'lshin_g',     // Schienbein links
+      'shinr':  'rshin_g',     // Schienbein rechts
+      'footl':  'lfoot_g',     // Fuß links
+      'footr':  'rfoot_g',     // Fuß rechts
+    };
+
+    // Weltpositionen aller Skelett-Nodes durch Traversierung der Hierarchie
+    const nodeMap = {};
+    for (const n of skeletonModel.nodes) nodeMap[n.name] = n;
+
+    const worldPos = {};
+    function computeWorld(name) {
+      if (name in worldPos) return worldPos[name];
+      const n = nodeMap[name];
+      if (!n) return (worldPos[name] = { x: 0, y: 0, z: 0 });
+
+      const pos = n.position || [0, 0, 0];
+      const lx = Array.isArray(pos) ? (pos[0] || 0) : (pos.x || 0);
+      const ly = Array.isArray(pos) ? (pos[1] || 0) : (pos.y || 0);
+      const lz = Array.isArray(pos) ? (pos[2] || 0) : (pos.z || 0);
+
+      const par = (n.parent || '').toLowerCase().trim();
+      if (!n.parent || par === 'null' || par === '') {
+        worldPos[name] = { x: lx, y: ly, z: lz };
+      } else {
+        const p = computeWorld(n.parent);
+        worldPos[name] = { x: p.x + lx, y: p.y + ly, z: p.z + lz };
+      }
+      return worldPos[name];
+    }
+    for (const n of skeletonModel.nodes) computeWorld(n.name);
+
+    // Jedes Part an seinem Attachment-Node platzieren
+    for (const part of charParts) {
+      const bone = BONE_MAP[partKey(part.name)];
+      if (!bone) continue;
+      const wp = worldPos[bone];
+      if (!wp) continue;
+      const root = findRoot(part.name);
+      if (root) root.position.set(wp.x, wp.y, wp.z);
+      logInfoI18n('log_char_bone', { part: part.name, bone, z: wp.z.toFixed(3) });
+    }
+
+    logInfoI18n('log_char_positioned');
+    return;
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  //  Modus B: Bounding-Box-Stacking (Fallback ohne Skelett)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // Phase 1: Bounding-Boxes nach Phase-0-Reset
+  const origBox = {};
+  for (const part of charParts) {
+    const root = findRoot(part.name);
+    if (!root) continue;
+    const box = new THREE.Box3().setFromObject(root);
+    if (!box.isEmpty()) origBox[part.name] = box;
+  }
+
+  // Phase 2a: Wirbelsäule + Beine entlang Z-Achse (NWN: Z = hoch)
+  const SPINE_GROUPS = [
+    ['footl', 'footr'], ['shinl', 'shinr'], ['legl', 'legr'],
+    ['pelvis'], ['belt'], ['chest'], ['neck'], ['head'],
+  ];
+
+  let floorZ = 0, chestTopZ = 0;
+
+  for (const keys of SPINE_GROUPS) {
+    const parts = keys.map(findPart).filter(Boolean);
+    if (!parts.length) continue;
+    let gMinZ = Infinity, gMaxZ = -Infinity;
+    for (const p of parts) {
+      const b = origBox[p.name];
+      if (!b) continue;
+      if (b.min.z < gMinZ) gMinZ = b.min.z;
+      if (b.max.z > gMaxZ) gMaxZ = b.max.z;
+    }
+    if (!isFinite(gMinZ)) continue;
+    const offset = floorZ - gMinZ;
+    for (const p of parts) {
+      const root = findRoot(p.name);
+      if (root) root.position.z += offset;
+    }
+    floorZ += (gMaxZ - gMinZ);
+    if (keys.includes('chest')) chestTopZ = floorZ;
+  }
+  if (chestTopZ === 0) chestTopZ = floorZ;
+
+  // Phase 2b: Arme hängen abwärts von der Brust-Oberkante
+  const ARM_CHAINS = [
+    ['shol', 'bicepl', 'forel', 'handl'],
+    ['shor', 'bicepr', 'forer', 'handr'],
+  ];
+  for (const chain of ARM_CHAINS) {
+    let armTopZ = chestTopZ;
+    for (const key of chain) {
+      const part = findPart(key);
+      if (!part) continue;
+      const b = origBox[part.name];
+      if (!b) continue;
+      const root = findRoot(part.name);
+      if (root) root.position.z += armTopZ - b.max.z;
+      armTopZ = b.min.z + (armTopZ - b.max.z);
+    }
+  }
+
+  logInfoI18n('log_char_positioned');
 }
 
 // ─────────────────────────────────────────────
@@ -373,10 +541,52 @@ function loadAllMDLFiles(mdlFiles) {
         buildAnimUI(currentModel);
         setStatus(fmt('super_anims_loaded', { name: superModel.name, n: currentModel.animations.length }));
       } else {
-        logWarn(L('super_not_found'));
+        logWarnI18n('super_not_found');
       }
       return;
     }
+
+    // ── Fall D: Character Part Assembly (pmX#_PART### – Körperteile dynamischer Charaktere) ──
+    // Erkennt optional das Basis-Skelett (pmh0, pmf0, …) unter den geladenen Dateien.
+    // Mit Skelett → exakte Attachment-Positionen aus der Node-Hierarchie.
+    // Ohne Skelett → BB-Stacking als Fallback.
+    {
+      const allParsed = Object.values(parsed);
+      if (allParsed.length > 1) {
+        const charPartRx    = /^pm[a-z]\d_[a-z]+\d+$/i;
+        const baseSkeletonRx = /^pm[a-z]\d$/i;
+
+        const charParts     = allParsed.filter(m => charPartRx.test(m.name));
+        const skeletonModel = allParsed.find(m => baseSkeletonRx.test(m.name)) || null;
+
+        // Fall D greift wenn: nur Parts geladen  ODER  Skelett + Parts
+        const nonPartNonSkeleton = allParsed.filter(
+          m => !charPartRx.test(m.name) && !baseSkeletonRx.test(m.name)
+        );
+
+        if (charParts.length > 1 && nonPartNonSkeleton.length === 0) {
+          charParts.sort((a, b) => a.name.localeCompare(b.name));
+          const base   = charParts.find(m => /pelvis/i.test(m.name)) || charParts[0];
+          const others = charParts.filter(m => m !== base);
+
+          logInfoI18n('log_char_assembly', { n: charParts.length, base: base.name });
+          if (skeletonModel) logInfoI18n('log_char_skeleton', { name: skeletonModel.name });
+
+          for (const part of others) {
+            for (const node of part.nodes) base.nodes.push(node);
+            logInfoI18n('log_char_part', { part: part.name, base: base.name });
+          }
+
+          buildScene(base);
+          positionCharacterParts(charParts, skeletonModel);
+          const n = applyTexturesToScene();
+          logMissingTextures(base);
+          if (n > 0) setStatus(fmt('status_model_tex', { name: base.name, n }));
+          return;
+        }
+      }
+    }
+    // ── Ende Fall D ────────────────────────────────────────────────────────────
 
     // ── Fall C: Multi-Part Assembly (z.B. Waffenteile _b_ / _m_ / _t_) ──────
     // Mehrere MDLs geladen, alle mit Geometrie, keines referenziert ein anderes
@@ -414,7 +624,7 @@ function loadAllMDLFiles(mdlFiles) {
             for (const node of parts[i].nodes) {
               base.nodes.push(node);
             }
-            logInfo(fmt('log_multi_part', { part: parts[i].name, base: base.name }));
+            logInfoI18n('log_multi_part', { part: parts[i].name, base: base.name });
           }
 
           buildScene(base);
@@ -462,7 +672,7 @@ function loadAllMDLFiles(mdlFiles) {
     }
 
     if (!mainModel || !mainModel.nodes.length) {
-      logError(L('err_no_nodes'));
+      logErrorI18n('err_no_nodes');
       alert(L('err_parse_title') + '\n' + L('err_no_nodes') + '\n\n' + L('err_parse_hint'));
       return;
     }
@@ -498,8 +708,8 @@ function loadAllMDLFiles(mdlFiles) {
                mainModel.supermodel !== '') {
       // Supermodel wurde referenziert aber nicht mitgeladen → Hinweis
       pendingSupermodel = mainModel.supermodel;
-      logWarn(fmt('super_pending_warn', { name: mainModel.name, super: mainModel.supermodel }));
-      logInfo(fmt('super_pending_info', { super: mainModel.supermodel }));
+      logWarnI18n('super_pending_warn', { name: mainModel.name, super: mainModel.supermodel });
+      logInfoI18n('super_pending_info', { super: mainModel.supermodel });
       setStatus(fmt('super_pending_status', { super: mainModel.supermodel }));
     }
   }
@@ -515,25 +725,25 @@ function loadAllMDLFiles(mdlFiles) {
         // Binäres MDL erkennen und ggf. decompilieren
         if (isBinaryMDL(buffer)) {
           if (!cm.isReady()) {
-            logInfo(L('wasm_loading'));
+            logInfoI18n('wasm_loading');
             try { await cm.ready(); } catch(wasmErr) {
-              logError(fmt('wasm_unavailable', { msg: wasmErr.message }));
-              logError(fmt('wasm_no_binary',   { name: file.name }));
+              logErrorI18n('wasm_unavailable', { msg: wasmErr.message });
+              logErrorI18n('wasm_no_binary',   { name: file.name });
               pending--;
               if (pending === 0) onAllRead();
               return;
             }
           }
           showDecompileOverlay(file.name);
-          logInfo(fmt('dcmp_decompiling', { name: file.name }));
+          logInfoI18n('dcmp_decompiling', { name: file.name });
           try {
             const ascii = await cm.decompile(buffer);
             if (_decompileCancelled) return;
             texts[baseName] = ascii;
-            logInfo(fmt('dcmp_done', { name: file.name }));
+            logInfoI18n('dcmp_done', { name: file.name });
           } catch (decompErr) {
             if (!_decompileCancelled) {
-              logError(fmt('dcmp_error', { name: file.name, msg: decompErr.message }));
+              logErrorI18n('dcmp_error', { name: file.name, msg: decompErr.message });
             }
           } finally {
             if (!_decompileCancelled) hideDecompileOverlay();
@@ -621,5 +831,5 @@ function cancelDecompile() {
   clearSession();
   clearLog();
   setStatus(L('dcmp_cancelled'));
-  logWarn(L('dcmp_cancelled'));
+  logWarnI18n('dcmp_cancelled');
 }

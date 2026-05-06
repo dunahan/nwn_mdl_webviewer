@@ -30,7 +30,7 @@ Add `?lang=XX` to the URL, where `XX` is the filename without `.json`:
 
 ---
 
-## Key reference / Schlüssel-Referenz (v1.1)
+## Key reference / Schlüssel-Referenz (v1.2)
 
 | Key Group | Description |
 |-----------|-------------|
@@ -49,6 +49,7 @@ Add `?lang=XX` to the URL, where `XX` is the filename without `.json`:
 | `cm_*` | Technical log messages for the cleanmodels WASM module. |
 | `wasm_*` | Status and error messages for the WASM decompiler module loading. |
 | `log_em_*` | Log messages for the particle Emitter system initialization and errors. |
+| `log_char_*` | Log messages for Multi-Part character/weapon assembly (part merging, skeleton attachment, bounding-box stacking). |
 
 ### Placeholder Dictionary
 These variables are replaced dynamically at runtime and must not be translated.
@@ -67,6 +68,10 @@ These variables are replaced dynamically at runtime and must not be translated.
 | `{size}` | Filesize in MB | "[cleanmodels] WASM loaded: {size} MB" |
 | `{src}` | File source/name | "Script load error: {src}" |
 | `{tex}` | Name of a texture file | "(texture pending: \"{tex}\")" |
+| `{base}` | Name of the base model in multi-part assembly | "Multi-Part: \"{part}\" merged into \"{base}\"" |
+| `{part}` | Name of a sub-part in multi-part assembly | "Multi-Part: \"{part}\" merged into \"{base}\"" |
+| `{bone}` | Name of a skeleton bone | "Part {part} → bone {bone} (Z: {z})" |
+| `{z}` | Z-position of an attachment point | "Part {part} → bone {bone} (Z: {z})" |
 
 ---
 
@@ -83,6 +88,14 @@ Neverwinter Nights uses a 10-layer palette system for dynamic coloring of armors
 * **Layers 0–1:** Usually reserved for Skin and Hair.
 * **Layers 2–7:** Materials like Metal, Cloth, and Leather.
 * **Layers 8–9:** Tattoos or special glow effects.
+
+### Multi-Part Assembly (`log_char_*`)
+NWN character models can consist of multiple separate MDL parts (body, helmet, weapons, etc.) that are assembled at runtime. These keys cover the log output during that process.
+* **`log_char_assembly`**: Logged when the multi-part pipeline starts.
+* **`log_char_part`**: Logged for each part merged into the base model.
+* **`log_char_positioned`**: Logged when parts are stacked via bounding-box fallback (no skeleton found).
+* **`log_char_skeleton`**: Logged when a base skeleton is found and exact bone attachment is used.
+* **`log_char_bone`**: Logged for each individual part-to-bone mapping with its Z-offset.
 
 ### Supermodel Logic (`super_*`)
 If a model references a Supermodel for animations, these strings guide the user to load the required additional `.mdl` files to enable animations.
@@ -104,7 +117,7 @@ NWN uses emitter nodes for particle effects. These keys cover the various physic
 
 | Datei | Sprache | Status |
 |-------|---------|--------|
-| `en.json` | English | Standard / Default |
-| `de.json` | Deutsch | Maintained |
+| `en.json` | English | Standard / Default (v1.2) |
+| `de.json` | Deutsch | Maintained (v1.2) |
 
 Contributions welcome — submit a pull request!

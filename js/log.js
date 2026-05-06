@@ -8,7 +8,7 @@ let logOpen    = false;
 let logErrors  = 0;
 let logWarns   = 0;
 
-function logMsg(msg, level) {
+function logMsg(msg, level, i18nKey = null, i18nParams = null) {
   // level: 'error' | 'warn' | 'info'
   const entries = document.getElementById('log-entries');
   const toggle  = document.getElementById('log-toggle');
@@ -21,6 +21,12 @@ function logMsg(msg, level) {
   const icons = { error: '✕', warn: '⚠', info: '·' };
   const row = document.createElement('div');
   row.className = 'log-entry log-' + level;
+
+  // i18n-Schlüssel und Parameter für spätere Übersetzung speichern
+  if (i18nKey) {
+    row.dataset.i18nKey = i18nKey;
+    if (i18nParams) row.dataset.i18nParams = JSON.stringify(i18nParams);
+  }
 
   const iconSpan = document.createElement('span');
   iconSpan.className = 'log-icon';
@@ -56,6 +62,22 @@ function logMsg(msg, level) {
 function logError(msg) { console.error(msg); logMsg(msg, 'error'); }
 function logWarn(msg)  { console.warn(msg);  logMsg(msg, 'warn');  }
 function logInfo(msg)  { logMsg(msg, 'info'); }
+
+// i18n-fähige Varianten: speichern Schlüssel + Parameter für Retranslation
+function logErrorI18n(key, params) { const t = params ? fmt(key, params) : L(key); console.error(t); logMsg(t, 'error', key, params || null); }
+function logWarnI18n(key,  params) { const t = params ? fmt(key, params) : L(key); console.warn(t);  logMsg(t, 'warn',  key, params || null); }
+function logInfoI18n(key,  params) { const t = params ? fmt(key, params) : L(key);                   logMsg(t, 'info',  key, params || null); }
+
+// Alle vorhandenen Log-Einträge mit gespeichertem i18n-Schlüssel neu übersetzen.
+// Wird von switchLanguage() aufgerufen.
+function retranslateLog() {
+  document.querySelectorAll('#log-entries .log-entry[data-i18n-key]').forEach(row => {
+    const key    = row.dataset.i18nKey;
+    const params = row.dataset.i18nParams ? JSON.parse(row.dataset.i18nParams) : null;
+    const msgSpan = row.querySelector('.log-msg');
+    if (msgSpan) msgSpan.textContent = params ? fmt(key, params) : L(key);
+  });
+}
 
 function toggleLogPanel() {
   const panel  = document.getElementById('log-panel');

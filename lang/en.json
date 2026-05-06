@@ -3,7 +3,7 @@
     "language": "English",
     "code": "en",
     "author": "",
-    "version": "1.1"
+    "version": "1.2"
   },
 
   "logo_subtitle":        "Neverwinter Nights 1 · Enhanced Edition",
@@ -86,9 +86,9 @@
   "status_parse":         "Parsing MDL: {name} …",
   "status_no_files":      "No .mdl or .tga files recognised.",
   "status_read_error":    "Error reading file.",
-  "status_tga_error":     "Texture error: {name} — {msg}",
-  "status_lang_loaded":   "Language loaded: {lang}",
-  "status_lang_fallback": "Language file not found — falling back to English.",
+  "status_tga_error":     "TGA error: {name} — {msg}",
+  "status_lang_loaded":   "Language: {lang}",
+  "status_lang_fallback": "Language file not found — using English.",
   "status_mtr_loaded":    "MTR loaded: {name}",
   "status_mtr_error":     "MTR error: {name} — {msg}",
 
@@ -176,7 +176,14 @@
   "err_theme_variables":  "Field \"variables\" missing.",
   "log_em_init":          "[Emitter] \"{name}\" initialised",
   "log_em_init_pending":  " (texture pending: \"{tex}\")",
+  "log_em_tex_pending":   "(texture pending: \"{tex}\")",
   "log_em_error":         "[Emitter] \"{name}\" error: {msg}",
+
+  "log_char_part":        "Multi-Part: \"{part}\" merged into \"{base}\"",
+  "log_char_assembly":    "Multi-Part model loading...",
+  "log_char_positioned":  "Character parts positioned via bounding-box stacking",
+  "log_char_skeleton":    "Base skeleton found: {name} — using exact attachment positions",
+  "log_char_bone":        "Part {part} → bone {bone} (Z: {z})",
   "tex_missing_none":     "All referenced textures loaded ✓",
   "tex_missing_header":   "Missing textures ({n}) — not yet loaded:",
   
