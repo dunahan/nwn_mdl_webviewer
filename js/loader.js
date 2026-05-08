@@ -355,7 +355,7 @@ function positionCharacterParts(charParts, skeletonModel) {
 
   // "pmh0_chest001" → "chest"
   function partKey(name) {
-    const m = name.match(/^pm[a-z]\d_([a-z]+)\d+$/i);
+    const m = name.match(/^p[mf][a-z]\d_([a-z]+)\d+$/i);
     return m ? m[1].toLowerCase() : '';
   }
   function findPart(keyword) {
@@ -386,10 +386,10 @@ function positionCharacterParts(charParts, skeletonModel) {
       'belt':   'belt_g1',
       'neck':   'neck_g',
       'head':   'head_g',
-      'shol':   'Lbicep_g',    // Schulterplatte: Schultergelenk links
-      'shor':   'Rbicep_g',    //                 Schultergelenk rechts
-      'bicepl': 'Lbicep_g',    // Oberarm links
-      'bicepr': 'Rbicep_g',    // Oberarm rechts
+      'shol':   'lbicep_g',    // Schulterplatte: Schultergelenk links
+      'shor':   'rbicep_g',    //                 Schultergelenk rechts
+      'bicepl': 'lbicep_g',    // Oberarm links
+      'bicepr': 'rbicep_g',    // Oberarm rechts
       'forel':  'lforearm_g',  // Unterarm links
       'forer':  'rforearm_g',  // Unterarm rechts
       'handl':  'lhand_g',     // Hand links
@@ -430,7 +430,7 @@ function positionCharacterParts(charParts, skeletonModel) {
 
     // Jedes Part an seinem Attachment-Node platzieren
     for (const part of charParts) {
-      const bone = BONE_MAP[partKey(part.name)];
+      const bone = BONE_MAP[partKey(part.name.toLowerCase())];
       if (!bone) continue;
       const wp = worldPos[bone];
       if (!wp) continue;
@@ -553,8 +553,8 @@ function loadAllMDLFiles(mdlFiles) {
     {
       const allParsed = Object.values(parsed);
       if (allParsed.length > 1) {
-        const charPartRx    = /^pm[a-z]\d_[a-z]+\d+$/i;
-        const baseSkeletonRx = /^pm[a-z]\d$/i;
+        const charPartRx    = /^p[mf][a-z]\d_[a-z]+\d+$/i;
+        const baseSkeletonRx = /^p[mf][a-z]\d$/i;
 
         const charParts     = allParsed.filter(m => charPartRx.test(m.name));
         const skeletonModel = allParsed.find(m => baseSkeletonRx.test(m.name)) || null;
