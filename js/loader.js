@@ -404,13 +404,14 @@ function positionCharacterParts(charParts, skeletonModel) {
 
     // Weltpositionen aller Skelett-Nodes durch Traversierung der Hierarchie
     const nodeMap = {};
-    for (const n of skeletonModel.nodes) nodeMap[n.name] = n;
+    for (const n of skeletonModel.nodes) nodeMap[n.name.toLowerCase()] = n;
 
     const worldPos = {};
     function computeWorld(name) {
-      if (name in worldPos) return worldPos[name];
-      const n = nodeMap[name];
-      if (!n) return (worldPos[name] = { x: 0, y: 0, z: 0 });
+      const key = name.toLowerCase();
+      if (key in worldPos) return worldPos[key];
+      const n = nodeMap[key];
+      if (!n) return (worldPos[key] = { x: 0, y: 0, z: 0 });
 
       const pos = n.position || [0, 0, 0];
       const lx = Array.isArray(pos) ? (pos[0] || 0) : (pos.x || 0);
@@ -418,13 +419,13 @@ function positionCharacterParts(charParts, skeletonModel) {
       const lz = Array.isArray(pos) ? (pos[2] || 0) : (pos.z || 0);
 
       const par = (n.parent || '').toLowerCase().trim();
-      if (!n.parent || par === 'null' || par === '') {
-        worldPos[name] = { x: lx, y: ly, z: lz };
+      if (!par || par === 'null') {
+        worldPos[key] = { x: lx, y: ly, z: lz };
       } else {
-        const p = computeWorld(n.parent);
-        worldPos[name] = { x: p.x + lx, y: p.y + ly, z: p.z + lz };
+        const p = computeWorld(par);
+        worldPos[key] = { x: p.x + lx, y: p.y + ly, z: p.z + lz };
       }
-      return worldPos[name];
+      return worldPos[key];
     }
     for (const n of skeletonModel.nodes) computeWorld(n.name);
 
