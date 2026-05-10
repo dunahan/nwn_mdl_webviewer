@@ -560,9 +560,18 @@ function loadAllMDLFiles(mdlFiles) {
         const charParts     = allParsed.filter(m => charPartRx.test(m.name));
         const skeletonModel = allParsed.find(m => baseSkeletonRx.test(m.name)) || null;
 
-        // Fall D greift wenn: nur Parts geladen  ODER  Skelett + Parts
+        // Fall D greift wenn: nur Parts geladen  ODER  Skelett + Parts  ODER
+        // Skelett + Parts + Supermodel des Skeletts (z.B. a_fa.mdl).
+        // Das Supermodel-MDL wird beim nonPartNonSkeleton-Check ausgeschlossen,
+        // damit es Fall D nicht verhindert (es wird später als Animation-Quelle genutzt).
+        const skelSuperName = skeletonModel
+          ? (skeletonModel.supermodel || '').toLowerCase()
+          : '';
         const nonPartNonSkeleton = allParsed.filter(
-          m => !charPartRx.test(m.name) && !baseSkeletonRx.test(m.name)
+          m => !charPartRx.test(m.name) &&
+               !baseSkeletonRx.test(m.name) &&
+               !(skelSuperName && skelSuperName !== 'null' &&
+                 m.name.toLowerCase() === skelSuperName)
         );
 
         if (charParts.length > 1 && nonPartNonSkeleton.length === 0) {
@@ -571,18 +580,151 @@ function loadAllMDLFiles(mdlFiles) {
           const others = charParts.filter(m => m !== base);
 
           logInfoI18n('log_char_assembly', { n: charParts.length, base: base.name });
-          if (skeletonModel) logInfoI18n('log_char_skeleton', { name: skeletonModel.name });
 
           for (const part of others) {
             for (const node of part.nodes) base.nodes.push(node);
             logInfoI18n('log_char_part', { part: part.name, base: base.name });
           }
 
+          // ── Skelett-Bone-Nodes in base integrieren ───────────────────────────
+          // Die Bone-Nodes (rootdummy, torso_g, rbicep_g …) aus dem Skelett
+          // (pfa0.mdl) müssen in der Szene vorhanden sein, damit:
+          //   a) mergeAnimationsFromSupermodel sie als gültige Ziele akzeptiert
+          //      (mainNodeNames.has(boneName) → true)
+          //   b) applyAnimFrame ihre Three.js-Objekte in nodeObjects findet
+          //   c) applySkinning die animierten Bone-Transforms lesen kann
+          // Der Root-Node des Skeletts wird übersprungen; seine direkten Kinder
+          // werden stattdessen unter base.name eingehängt (Parent-Remapping).
+          if (skeletonModel) {
+            const skelRootName = skeletonModel.name.toLowerCase();
+            for (const node of skeletonModel.nodes) {
+              if (node.name.toLowerCase() === skelRootName) continue;       // Root überspringen
+              if (base.nodes.find(n => n.name === node.name)) continue;     // kein Duplikat
+              const patched = Object.assign({}, node);
+              if ((patched.parent || '').toLowerCase() === skelRootName) {
+                patched.parent = base.name;   // direkte Skelett-Kinder an base-Root hängen
+              }
+              base.nodes.push(patched);
+            }
+            logInfoI18n('log_char_skeleton', { name: skeletonModel.name });
+          }
+          // ─────────────────────────────────────────────────────────────────────
+
           buildScene(base);
-          positionCharacterParts(charParts, skeletonModel);
+          // ── Charpart-Roots an Bones reparenten & Bone-Debug ausblenden ───────
+          // positionCharacterParts() überspringen wenn Skelett vorhanden:
+          // Dessen computeWorld() ignoriert Bone-Rotationen (nur additive Positionen),
+          // was zu Fehlpositionierungen führt. Die Bone-Object3Ds sind bereits durch
+          // Three.js korrekt im Raum platziert (inkl. Rotationen der Eltern).
+          // → boneObj.add(partRoot) + position (0,0,0): Part landet exakt am Bone-Ursprung.
+          if (skeletonModel) {
+            const BONE_MAP = {
+              'chest':  'torso_g',    'pelvis': 'pelvis_g',   'belt':   'belt_g1',
+              'neck':   'neck_g',     'head':   'head_g',
+              'shol':   'lbicep_g',   'shor':   'rbicep_g',
+              'bicepl': 'lbicep_g',   'bicepr': 'rbicep_g',
+              'forel':  'lforearm_g', 'forer':  'rforearm_g',
+              'handl':  'lhand_g',    'handr':  'rhand_g',
+              'legl':   'lthigh_g',   'legr':   'rthigh_g',
+              'shinl':  'lshin_g',    'shinr':  'rshin_g',
+              'footl':  'lfoot_g',    'footr':  'rfoot_g',
+            };
+
+            // Case-insensitive Bone-Lookup: Skelette verschiedener Modelle
+            // nutzen unterschiedliche Schreibweisen (z.B. Lbicep_g vs lbicep_g).
+            // BONE_MAP-Werte sind immer Kleinbuchstaben → einmalig LC-Map aufbauen.
+            const nodeObjLC = {};
+            for (const [k, v] of Object.entries(nodeObjects)) {
+              if (k) nodeObjLC[k.toLowerCase()] = v;
+            }
+
+            // Schritt 1: Part-Roots an ihre Bones hängen, lokale Position auf (0,0,0)
+            for (const part of charParts) {
+              if (part === base) continue;
+              const m = part.name.match(/^p[mf][a-z]\d_([a-z]+)\d+$/i);
+              const boneName = BONE_MAP[m ? m[1].toLowerCase() : ''];
+              if (!boneName) continue;
+              const partRoot = nodeObjects[part.name];
+              const boneObj  = nodeObjLC[boneName];
+              if (!partRoot || !boneObj) continue;
+              boneObj.add(partRoot);
+              partRoot.position.set(0, 0, 0);
+              partRoot.quaternion.identity();
+            }
+
+            // Pelvis-Geometrie-Kinder des Base-Roots an pelvis_g reparenten.
+            // Der Base-Root selbst kann nicht verschoben werden (alle Bones hängen daran).
+            // Seine Geometrie-Meshes (kein Skelett-Node) werden wie alle anderen Parts
+            // direkt unter ihren Bone-Attachment-Node gehängt.
+            const pelvisGObj   = nodeObjLC[BONE_MAP['pelvis']];
+            const baseRootObj  = nodeObjects[base.name];
+            if (pelvisGObj && baseRootObj) {
+              const skelNodeNames = new Set(
+                skeletonModel.nodes.map(n => n.name.toLowerCase())
+              );
+              for (const ch of [...baseRootObj.children]) {
+                if (!skelNodeNames.has(ch.name.toLowerCase())) {
+                  pelvisGObj.add(ch);
+                  ch.position.set(0, 0, 0);
+                  ch.quaternion.identity();
+                }
+              }
+            }
+
+            // Schritt 2: Bone-Debug-Meshes ausblenden.
+            // Identitätsvergleich (!== child) statt Namensvergleich, weil Debug-Spheres
+            // denselben Namen wie ihr Parent-Bone tragen können → nodeObjects[name] wäre
+            // truthy aber zeigt auf den Bone, nicht auf das Debug-Mesh.
+            const skelRootName = skeletonModel.name.toLowerCase();
+            for (const node of skeletonModel.nodes) {
+              if (node.name.toLowerCase() === skelRootName) continue;
+              const obj = nodeObjects[node.name];
+              if (!obj) continue;
+              for (const child of obj.children) {
+                if (nodeObjects[child.name] !== child) child.visible = false;
+              }
+            }
+          } else {
+            positionCharacterParts(charParts, skeletonModel);  // Fallback Modus B (BB-Stacking)
+          }
+          // ─────────────────────────────────────────────────────────────────────
+
           const n = applyTexturesToScene();
           logMissingTextures(base);
           if (n > 0) setStatus(fmt('status_model_tex', { name: base.name, n }));
+
+          // ── Supermodel-Animationen aus Skelett übernehmen ─────────────────
+          // Der Supermodel-Verweis steckt im Skelett (z.B. pfa0 → a_fa),
+          // nicht in den einzelnen Parts. Nach dem Assembly auf base übertragen
+          // und entweder sofort mergen (wenn mitgeladen) oder pendingSupermodel
+          // setzen (für den Nachlade-Workflow über Fall A).
+          const superSource = skeletonModel || base;
+          const smName = (superSource.supermodel || '').toLowerCase();
+          if (smName && smName !== 'null' && smName !== superSource.name.toLowerCase()) {
+            base.supermodel = superSource.supermodel;
+
+            const superModel =
+              parsed[smName] ||
+              Object.values(parsed).find(m => m.name.toLowerCase() === smName);
+
+            if (superModel) {
+              // Supermodel war unter den geladenen Dateien → sofort mergen
+              mergeAnimationsFromSupermodel(base, superModel);
+              applyRestPose(base);
+              saveGeometryPose();
+              buildAnimUI(base);
+              pendingSupermodel = null;
+              setStatus(fmt('super_anims_loaded', { name: superModel.name, n: base.animations.length }));
+            } else {
+              // Noch nicht geladen → Hinweis, Nutzer kann Supermodel nachreichen
+              pendingSupermodel = base.supermodel;
+              logWarnI18n('super_pending_warn', { name: base.name, super: base.supermodel });
+              logInfoI18n('super_pending_info', { super: base.supermodel });
+              setStatus(fmt('super_pending_status', { super: base.supermodel }));
+            }
+          }
+          // ──────────────────────────────────────────────────────────────────
+
           return;
         }
       }
