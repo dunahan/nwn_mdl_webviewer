@@ -154,7 +154,10 @@
       <div class="dcmp-spinner"></div>
       <div class="dcmp-title" data-i18n="dcmp_title">Decompiling…</div>
       <div class="dcmp-file" id="dcmp-filename"></div>
-      <div class="dcmp-hint" data-i18n="dcmp_hint">Binary MDL · Please wait</div>
+      <div class="dcmp-phase" id="dcmp-phase-label" data-i18n="dcmp_hint">Binary MDL · Please wait</div>
+      <div class="dcmp-progress-wrap">
+        <div class="dcmp-progress-bar indeterminate" id="dcmp-progress-bar"></div>
+      </div>
       <button class="dcmp-cancel-btn" onclick="cancelDecompile()" data-i18n="dcmp_cancel">Cancel</button>
     </div>
 
@@ -165,7 +168,7 @@
     </div>
 
     <div id="hud">
-      <span data-i18n="hud_camera">Camera</span>&nbsp;|&nbsp;<span class="hud-mouse"><span data-i18n="hud_orbit">LMB Orbit</span>&nbsp;·&nbsp;<span data-i18n="hud_zoom">RMB/Wheel Zoom</span>&nbsp;·&nbsp;<span data-i18n="hud_pan">MMB Pan</span></span><span class="hud-touch"><span data-i18n="hud_touch_orbit">1 Finger Orbit</span>&nbsp;·&nbsp;<span data-i18n="hud_touch_zoom">Pinch Zoom</span>&nbsp;·&nbsp;<span data-i18n="hud_touch_pan">2 Finger Pan</span></span><br>
+      <span data-i18n="hud_camera">Camera</span>&nbsp;|&nbsp;<span data-i18n="hud_orbit">LMB Orbit</span>&nbsp;·&nbsp;<span data-i18n="hud_zoom">RMB/Wheel Zoom</span>&nbsp;·&nbsp;<span data-i18n="hud_pan">MMB Pan</span><br>
       <span data-i18n="hud_vertices">Vertices</span>:&nbsp;<span id="stat-verts">—</span>&nbsp;·&nbsp;
       <span data-i18n="hud_faces">Faces</span>:&nbsp;<span id="stat-faces">—</span>&nbsp;·&nbsp;
       <span data-i18n="hud_nodes">Nodes</span>:&nbsp;<span id="stat-nodes">—</span>

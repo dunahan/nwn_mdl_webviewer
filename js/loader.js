@@ -867,17 +867,30 @@ function loadAllMDLFiles(mdlFiles) {
       try {
         // Binäres MDL erkennen und ggf. decompilieren
         if (isBinaryMDL(buffer)) {
+          // Overlay sofort zeigen — auch wenn WASM noch lädt
+          showDecompileOverlay(file.name);
+
           if (!cm.isReady()) {
             logInfoI18n('wasm_loading');
+            cm.onProgress(_setDecompilePhase);
             try { await cm.ready(); } catch(wasmErr) {
-              logErrorI18n('wasm_unavailable', { msg: wasmErr.message });
-              logErrorI18n('wasm_no_binary',   { name: file.name });
-              pending--;
-              if (pending === 0) onAllRead();
+              if (!_decompileCancelled) {
+                logErrorI18n('wasm_unavailable', { msg: wasmErr.message });
+                logErrorI18n('wasm_no_binary',   { name: file.name });
+                hideDecompileOverlay();
+                pending--;
+                if (pending === 0) onAllRead();
+              }
               return;
             }
+            cm.onProgress(null);
           }
-          showDecompileOverlay(file.name);
+
+          // WASM bereit → Decompile-Phase anzeigen und einen Frame warten
+          // damit der Browser das Overlay rendert bevor der sync WASM-Call blockiert.
+          _setDecompilePhase({ phase: 'decompile' });
+          await new Promise(r => setTimeout(r, 16));
+
           logInfoI18n('dcmp_decompiling', { name: file.name });
           try {
             const ascii = await cm.decompile(buffer);
@@ -946,14 +959,45 @@ document.getElementById('file-input').addEventListener('change', e => { loadFile
 //        WASM läuft noch im Hintergrund aber das Ergebnis wird verworfen.
 let _decompileCancelled = false;
 
+// Aktualisiert Progressbar und Phase-Label im Overlay.
+// Wird sowohl als cm.onProgress()-Callback als auch direkt aufgerufen.
+function _setDecompilePhase({ phase, pct = 0 }) {
+  const bar   = document.getElementById('dcmp-progress-bar');
+  const label = document.getElementById('dcmp-phase-label');
+  if (!bar || !label) return;
+
+  // Indeterminate-Phasen (kein exakter %)
+  const indeterminate = ['fetch_indeterminate', 'decode', 'compile', 'instantiate', 'wait', 'decompile'];
+
+  if (phase === 'fetch') {
+    bar.classList.remove('indeterminate');
+    bar.style.width = pct + '%';
+    label.textContent = fmt('dcmp_phase_fetch', { pct });
+  } else if (phase === 'ready') {
+    bar.classList.remove('indeterminate');
+    bar.style.width = '100%';
+    label.textContent = L('dcmp_phase_ready');
+  } else if (indeterminate.includes(phase)) {
+    bar.classList.add('indeterminate');
+    const key = 'dcmp_phase_' + phase;
+    label.textContent = L(key) || label.textContent;
+  }
+}
+
 function showDecompileOverlay(filename) {
   _decompileCancelled = false;    // Jedes neue Decompile startet sauber
-  const overlay  = document.getElementById('decompile-overlay');
+  const overlay   = document.getElementById('decompile-overlay');
   const fileLabel = document.getElementById('dcmp-filename');
+  const bar       = document.getElementById('dcmp-progress-bar');
+  const label     = document.getElementById('dcmp-phase-label');
   if (!overlay) return;
   if (fileLabel) fileLabel.textContent = filename;
-  // i18n auf die dynamischen Texte anwenden
+  // Progressbar zurücksetzen
+  if (bar)   { bar.classList.add('indeterminate'); bar.style.width = ''; }
+  if (label) label.textContent = L('dcmp_hint') || '';
+  // i18n auf die statischen Texte anwenden
   overlay.querySelectorAll('[data-i18n]').forEach(el => {
+    if (el.id === 'dcmp-phase-label') return;   // wird dynamisch gesetzt
     const val = L(el.getAttribute('data-i18n'));
     if (val) el.textContent = val;
   });
@@ -966,10 +1010,10 @@ function hideDecompileOverlay() {
 }
 
 // Wird vom Abbrechen-Button im Overlay aufgerufen.
-// Das WASM läuft im Hintergrund weiter bis es fertig ist —
-// das Ergebnis wird aber verworfen und die Session zurückgesetzt.
+// Bricht den WASM-Fetch ab (falls noch laufend) und verwirft das Ergebnis.
 function cancelDecompile() {
   _decompileCancelled = true;
+  if (typeof cm !== 'undefined' && typeof cm.cancelLoad === 'function') cm.cancelLoad();
   hideDecompileOverlay();
   clearSession();
   clearLog();
