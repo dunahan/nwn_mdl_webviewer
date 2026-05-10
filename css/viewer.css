@@ -299,6 +299,9 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
   line-height: 1.8; pointer-events: none;
 }
 #hud span { color: var(--text); }
+/* Touch-Gerät: Maus-HUD ausblenden; Desktop: Touch-HUD ausblenden */
+@media (pointer: fine)   { .hud-touch { display: none; } }
+@media (pointer: coarse) { .hud-mouse { display: none; } }
 
 #node-detail {
   position: absolute; left: auto; top: auto;

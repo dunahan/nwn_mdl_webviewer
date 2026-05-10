@@ -134,22 +134,81 @@ canvas.addEventListener('wheel', e => {
   e.preventDefault();
 }, { passive: false });
 canvas.addEventListener('contextmenu', e => e.preventDefault());
-// Touch support
-let touches = {};
+// Touch support (1-Finger Orbit, 2-Finger Pinch-Zoom + Pan)
+let _pinchDist0  = null;  // Fingerabstand zu Beginn des Pinch
+let _pinchMidX   = null;  // Mittelpunkt X zu Beginn (2-Finger-Pan)
+let _pinchMidY   = null;
+
 canvas.addEventListener('touchstart', e => {
-  for (const t of e.changedTouches) touches[t.identifier] = { x: t.clientX, y: t.clientY };
-  if (e.touches.length === 1) { orbit.dragging = true; orbit.lastX = e.touches[0].clientX; orbit.lastY = e.touches[0].clientY; }
+  if (e.touches.length === 1) {
+    orbit.dragging = true;
+    orbit.lastX    = e.touches[0].clientX;
+    orbit.lastY    = e.touches[0].clientY;
+    _pinchDist0    = null;
+    _pinchMidX     = null;
+  } else if (e.touches.length === 2) {
+    orbit.dragging = false;
+    const dx = e.touches[1].clientX - e.touches[0].clientX;
+    const dy = e.touches[1].clientY - e.touches[0].clientY;
+    _pinchDist0 = Math.hypot(dx, dy);
+    _pinchMidX  = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+    _pinchMidY  = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+  }
 }, { passive: true });
+
 canvas.addEventListener('touchend', e => {
-  for (const t of e.changedTouches) delete touches[t.identifier];
-  if (e.touches.length === 0) orbit.dragging = false;
+  if (e.touches.length === 0) {
+    orbit.dragging = false;
+    _pinchDist0 = null;
+    _pinchMidX  = null;
+  } else if (e.touches.length === 1) {
+    // 2→1 Finger: Orbit neu initialisieren um Positionssprung zu vermeiden
+    orbit.dragging = true;
+    orbit.lastX    = e.touches[0].clientX;
+    orbit.lastY    = e.touches[0].clientY;
+    _pinchDist0    = null;
+    _pinchMidX     = null;
+  }
 }, { passive: true });
+
 canvas.addEventListener('touchmove', e => {
   if (e.touches.length === 1 && orbit.dragging) {
+    // ── 1 Finger: Orbit ────────────────────────────────────────────────
     const dx = e.touches[0].clientX - orbit.lastX;
     const dy = e.touches[0].clientY - orbit.lastY;
-    orbit.lastX = e.touches[0].clientX; orbit.lastY = e.touches[0].clientY;
-    orbit.theta -= dx * 0.007; orbit.phi += dy * 0.007; updateCamera();
+    orbit.lastX    = e.touches[0].clientX;
+    orbit.lastY    = e.touches[0].clientY;
+    orbit.theta -= dx * 0.007;
+    orbit.phi   += dy * 0.007;
+    updateCamera();
+  } else if (e.touches.length === 2) {
+    // ── 2 Finger: Pinch-Zoom ───────────────────────────────────────────
+    const dx   = e.touches[1].clientX - e.touches[0].clientX;
+    const dy   = e.touches[1].clientY - e.touches[0].clientY;
+    const dist = Math.hypot(dx, dy);
+
+    if (_pinchDist0 !== null && dist > 0) {
+      // Spreizen → kleiner radius → zoom in; Zusammenführen → zoom out
+      orbit.radius *= _pinchDist0 / dist;
+      updateCamera();
+    }
+    _pinchDist0 = dist;
+
+    // ── 2 Finger: Pan (Mittelpunkt-Verschiebung) ───────────────────────
+    const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+    const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+    if (_pinchMidX !== null) {
+      const pdx   = midX - _pinchMidX;
+      const pdy   = midY - _pinchMidY;
+      const right = new THREE.Vector3();
+      right.crossVectors(camera.getWorldDirection(new THREE.Vector3()), camera.up).normalize();
+      const speed = orbit.radius * 0.001;
+      orbit.target.addScaledVector(right, -pdx * speed);
+      orbit.target.addScaledVector(camera.up,  pdy * speed);
+      updateCamera();
+    }
+    _pinchMidX = midX;
+    _pinchMidY = midY;
   }
   e.preventDefault();
 }, { passive: false });
