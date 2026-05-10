@@ -58,7 +58,7 @@ const cm = (() => {
   }
 
   async function _load() {
-    console.info(fmt('cm_start', { mode: _isFile ? 'file://' : 'HTTP' }));
+    console.info(fmt('cm_start', { mode: _isLocal ? protocol : 'HTTP' }));
 
     if (typeof Go === 'undefined') {
       _readyReject(new Error(L('cm_no_wasm_exec')));
@@ -69,7 +69,7 @@ const cm = (() => {
       // ── 1. WASM-Binary laden ──────────────────────────────────────
       let wasmBuffer;
 
-      if (_isFile) {
+      if (_isLocal) {
         if (typeof CM_WASM_B64 === 'undefined') {
           console.info(fmt('cm_loading_b64', { src: CM_WASM_B64_JS }));
           await _loadScript(CM_WASM_B64_JS);
