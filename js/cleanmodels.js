@@ -21,7 +21,8 @@ const CM_WASM_B64_JS = 'js/cleanmodels_wasm.js';
 
 const cm = (() => {
 
-  const _isFile = window.location.protocol === 'file:';
+  const protocol = window.location.protocol;
+  const _isLocal = protocol === 'file:' || protocol === 'content:';
   let _moduleReady = false;
   let _readyResolve, _readyReject;
   const _readyPromise = new Promise((res, rej) => {
