@@ -299,9 +299,6 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
   line-height: 1.8; pointer-events: none;
 }
 #hud span { color: var(--text); }
-/* Touch-Gerät: Maus-HUD ausblenden; Desktop: Touch-HUD ausblenden */
-@media (pointer: fine)   { .hud-touch { display: none; } }
-@media (pointer: coarse) { .hud-mouse { display: none; } }
 
 #node-detail {
   position: absolute; left: auto; top: auto;
@@ -470,14 +467,35 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
   letter-spacing: 1px; max-width: 280px;
   text-align: center; word-break: break-all;
 }
-.dcmp-hint {
+.dcmp-phase {
   font-size: 9px; color: var(--border);
   letter-spacing: 1px;
   animation: dcmp-pulse 2s ease-in-out infinite;
+  min-height: 12px;
 }
 @keyframes dcmp-pulse {
   0%, 100% { opacity: 0.4; }
   50%       { opacity: 1.0; }
+}
+/* Progressbar */
+.dcmp-progress-wrap {
+  width: 220px; height: 3px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 2px; overflow: hidden;
+}
+.dcmp-progress-bar {
+  height: 100%; width: 0%;
+  background: var(--gold);
+  border-radius: 2px;
+  transition: width 0.15s ease;
+}
+.dcmp-progress-bar.indeterminate {
+  width: 35%;
+  animation: dcmp-slide 1.3s ease-in-out infinite;
+}
+@keyframes dcmp-slide {
+  0%   { transform: translateX(-200%); }
+  100% { transform: translateX(600%); }
 }
 .dcmp-cancel-btn {
   margin-top: 6px;
