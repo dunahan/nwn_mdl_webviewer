@@ -87,6 +87,14 @@ function clearSession(keepTextures = false) {
     delete invertedTexCache[key];
   }
 
+  // PLT Farb-Zustand zurücksetzen:
+  // Per-Part-Rows (Layer 2–9) vollständig leeren
+  for (const key of Object.keys(pltPartLayerRows)) {
+    delete pltPartLayerRows[key];
+  }
+  // Globale Rows (Layer 0 Skin + 1 Hair) auf Default zurücksetzen
+  pltLayerRows.fill(0);
+
   // Partikel-Emitter bereinigen (vor nodeObjects-Reset, da Emitter nodeObjects nutzen)
   if (typeof clearAllEmitters === 'function') clearAllEmitters();
 
@@ -98,6 +106,7 @@ function clearSession(keepTextures = false) {
   animState.current  = null;
   animState.playing  = false;
   animState.time     = 0;
+  if (typeof txiWallTime !== 'undefined') txiWallTime = 0;
   geometryPose       = {};
   document.getElementById('anim-panel').style.display = 'none';
   const animBody  = document.getElementById('anim-body');
@@ -293,6 +302,29 @@ function applyTexturesToScene() {
           mat.emissiveMap       = tex;
           mat.emissive.setRGB(sr, sg, sb);
           mat.emissiveIntensity = 1.0;
+        }
+      }
+
+      // TXI blending — 'lighten' und 'additive' werden auf AdditiveBlending abgebildet.
+      // proceduretype cycle: initialen repeat/offset setzen (tickTxiCycle aktualisiert danach).
+      if (typeof txiCache !== 'undefined') {
+        const txi = txiCache[diffuseKey] || null;
+        if (txi) {
+          const blend = (txi.blending || '').toLowerCase();
+          if (blend === 'additive' || blend === 'lighten') {
+            mat.blending    = THREE.AdditiveBlending;
+            mat.transparent = true;
+            mat.depthWrite  = false;
+            mat.alphaTest   = 0;
+          }
+          if ((txi.proceduretype || '').toLowerCase() === 'cycle') {
+            const numx = txi.numx || 1;
+            const numy = txi.numy || 1;
+            if (mat.map) {
+              mat.map.repeat.set(1 / numx, 1 / numy);
+              mat.map.offset.set(0, (numy - 1) / numy);
+            }
+          }
         }
       }
 

@@ -85,7 +85,10 @@ function parseMDL(text) {
 function parseFullAnimNode(lines, start) {
   const hdr = lines[start].trim().split(/\s+/);
   const name = hdr[2] || '';
-  const data = { posKeys: [], oriKeys: [], emitterKeys: {} };
+  const data = {
+    posKeys: [], oriKeys: [], emitterKeys: {},
+    samplePeriod: 0, animVerts: [], animTverts: [],  // animmesh UV/Vertex-Animation
+  };
   let i = start + 1;
 
   function tok(idx) { return lines[idx].trim().split(/\s+/).filter(x => x.length > 0); }
@@ -152,6 +155,32 @@ function parseFullAnimNode(lines, start) {
       data.emitterKeys[baseName] = res.keys;
       i = res.next;
       continue;
+
+    // ── animmesh: sampleperiod / animverts / animtverts ─────────────────
+    // Diese Felder stehen im Animations-Node (nicht im Geometrie-Node).
+    // animtverts: numFrames x vertCount UV-Eintraege ohne Zeitstempel;
+    // Frame-Index = floor(time / samplePeriod) % numFrames.
+    } else if (k === 'sampleperiod') {
+      data.samplePeriod = parseFloat(t[1]) || 0;
+    } else if (k === 'animverts') {
+      const count = parseInt(t[1]) || 0;
+      data.animVerts = [];
+      for (let j = 0; j < count; j++) {
+        i++;
+        if (i >= lines.length) break;
+        const vt = tok(i);
+        if (vt.length >= 3) data.animVerts.push([parseFloat(vt[0])||0, parseFloat(vt[1])||0, parseFloat(vt[2])||0]);
+      }
+    } else if (k === 'animtverts') {
+      // Zaehlerbasiertes Einlesen — 'endlist' danach wird durch normalen i++ konsumiert.
+      const count = parseInt(t[1]) || 0;
+      data.animTverts = [];
+      for (let j = 0; j < count; j++) {
+        i++;
+        if (i >= lines.length) break;
+        const vt = tok(i);
+        if (vt.length >= 2) data.animTverts.push([parseFloat(vt[0])||0, parseFloat(vt[1])||0]);
+      }
     }
     i++;
   }

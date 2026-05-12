@@ -352,16 +352,20 @@ function applyPLTPalette(tex) {
   const buffer = tex.userData.pltBuffer;
   if (!buffer) return;
 
-  const data   = new Uint8Array(buffer);
-  const w      = tex.userData.pltWidth;
-  const h      = tex.userData.pltHeight;
-  const pixels = new Uint8ClampedArray(w * h * 4);
+  const data     = new Uint8Array(buffer);
+  const w        = tex.userData.pltWidth;
+  const h        = tex.userData.pltHeight;
+  const pixels   = new Uint8ClampedArray(w * h * 4);
+  // Layer 0 (Skin) + 1 (Hair) → global; Layer 2–9 → per Part/Textur
+  const partRows = getPltRows(tex.userData.pltTexKey || '__default__');
 
   for (let i = 0; i < w * h; i++) {
     const off        = 24 + i * 2;
     const colorIndex = data[off];
     const layerIdx   = data[off + 1];
-    const row        = (layerIdx < 10) ? pltLayerRows[layerIdx] : 0;
+    const row        = (layerIdx < 10)
+      ? ((layerIdx <= 1) ? pltLayerRows[layerIdx] : partRows[layerIdx])
+      : 0;
     const [r, g, b]  = getPaletteRGB(layerIdx, row, colorIndex);
     const p = i * 4;
     pixels[p]     = r;

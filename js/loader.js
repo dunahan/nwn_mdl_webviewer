@@ -165,6 +165,7 @@ function loadFiles(fileList) {
       reader.onload = ev => {
         try {
           textureCache[key] = parseNWNPLT(ev.target.result);
+          textureCache[key].userData.pltTexKey = key;  // für per-Part Paletten-Lookup
           texLoaded++;
           setStatus(fmt('status_tex_loaded', { name: file.name, n: texLoaded, total: texFiles.length }));
         } catch(err) {
@@ -802,7 +803,7 @@ function loadAllMDLFiles(mdlFiles) {
     if (!mainModel) {
       for (const model of Object.values(parsed)) {
         const hasMesh = model.nodes.some(n =>
-          n.type === 'trimesh' || n.type === 'skin' || n.type === 'danglymesh');
+          n.type === 'trimesh' || n.type === 'skin' || n.type === 'danglymesh' || n.type === 'animmesh');
         if (hasMesh) { mainModel = model; break; }
       }
     }
