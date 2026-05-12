@@ -238,8 +238,9 @@ function parseNode(lines, start) {
     velocity:   0,
     randvel:    0,
     spread:     0,
-    grav:       0,
-    drag:       0,
+    grav:        0,
+    drag:        0,
+    particleRot: 0,   // Winkelgeschwindigkeit des Sprites in rad/s
     fps:        0,
     frameStart: 0,
     frameEnd:   0,
@@ -309,6 +310,7 @@ function parseNode(lines, start) {
     else if (k === 'spread')            node.spread     = num(t[1]);
     else if (k === 'grav')              node.grav       = num(t[1]);
     else if (k === 'drag')              node.drag       = num(t[1]);
+    else if (k === 'particlerot')       node.particleRot = num(t[1]);
     else if (k === 'fps')               node.fps        = num(t[1]);
     else if (k === 'framestart')        node.frameStart = parseInt(t[1]) || 0;
     else if (k === 'frameend')          node.frameEnd   = parseInt(t[1]) || 0;

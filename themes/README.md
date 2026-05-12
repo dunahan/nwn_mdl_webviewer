@@ -81,6 +81,7 @@ The same applies to `--gold` → `--gold-rgb`.
 |---|---|---|
 | `--text` | `#d0c8b8` | Primary text |
 | `--muted` | `#6a7080` | Secondary/dimmed text, labels |
+| `--section-heading` | `#8a95a8` | Section headings (Textures, Scene Graph, Animations, PLT Layers) — defaults to same value as `--muted`, but can be set independently |
 
 ---
 
@@ -125,6 +126,7 @@ The same applies to `--gold` → `--gold-rgb`.
 | `--font-size-label` | `10px` | Labels, panel titles |
 | `--font-size-tiny` | `9px` | Very small text (badges, speed buttons) |
 | `--font-size-log` | `12px` | Log panel text (entries, timestamp, toggle) |
+| `--font-size-node` | `12px` | Node names in the Scene Graph list (type badges scale automatically: `node - 2px`) |
 
 ---
 
@@ -148,6 +150,7 @@ You can copy and customize this template directly. Save it as `mein-theme.json`:
     "--amber":           "#f08030",
     "--text":            "#d0c8b8",
     "--muted":           "#6a7080",
+    "--section-heading": "#8a95a8",
     "--mesh":            "#4a90c0",
     "--dummy":           "#70b870",
     "--skin":            "#c070c0",
@@ -163,7 +166,8 @@ You can copy and customize this template directly. Save it as `mein-theme.json`:
     "--font-size-small": "11px",
     "--font-size-label": "10px",
     "--font-size-tiny":  "9px",
-    "--font-size-log":   "12px"
+    "--font-size-log":   "12px",
+    "--font-size-node":  "12px"
   }
 }
 ```

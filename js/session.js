@@ -122,10 +122,16 @@ function clearSession(keepTextures = false) {
   document.getElementById('model-info').style.display    = 'none';
   document.getElementById('texture-status').style.display= 'none';
   const texList  = document.getElementById('texture-list');
-  const texArrow = document.querySelector('.tex-arrow');
+  const texArrow = document.querySelector('#texture-header .tex-arrow');  // fix: war '.tex-arrow' → trifft immer erstes Element im DOM
   texList.innerHTML = '';
   texList.classList.remove('collapsed');
   if (texArrow) texArrow.classList.add('open');
+
+  // Szenen-Graph-Body: collapse zurücksetzen
+  const sgBody  = document.getElementById('scene-graph-body');
+  const sgArrow = document.querySelector('#section-title .tex-arrow');
+  if (sgBody)  sgBody.classList.remove('collapsed');
+  if (sgArrow) sgArrow.classList.add('open');
   document.getElementById('node-detail').style.display   = 'none';
   document.getElementById('empty-state').style.display   = 'flex';
   document.getElementById('stat-verts').textContent = '—';

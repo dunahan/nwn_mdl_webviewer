@@ -11,6 +11,7 @@
     "--amber":        "#ff8800",
     "--text":         "#ffffff",
     "--muted":        "#cccccc",
+    "--section-heading": "#dddddd",
     "--mesh":         "#44aaff",
     "--dummy":        "#44ee44",
     "--skin":         "#ff44ff",
@@ -28,6 +29,7 @@
     "--font-size-small": "14px",
     "--font-size-label": "13px",
     "--font-size-tiny":  "12px",
-    "--font-size-log":   "14px"
+    "--font-size-log":   "14px",
+    "--font-size-node":  "14px"
   }
 }

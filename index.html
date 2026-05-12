@@ -45,7 +45,7 @@
 
     <div id="texture-status" style="margin:0 12px 8px;display:none;">
       <div id="texture-header" onclick="toggleTextureList()">
-        <span data-i18n="textures_heading" style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">Textures</span>
+        <span data-i18n="textures_heading" class="section-heading">Textures</span>
         <span class="tex-arrow open">▶</span>
       </div>
       <div id="texture-list" style="font-size:11px;line-height:1.8;"></div>
@@ -53,7 +53,11 @@
 
     <div id="model-info"></div>
 
-    <div id="section-title" data-i18n="scene_graph">Scene Graph</div>
+    <div id="section-title" onclick="toggleSceneGraph()">
+      <span class="section-heading" data-i18n="scene_graph">Scene Graph</span>
+      <span class="tex-arrow open">▶</span>
+    </div>
+    <div id="scene-graph-body">
     <div id="node-list"><div style="padding:20px;color:var(--muted);font-size:11px;text-align:center;" data-i18n="no_file_loaded">No file loaded</div></div>
 
     <!-- ── Node-Visibility-Toolbar ── -->
@@ -69,11 +73,12 @@
       <button class="ntb-btn ntb-type" data-type="aabb"      onclick="nodeVisToggleType('aabb')">AABB</button>
       <button class="ntb-btn ntb-type" data-type="danglymesh" onclick="nodeVisToggleType('danglymesh')">DANG</button>
     </div>
+    </div> <!-- /#scene-graph-body -->
 
     <!-- ── Animations-Panel ── -->
     <div id="anim-panel">
       <div id="anim-header" onclick="toggleAnimPanel()">
-        <span class="anim-header-title" data-i18n="anim_heading">Animations</span>
+        <span class="section-heading" data-i18n="anim_heading">Animations</span>
         <span class="tex-arrow open">▶</span>
       </div>
       <div id="anim-body">
@@ -97,7 +102,7 @@
     <!-- ── PLT Layer-Panel ── -->
     <div id="plt-panel">
       <div id="plt-header" onclick="togglePLTPanel()">
-        <span class="plt-header-title" data-i18n="plt_heading">PLT Layers</span>
+        <span class="section-heading" data-i18n="plt_heading">PLT Layers</span>
         <span class="tex-arrow open">▶</span>
       </div>
       <div id="plt-body">

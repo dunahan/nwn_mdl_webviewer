@@ -610,6 +610,14 @@ function togglePLTPanel() {
   if (arrow) arrow.classList.toggle('open');
 }
 
+function toggleSceneGraph() {
+  const body  = document.getElementById('scene-graph-body');
+  const arrow = document.querySelector('#section-title .tex-arrow');
+  if (!body) return;
+  body.classList.toggle('collapsed');
+  if (arrow) arrow.classList.toggle('open');
+}
+
 // ─────────────────────────────────────────────
 //  Mesh-Farben Dropdown (Viewport top-center)
 // ─────────────────────────────────────────────
