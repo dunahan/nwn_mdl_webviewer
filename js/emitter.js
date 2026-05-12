@@ -3,7 +3,7 @@
    (Sprite-Sheet-Animation + Partikel-Pool)
 
    Unterstützt NWN Aurora Emitter-Nodes:
-     update Fountain  – Partikel strömen vom Emitter-Punkt
+     update Fountain  – Partikel strömen entlang der lokalen +Y-Achse des Emitter-Nodes
      blend  Lighten   – AdditiveBlending (beste Annäherung in WebGL)
      xgrid/ygrid      – Sprite-Sheet-Raster (z.B. 4×4 = 16 Frames)
      fps/frameStart/frameEnd – Animations-Rate und Frame-Bereich
@@ -11,6 +11,10 @@
      sizeStart/Mid/End       – Größenverlauf
      alphaStart/Mid/End      – Transparenzverlauf
      colorStart/End          – Farbverlauf
+     spread                  – Kegelstreuung (half-angle) um Emitter-Richtung
+     grav × mass             – Gravitation (mass skaliert den grav-Wert)
+     drag                    – Luftwiderstand (exponentielles Abbremsen)
+     particleRot             – Sprite-Rotation in rad/s
    ═══════════════════════════════════════════════ */
 
 // Globale Registry aller aktiven Emitter-Instanzen
@@ -58,6 +62,9 @@ class NWNParticle {
     // Bewegungsvektoren (Welt-Space)
     this.vx = 0; this.vy = 0; this.vz = 0;
 
+    // Sprite-Rotation (kumulativ, rad) — für particleRot
+    this.rotation = 0;
+
     // Zufälliger Start-Frame für "random 1"-Emitter
     this.startFrame = 0;
   }
@@ -66,28 +73,62 @@ class NWNParticle {
    * Partikel aktivieren (aus Pool nehmen).
    * @param {THREE.Vector3} worldPos  – Spawn-Position in Welt-Space
    * @param {object}        node      – Geparstes Emitter-Node-Objekt aus parser.js
+   * @param {THREE.Vector3} emitDir   – Normierter Emitter-Richtungsvektor (Welt-Space),
+   *                                    aus der lokalen +Y-Achse des Emitter-Objekts.
    */
-  spawn(worldPos, node) {
+  spawn(worldPos, node, emitDir) {
     this.node       = node;
     this.age        = 0;
     this.alive      = true;
+    this.rotation   = 0;
     this.sprite.visible = true;
 
-    // Spread: seitliche Streuung am Spawn-Punkt
+    // ── Emitter-Richtung (Fallback: Welt +Y) ──────────────────────────
+    // NWN Fountain-Emitter schicken Partikel entlang der lokalen +Y-Achse
+    // des Emitter-Nodes. emitDir trägt diese Achse bereits in Welt-Space.
+    const dir = (emitDir && emitDir.lengthSq() > 0.01)
+      ? emitDir.clone().normalize()
+      : new THREE.Vector3(0, 1, 0);
+
+    // ── Zwei Tangenten senkrecht zu dir (für Spread-Kegel + Spawn-Scatter) ──
+    const tang  = new THREE.Vector3();
+    if (Math.abs(dir.x) < 0.9) tang.set(1, 0, 0); else tang.set(0, 1, 0);
+    tang.crossVectors(tang, dir).normalize();
+    const bitan = new THREE.Vector3().crossVectors(dir, tang).normalize();
+
+    // ── Spawn-Position: Streuung in der Tangential-Ebene des Emitters ─
     const sp = Math.max(node.spread || 0, 0);
+    const scatter = sp * 0.25;   // gleicher Maßstab wie bisher
     this.sprite.position.set(
-      worldPos.x + (Math.random() - 0.5) * sp * 0.5,
-      worldPos.y,
-      worldPos.z + (Math.random() - 0.5) * sp * 0.5
+      worldPos.x + (Math.random() - 0.5) * scatter * tang.x
+                 + (Math.random() - 0.5) * scatter * bitan.x,
+      worldPos.y + (Math.random() - 0.5) * scatter * tang.y
+                 + (Math.random() - 0.5) * scatter * bitan.y,
+      worldPos.z + (Math.random() - 0.5) * scatter * tang.z
+                 + (Math.random() - 0.5) * scatter * bitan.z
     );
 
-    // Geschwindigkeit: Fountain → hauptsächlich +Y (Three.js Welt-Up)
-    // randvel addiert Zufall in alle Richtungen
-    const rv   = node.randvel || 0;
-    const vel  = (node.velocity || 0) + (Math.random() - 0.5) * rv;
-    this.vx    = (Math.random() - 0.5) * rv;
-    this.vy    = Math.max(vel, 0);   // Flamme geht aufwärts
-    this.vz    = (Math.random() - 0.5) * rv;
+    // ── Geschwindigkeit: Kegel-Spread um die Emitter-Richtung ─────────
+    // randvel addiert skalaren Zufall zur Geschwindigkeitsgröße.
+    const rv  = node.randvel || 0;
+    const vel = (node.velocity || 0) + (Math.random() - 0.5) * rv;
+
+    if (sp > 0 && vel !== 0) {
+      // Gleichmäßige Verteilung auf Kegeloberfläche (half-angle = spread/2)
+      const halfAngle = sp * 0.5;
+      const coneAngle = Math.random() * halfAngle;
+      const phi       = Math.random() * Math.PI * 2;
+      const sinC      = Math.sin(coneAngle);
+      const cosC      = Math.cos(coneAngle);
+      this.vx = (dir.x * cosC + tang.x * sinC * Math.cos(phi) + bitan.x * sinC * Math.sin(phi)) * vel;
+      this.vy = (dir.y * cosC + tang.y * sinC * Math.cos(phi) + bitan.y * sinC * Math.sin(phi)) * vel;
+      this.vz = (dir.z * cosC + tang.z * sinC * Math.cos(phi) + bitan.z * sinC * Math.sin(phi)) * vel;
+    } else {
+      // Kein Spread: direkt entlang Emitter-Achse + randvel-Rauschen
+      this.vx = dir.x * vel + (Math.random() - 0.5) * rv;
+      this.vy = dir.y * vel + (Math.random() - 0.5) * rv;
+      this.vz = dir.z * vel + (Math.random() - 0.5) * rv;
+    }
 
     // Zufälliger Start-Frame (random 1 in NWN-Format → jeder Partikel beginnt anders)
     const totalFrames = node.frameEnd - node.frameStart + 1;
@@ -117,7 +158,26 @@ class NWNParticle {
     this.sprite.position.x += this.vx * dt;
     this.sprite.position.y += this.vy * dt;
     this.sprite.position.z += this.vz * dt;
-    this.vy -= (node.grav || 0) * dt;   // Schwerkraft (bei Flammen meist 0)
+
+    // Gravitation: mass skaliert den grav-Wert (schwerere Partikel fallen schneller)
+    const effectiveMass = (node.mass > 0) ? node.mass : 1;
+    this.vy -= (node.grav || 0) * effectiveMass * dt;
+
+    // Drag: exponentielles Abbremsen — simuliert Luftwiderstand
+    // Formel: v *= (1 - drag)^dt  ≈  v * e^(-drag * dt)
+    const drag = node.drag || 0;
+    if (drag > 0) {
+      const damping = Math.pow(Math.max(1 - drag, 0), dt);
+      this.vx *= damping;
+      this.vy *= damping;
+      this.vz *= damping;
+    }
+
+    // Sprite-Rotation: particleRot = Winkelgeschwindigkeit in rad/s
+    if (node.particleRot) {
+      this.rotation += node.particleRot * dt;
+      this.mat.rotation = this.rotation;
+    }
 
     // ── Größe: sizeStart → [sizeMid] → sizeEnd ────────────────────
     // NWN: sizeMid = 0 bedeutet "nicht verwendet" → lineares Lerp Start→End
@@ -257,6 +317,19 @@ class NWNEmitter {
     return pos;
   }
 
+  /**
+   * Emitter-Richtung in Welt-Space ermitteln.
+   * NWN Fountain-Emitter schicken Partikel entlang der lokalen +Y-Achse
+   * des Nodes. Diese wird über die Weltmatrix des Three.js-Objekts
+   * transformiert (enthält Node-Quaternion + modelGroup-Rotation).
+   */
+  _getWorldDir() {
+    const obj = nodeObjects[this.node.name];
+    if (!obj) return new THREE.Vector3(0, 1, 0);
+    obj.updateMatrixWorld(true);
+    return new THREE.Vector3(0, 1, 0).transformDirection(obj.matrixWorld).normalize();
+  }
+
   /** Pro Frame aufrufen */
   update(dt) {
     if (!this.baseTex) return;
@@ -303,7 +376,7 @@ class NWNEmitter {
       p = new NWNParticle(this.baseTex, this.node.xgrid, this.node.ygrid);
       scene.add(p.sprite);
     }
-    p.spawn(this._getWorldPos(), this.node);
+    p.spawn(this._getWorldPos(), this.node, this._getWorldDir());
     this.active.push(p);
   }
 
