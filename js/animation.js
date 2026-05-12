@@ -97,6 +97,39 @@ function applyAnimFrame(anim, time) {
         mat.visible     = mat.opacity > 0.001;
       }
     }
+
+    // UV-Animation (animmesh) — animtverts: lineare Interpolation zwischen Frames.
+    // Statt hartem Frame-Step werden die UV-Koordinaten zweier benachbarter Frames
+    // per alpha-Blend gemischt → fliesender Kameraschwenk statt Springen.
+    if (data.animTverts && data.animTverts.length > 0 && data.samplePeriod > 0) {
+      const geo = obj.geometry;
+      if (geo && geo.userData.animFaceTverts) {
+        const vertCount  = geo.userData.animVertCount  || 1;
+        const numFrames  = Math.floor(data.animTverts.length / vertCount);
+        if (numFrames > 0) {
+          // Gebrochene Frame-Position: z. B. 1.7 → zwischen Frame 1 und Frame 2
+          const rawFrame = (time / data.samplePeriod) % numFrames;
+          const frameA   = Math.floor(rawFrame) % numFrames;
+          const frameB   = (frameA + 1) % numFrames;
+          const alpha    = rawFrame - Math.floor(rawFrame);
+          const faceTverts = geo.userData.animFaceTverts;  // Int16Array: faces*3
+          const uvArr      = geo.attributes.uv.array;
+          const numFaces   = (faceTverts.length / 3) | 0;
+          const offA       = frameA * vertCount;
+          const offB       = frameB * vertCount;
+          for (let fi = 0; fi < numFaces; fi++) {
+            for (let k = 0; k < 3; k++) {
+              const ti  = faceTverts[fi * 3 + k];
+              const uvA = data.animTverts[offA + ti];
+              const uvB = data.animTverts[offB + ti];
+              uvArr[fi * 6 + k * 2 + 0] = uvA[0] + (uvB[0] - uvA[0]) * alpha;
+              uvArr[fi * 6 + k * 2 + 1] = 1.0 - (uvA[1] + (uvB[1] - uvA[1]) * alpha);  // V-Flip
+            }
+          }
+          geo.attributes.uv.needsUpdate = true;
+        }
+      }
+    }
   }
 }
 
@@ -107,6 +140,12 @@ function resetToPose() {
     if (!obj) continue;
     obj.position.copy(pose.pos);
     obj.quaternion.copy(pose.quat);
+    // animmesh: UVs in den Geometrie-Grundzustand zuruecksetzen,
+    // damit beim Wechsel auf eine anim ohne animtverts kein veralteter Frame sichtbar bleibt.
+    if (obj.geometry && obj.geometry.userData.baseUVs) {
+      obj.geometry.attributes.uv.array.set(obj.geometry.userData.baseUVs);
+      obj.geometry.attributes.uv.needsUpdate = true;
+    }
   }
 }
 
@@ -287,6 +326,39 @@ function tickAnimation(dt) {
   updateAnimTimeDisplay();
 }
 
+// ── TXI proceduretype cycle ────────────────────────────────────────────────
+// Animiert Texturen mit proceduretype cycle (numx/numy/fps aus TXI-Cache).
+// Laeuft unabhaengig vom MDL-Animationskanal auf Echtzeit-Basis.
+// txiCache wird von txi.js befuellt; jeder Eintrag: { proceduretype, numx, numy, fps, blending, ... }
+let txiWallTime = 0;
+
+function tickTxiCycle(dt) {
+  txiWallTime += dt;
+  if (!currentModel) return;
+  if (typeof txiCache === 'undefined') return;
+  for (const node of currentModel.nodes) {
+    if (node.type !== 'trimesh' && node.type !== 'animmesh') continue;
+    const bitmapKey = node.bitmap ? node.bitmap.toLowerCase() : '';
+    if (!bitmapKey) continue;
+    const txi = txiCache[bitmapKey];
+    if (!txi || (txi.proceduretype || '').toLowerCase() !== 'cycle') continue;
+    const numx = txi.numx || 1;
+    const numy = txi.numy || 1;
+    const fps  = txi.fps  || 1;
+    const totalFrames = numx * numy;
+    const frameIdx = Math.floor(txiWallTime * fps) % totalFrames;
+    const col = frameIdx % numx;
+    const row = Math.floor(frameIdx / numx);
+    const obj = nodeObjects[node.name];
+    if (!obj || !obj.material) continue;
+    const mat = Array.isArray(obj.material) ? obj.material[0] : obj.material;
+    if (!mat || !mat.map) continue;
+    // Textur-Ausschnitt per repeat/offset setzen (kein UV-Buffer-Update noetig).
+    mat.map.repeat.set(1 / numx, 1 / numy);
+    mat.map.offset.set(col / numx, (numy - 1 - row) / numy);  // V-Flip fuer Three.js
+  }
+}
+
 
 function resize() {
   const vp = document.getElementById('viewport');
@@ -312,6 +384,7 @@ function animate(time) {
   }
   tickAnimation(dt);
   if (typeof tickAllEmitters === 'function') tickAllEmitters(dt);
+  tickTxiCycle(dt);
   renderer.render(scene, camera);
 }
 animate(0);

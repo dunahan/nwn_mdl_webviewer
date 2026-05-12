@@ -75,7 +75,19 @@ function getPaletteSwatchHex(layerIdx, row) {
   return PLT_LAYER_COLORS[layerIdx] || '#888888';
 }
 
-// Aktuelle User-Auswahl (row 0–175 je Layer)
+// Globale User-Auswahl (row 0–175 je Layer)
+// Layer 0 (Skin) und 1 (Hair) bleiben bewusst global —
+// Haut- und Haarfarbe sollen für alle Parts eines Modells identisch sein.
 const pltLayerRows = new Array(10).fill(0);
+
+// Per-Part Layer-Rows für Layer 2–9 (Metal, Cloth, Leather, Tattoo).
+// texKey → Array(10): wird automatisch angelegt beim ersten Zugriff.
+const pltPartLayerRows = {};
+
+function getPltRows(texKey) {
+  if (!pltPartLayerRows[texKey])
+    pltPartLayerRows[texKey] = new Array(10).fill(0);
+  return pltPartLayerRows[texKey];
+}
 
 // ─────────────────────────────────────────────

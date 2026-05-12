@@ -6,6 +6,7 @@
 // ─────────────────────────────────────────────
 const NODE_COLORS = {
   trimesh: 0x4a90c0, skin: 0xc070c0, dummy: 0x70b870,
+  animmesh: 0x6ab84a,
   danglymesh: 0x50b8d0,
   emitter: 0xf0a030, aabb: 0xe8a020, light: 0xf8f050, reference: 0x80c0e0,
 };
@@ -34,7 +35,7 @@ function buildScene(model) {
   for (const node of model.nodes) {
     let obj;
 
-    if ((node.type === 'trimesh' || node.type === 'skin' || node.type === 'danglymesh') && node.faces.length > 0 && node.verts.length > 0) {
+    if ((node.type === 'trimesh' || node.type === 'skin' || node.type === 'danglymesh' || node.type === 'animmesh') && node.faces.length > 0 && node.verts.length > 0) {
       // Explode geometry: 3 verts per face (separate UV / normal per-face-vertex)
       const positions = new Float32Array(node.faces.length * 9);
       const uvs       = new Float32Array(node.faces.length * 6);
@@ -66,6 +67,24 @@ function buildScene(model) {
       geo.setAttribute('uv',       new THREE.BufferAttribute(uvs, 2));
       if (hasNormals) geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
       else geo.computeVertexNormals();
+
+      // Basis-UVs sichern — wird beim Animationswechsel (resetToPose) benoetigt,
+      // damit animmesh-Nodes wieder in den Grundzustand zurueckkehren koennen.
+      geo.userData.baseUVs = uvs.slice();
+
+      // animmesh: Face->Tvert-Mapping fuer UV-Animation speichern.
+      // animation.js berechnet daraus pro Frame die korrekten UV-Koordinaten.
+      if (node.type === 'animmesh') {
+        const faceTverts = new Int16Array(node.faces.length * 3);
+        for (let fi = 0; fi < node.faces.length; fi++) {
+          const face = node.faces[fi];
+          faceTverts[fi * 3 + 0] = face.t[0];
+          faceTverts[fi * 3 + 1] = face.t[1];
+          faceTverts[fi * 3 + 2] = face.t[2];
+        }
+        geo.userData.animFaceTverts = faceTverts;
+        geo.userData.animVertCount  = node.tverts.length;
+      }
 
       // NEU — Tangenten berechnen wenn renderhint gesetzt
       // computeTangents() benötigt: position + normal + uv — alle vorhanden.

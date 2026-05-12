@@ -460,12 +460,34 @@ function buildPLTPanel() {
   listEl.innerHTML = '';
 
   for (const [texName, tex] of pltEntries) {
-    if (pltEntries.length > 1) {
+    const isMulti = pltEntries.length > 1;
+
+    // Bei mehreren Parts: aufklappbarer Abschnitt pro Part
+    let appendTarget = listEl;
+    if (isMulti) {
       const label = document.createElement('div');
-      label.style.cssText = 'font-size:10px;color:var(--muted);margin:6px 0 3px;' +
-        'letter-spacing:1px;text-transform:uppercase;border-top:1px solid var(--border);padding-top:6px;';
-      label.textContent = texName;
+      label.className = 'plt-part-label';
+
+      const arrow = document.createElement('span');
+      arrow.className = 'plt-part-arrow';
+      arrow.textContent = '▼';   // aufgeklappt = nach unten
+
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = texName;
+      label.appendChild(arrow);
+      label.appendChild(nameSpan);
+
+      const partBody = document.createElement('div');
+      partBody.className = 'plt-part-body';
+
+      label.addEventListener('click', () => {
+        const collapsed = partBody.classList.toggle('collapsed');
+        arrow.textContent = collapsed ? '▲' : '▼';
+      });
+
       listEl.appendChild(label);
+      listEl.appendChild(partBody);
+      appendTarget = partBody;
     }
 
     const usedLayers = tex.userData.usedLayers || new Array(10).fill(false);
@@ -478,7 +500,10 @@ function buildPLTPanel() {
 
       const dot = document.createElement('div');
       dot.className = 'plt-layer-dot';
-      dot.style.background = getPaletteSwatchHex(i, pltLayerRows[i]);
+      dot.dataset.layerDot = i;   // für globale Skin/Hair-Synchronisation
+      // Layer 0+1 (Skin/Hair) → globale Rows; Rest → per Part
+      const rowForDot = (i <= 1) ? pltLayerRows[i] : getPltRows(texName)[i];
+      dot.style.background = getPaletteSwatchHex(i, rowForDot);
       item.appendChild(dot);
 
       const nameSpan = document.createElement('span');
@@ -493,26 +518,26 @@ function buildPLTPanel() {
 
       // Aufklapp-Pfeil für Color-Picker nur wenn Palette vorhanden und Layer benutzt
       if (used && hasPalette(i)) {
-        const arrow = document.createElement('span');
-        arrow.className = 'plt-pick-arrow';
-        arrow.textContent = '▶';
-        arrow.style.cssText = 'font-size:8px;color:var(--muted);margin-left:2px;transition:transform 0.2s;flex-shrink:0;';
-        item.appendChild(arrow);
+        const pickArrow = document.createElement('span');
+        pickArrow.className = 'plt-pick-arrow';
+        pickArrow.textContent = '▶';
+        pickArrow.style.cssText = 'font-size:8px;color:var(--muted);margin-left:2px;transition:transform 0.2s;flex-shrink:0;';
+        item.appendChild(pickArrow);
         item.style.cursor = 'pointer';
 
-        const picker = _buildLayerPicker(i, dot);
+        const picker = _buildLayerPicker(i, dot, texName);
         picker.style.display = 'none'; // collapsed by default
 
         item.addEventListener('click', () => {
           const open = picker.style.display !== 'none';
           picker.style.display = open ? 'none' : 'flex';
-          arrow.style.transform = open ? '' : 'rotate(90deg)';
+          pickArrow.style.transform = open ? '' : 'rotate(90deg)';
         });
 
-        listEl.appendChild(item);
-        listEl.appendChild(picker);
+        appendTarget.appendChild(item);
+        appendTarget.appendChild(picker);
       } else {
-        listEl.appendChild(item);
+        appendTarget.appendChild(item);
       }
     }
   }
@@ -522,10 +547,16 @@ function buildPLTPanel() {
 }
 
 // hier Scrollbalken eingefügt
-function _buildLayerPicker(layerIdx, dotEl) {
+function _buildLayerPicker(layerIdx, dotEl, texKey) {
   const wrap = document.createElement('div');
   wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:2px;padding:4px 0 6px 18px;max-height:120px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--scrollbar) transparent;';
   wrap.dataset.layerPicker = layerIdx;
+
+  // Layer 0 (Skin) + 1 (Hair) sind global – gleiche Farbe auf alle Parts.
+  // Layer 2–9 (Metal, Cloth, Leather, Tattoo) sind per Part/Textur.
+  const isGlobal = (layerIdx <= 1);
+  const partRows  = isGlobal ? null : getPltRows(texKey);
+  const currentRow = isGlobal ? pltLayerRows[layerIdx] : partRows[layerIdx];
 
   const rows = hasPalette(layerIdx) ? 176 : 0;
   for (let row = 0; row < rows; row++) {
@@ -533,20 +564,38 @@ function _buildLayerPicker(layerIdx, dotEl) {
     const sw = document.createElement('div');
     sw.style.cssText = `width:12px;height:12px;border-radius:2px;background:${hex};cursor:pointer;flex-shrink:0;`;
     sw.title = L('plt_row_label') + row;
-    if (row === pltLayerRows[layerIdx]) {
+    if (row === currentRow) {
       sw.style.outline = '1.5px solid var(--gold)';
       sw.style.outlineOffset = '1px';
     }
     sw.addEventListener('click', () => {
-      pltLayerRows[layerIdx] = row;
-      reapplyAllPLTPalettes();
-      // Auswahl-Highlight aktualisieren
-      wrap.querySelectorAll('div').forEach((s, idx) => {
-        s.style.outline = (idx === row) ? '1.5px solid var(--gold)' : '';
-        s.style.outlineOffset = (idx === row) ? '1px' : '';
-      });
-      // Dot-Farbe aktualisieren
-      dotEl.style.background = hex;
+      if (isGlobal) {
+        // Skin / Hair → global auf alle PLT-Texturen anwenden
+        pltLayerRows[layerIdx] = row;
+        reapplyAllPLTPalettes();
+        // Alle Picker-Wraps dieses Layers (in allen Part-Sektionen) synchronisieren
+        const newHex = getPaletteSwatchHex(layerIdx, row);
+        document.querySelectorAll(`[data-layer-picker="${layerIdx}"]`).forEach(otherWrap => {
+          otherWrap.querySelectorAll('div').forEach((s, idx) => {
+            s.style.outline      = (idx === row) ? '1.5px solid var(--gold)' : '';
+            s.style.outlineOffset= (idx === row) ? '1px' : '';
+          });
+        });
+        // Alle Dots dieses Layers (in allen Part-Sektionen) synchronisieren
+        document.querySelectorAll(`[data-layer-dot="${layerIdx}"]`).forEach(d => {
+          d.style.background = newHex;
+        });
+      } else {
+        // Metal / Cloth / Leather / Tattoo → nur diesen Part neu rendern
+        partRows[layerIdx] = row;
+        applyPLTPalette(textureCache[texKey]);
+        // Auswahl-Highlight und Dot nur im eigenen Picker aktualisieren
+        wrap.querySelectorAll('div').forEach((s, idx) => {
+          s.style.outline      = (idx === row) ? '1.5px solid var(--gold)' : '';
+          s.style.outlineOffset= (idx === row) ? '1px' : '';
+        });
+        dotEl.style.background = getPaletteSwatchHex(layerIdx, row);
+      }
     });
     wrap.appendChild(sw);
   }
