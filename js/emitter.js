@@ -3,7 +3,9 @@
    (Sprite-Sheet-Animation + Partikel-Pool)
 
    Unterstützt NWN Aurora Emitter-Nodes:
-     update Fountain  – Partikel strömen entlang der lokalen +Y-Achse des Emitter-Nodes
+     update Fountain  – Partikel entlang der lokalen +X-Achse des Emitter-Nodes
+                         (Aurora-Konvention: der Toolset orientiert Emitter so,
+                          dass local +X in die gewünschte Emissionsrichtung zeigt)
      blend  Lighten   – AdditiveBlending (beste Annäherung in WebGL)
      xgrid/ygrid      – Sprite-Sheet-Raster (z.B. 4×4 = 16 Frames)
      fps/frameStart/frameEnd – Animations-Rate und Frame-Bereich
@@ -74,7 +76,7 @@ class NWNParticle {
    * @param {THREE.Vector3} worldPos  – Spawn-Position in Welt-Space
    * @param {object}        node      – Geparstes Emitter-Node-Objekt aus parser.js
    * @param {THREE.Vector3} emitDir   – Normierter Emitter-Richtungsvektor (Welt-Space),
-   *                                    aus der lokalen +Y-Achse des Emitter-Objekts.
+   *                                    aus der lokalen +X-Achse des Emitter-Objekts.
    */
   spawn(worldPos, node, emitDir) {
     this.node       = node;
@@ -83,12 +85,12 @@ class NWNParticle {
     this.rotation   = 0;
     this.sprite.visible = true;
 
-    // ── Emitter-Richtung (Fallback: Welt +Y) ──────────────────────────
-    // NWN Fountain-Emitter schicken Partikel entlang der lokalen +Y-Achse
+    // ── Emitter-Richtung (Fallback: Welt +X) ──────────────────────────
+    // NWN Fountain-Emitter schicken Partikel entlang der lokalen +X-Achse
     // des Emitter-Nodes. emitDir trägt diese Achse bereits in Welt-Space.
     const dir = (emitDir && emitDir.lengthSq() > 0.01)
       ? emitDir.clone().normalize()
-      : new THREE.Vector3(0, 1, 0);
+      : new THREE.Vector3(1, 0, 0);
 
     // ── Zwei Tangenten senkrecht zu dir (für Spread-Kegel + Spawn-Scatter) ──
     const tang  = new THREE.Vector3();
@@ -319,15 +321,19 @@ class NWNEmitter {
 
   /**
    * Emitter-Richtung in Welt-Space ermitteln.
-   * NWN Fountain-Emitter schicken Partikel entlang der lokalen +Y-Achse
-   * des Nodes. Diese wird über die Weltmatrix des Three.js-Objekts
-   * transformiert (enthält Node-Quaternion + modelGroup-Rotation).
+   * NWN Fountain-Emitter schicken Partikel entlang der lokalen +X-Achse
+   * des Nodes (Aurora-Konvention: die „Emission-Achse" ist local +X;
+   * der Toolset rotiert Emitter so, dass local +X in die gewünschte
+   * Emissionsrichtung zeigt — z.B. −90° um Y für senkrecht nach oben,
+   * ~177° um die XZ-Achse für den Wasserfall-Absturz nach unten).
+   * Die Weltmatrix des Three.js-Objekts enthält Node-Quaternion +
+   * modelGroup.rotation.x = −PI/2 und ist daher vollständig korrekt.
    */
   _getWorldDir() {
     const obj = nodeObjects[this.node.name];
-    if (!obj) return new THREE.Vector3(0, 1, 0);
+    if (!obj) return new THREE.Vector3(1, 0, 0);
     obj.updateMatrixWorld(true);
-    return new THREE.Vector3(0, 1, 0).transformDirection(obj.matrixWorld).normalize();
+    return new THREE.Vector3(1, 0, 0).transformDirection(obj.matrixWorld).normalize();
   }
 
   /** Pro Frame aufrufen */
