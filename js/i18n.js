@@ -33,6 +33,7 @@ const I18N_BUNDLE = {
     nd_faces:'Faces', nd_bitmap:'Bitmap', nd_position:'Position',
     nd_diffuse:'Diffuse', nd_alpha:'Alpha',
     nd_dangle_info:'Physics Mesh', nd_dangle_info_label:'Type Info',
+    nd_close_title:'Close', nd_drag_title:'Drag to move',
     // info msgs
     info_supermodel:'Supermodel', info_class:'Class', info_nodes:'Nodes',
     info_vertices:'Vertices', info_faces:'Triangles', info_anims:'Animations',
@@ -185,6 +186,7 @@ const I18N_BUNDLE = {
     nd_faces:'Faces', nd_bitmap:'Bitmap', nd_position:'Position',
     nd_diffuse:'Diffuse', nd_alpha:'Alpha',
     nd_dangle_info:'Physik-Mesh', nd_dangle_info_label:'Typ-Info',
+    nd_close_title:'Schließen', nd_drag_title:'Verschieben',
     // info msgs
     info_supermodel:'Supermodel', info_class:'Klasse', info_nodes:'Nodes',
     info_vertices:'Vertices', info_faces:'Dreiecke', info_anims:'Animationen',
