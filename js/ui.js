@@ -269,12 +269,13 @@ function selectNode(name) {
   detail.innerHTML =
     '<div id="node-detail-handle">' +
       '<span class="nd-title">' + n.name + '</span>' +
+      '<span id="node-detail-drag-strip" class="nd-drag-strip" title="' + L('nd_drag_title') + '">⠿ ⠿ ⠿</span>' +
       '<span class="nd-zoom-btns">' +
         '<button class="nd-zoom-btn" onclick="nodeDetailZoom(-1)" title="Smaller">−</button>' +
         '<button class="nd-zoom-btn" onclick="nodeDetailZoom(0)"  title="Reset">○</button>' +
         '<button class="nd-zoom-btn" onclick="nodeDetailZoom(1)"  title="Larger">＋</button>' +
       '</span>' +
-      '<span class="nd-drag-icon">☰</span>' +
+      '<button class="nd-close-btn" onclick="closeNodeDetail()" title="' + L('nd_close_title') + '">×</button>' +
     '</div>' +
     '<div id="node-detail-body">' +
     '<div class="nd-row"><span>' + L('nd_type')     + '</span><span class="nd-val">' + n.type + '</span></div>' +
@@ -795,7 +796,7 @@ if (document.readyState === 'loading') {
 }
 
 // ─────────────────────────────────────────────
-//  Node-Detail-Panel — Drag to move
+//  Node-Detail-Panel — Drag to move + Close
 // ─────────────────────────────────────────────
 (function () {
   // Gespeicherte Position {x, y} in Viewport-Koordinaten.
@@ -804,41 +805,56 @@ if (document.readyState === 'loading') {
   let dragging = false;
   let startX, startY, startL, startT;
 
-  // mousemove / mouseup nur einmal registrieren (nicht bei jedem Node-Klick neu)
-  window.addEventListener('mousemove', e => {
+  // Hilfsfunktion: liefert clientX/Y unabhängig von Mouse- oder Touch-Event
+  function _evXY(e) {
+    const src = e.touches ? e.touches[0] : e;
+    return { x: src.clientX, y: src.clientY };
+  }
+
+  // Gemeinsamer Move-Handler für Mouse und Touch
+  function _onMove(e) {
     if (!dragging) return;
+    if (e.cancelable) e.preventDefault();   // Scroll auf Touch verhindern
+    const { x, y } = _evXY(e);
     const panel = document.getElementById('node-detail');
     const vp    = document.getElementById('viewport');
     const pr    = vp.getBoundingClientRect();
-    let newL = startL + (e.clientX - startX);
-    let newT = startT + (e.clientY - startY);
+    let newL = startL + (x - startX);
+    let newT = startT + (y - startY);
     newL = Math.max(0, Math.min(pr.width  - panel.offsetWidth,  newL));
     newT = Math.max(0, Math.min(pr.height - panel.offsetHeight, newT));
     panel.style.left = newL + 'px';
     panel.style.top  = newT + 'px';
     _pos = { x: newL, y: newT };
-  });
+  }
 
-  window.addEventListener('mouseup', () => {
+  // Gemeinsamer End-Handler für Mouse und Touch
+  function _onEnd() {
     if (!dragging) return;
     dragging = false;
-    const handle = document.getElementById('node-detail-handle');
-    if (handle) handle.style.cursor = 'grab';
-  });
+    const strip = document.getElementById('node-detail-drag-strip');
+    if (strip) strip.style.cursor = 'grab';
+  }
+
+  // Globale Listener nur einmal registrieren
+  window.addEventListener('mousemove',   _onMove);
+  window.addEventListener('mouseup',     _onEnd);
+  window.addEventListener('touchmove',   _onMove,  { passive: false });
+  window.addEventListener('touchend',    _onEnd);
+  window.addEventListener('touchcancel', _onEnd);
 
   function initNodeDetailDrag() {
-    const panel  = document.getElementById('node-detail');
-    const handle = document.getElementById('node-detail-handle');
-    if (!panel || !handle) return;
+    const panel = document.getElementById('node-detail');
+    const strip = document.getElementById('node-detail-drag-strip');
+    if (!panel || !strip) return;
 
-    // Sicherstellen dass bottom/right nie aktiv sind — die würden mit left/top
-    // ein Strecken anstelle einer Verschiebung auslösen.
+    // bottom/right deaktivieren — würden left/top-Bewegung zu Strecken umdeuten
     panel.style.bottom = 'auto';
     panel.style.right  = 'auto';
 
     if (!_pos) {
       // Default-Position: unten-rechts im Viewport, 12px Abstand.
-      // Panel kurz rendern um die echte Größe zu lesen.
+      // Panel kurz sichtbar machen um die echte Größe zu lesen.
       const wasHidden = panel.style.display === 'none';
       if (wasHidden) {
         panel.style.visibility = 'hidden';
@@ -846,9 +862,10 @@ if (document.readyState === 'loading') {
       }
       const vp = document.getElementById('viewport');
       const pr = vp.getBoundingClientRect();
+      // Math.max(0, …) verhindert negative Startwerte auf schmalen Displays
       _pos = {
-        x: pr.width  - panel.offsetWidth  - 12,
-        y: pr.height - panel.offsetHeight - 12,
+        x: Math.max(0, pr.width  - panel.offsetWidth  - 12),
+        y: Math.max(0, pr.height - panel.offsetHeight - 12),
       };
       if (wasHidden) {
         panel.style.display    = 'none';
@@ -856,26 +873,28 @@ if (document.readyState === 'loading') {
       }
     }
 
-    // Position bei jedem Aufruf setzen (innerHTML-Reset löscht inline-Styles nicht,
-    // aber _pos stellt die letzte bekannte Position wieder her).
+    // Position setzen (stellt letzte bekannte Position nach innerHTML-Reset wieder her)
     panel.style.left = _pos.x + 'px';
     panel.style.top  = _pos.y + 'px';
 
-    // mousedown direkt auf dem Handle — ersetzt alten Listener durch removeEventListener
-    const onMouseDown = e => {
-      if (e.button !== 0) return;
+    // Drag-Start: Nur auf dem Strip, Mouse + Touch
+    const onDragStart = e => {
+      if (e.type === 'mousedown' && e.button !== 0) return;
       dragging = true;
-      startX   = e.clientX;
-      startY   = e.clientY;
-      startL   = _pos.x;
-      startT   = _pos.y;
-      handle.style.cursor = 'grabbing';
+      const { x, y } = _evXY(e);
+      startX = x;  startY = y;
+      startL = _pos.x;  startT = _pos.y;
+      strip.style.cursor = 'grabbing';
       e.preventDefault();
     };
-    // Alten Listener entfernen bevor neu gesetzt (innerHTML baut neuen Handle)
-    handle.removeEventListener('mousedown', handle._dragHandler);
-    handle._dragHandler = onMouseDown;
-    handle.addEventListener('mousedown', onMouseDown);
+
+    // Alten Listener entfernen bevor neu gesetzt (innerHTML baut neuen Strip)
+    strip.removeEventListener('mousedown',  strip._dragMouse);
+    strip.removeEventListener('touchstart', strip._dragTouch);
+    strip._dragMouse = onDragStart;
+    strip._dragTouch = onDragStart;
+    strip.addEventListener('mousedown',  onDragStart);
+    strip.addEventListener('touchstart', onDragStart, { passive: false });
   }
 
   // Zoom-Funktion: step=-1 kleiner, 0=reset, 1=größer
@@ -886,19 +905,26 @@ if (document.readyState === 'loading') {
     else _zoomIdx = Math.max(0, Math.min(ZOOM_STEPS.length - 1, _zoomIdx + step));
     const body = document.getElementById('node-detail-body');
     if (body) body.style.fontSize = ZOOM_STEPS[_zoomIdx] + 'px';
-    // Position neu berechnen damit Panel nicht aus dem Viewport rutscht
+    // Position neu berechnen damit Panel nach Größenänderung im Viewport bleibt
     const panel = document.getElementById('node-detail');
     const vp    = document.getElementById('viewport');
     if (panel && vp && _pos) {
       const pr = vp.getBoundingClientRect();
-      _pos.x = Math.min(_pos.x, pr.width  - panel.offsetWidth);
-      _pos.y = Math.min(_pos.y, pr.height - panel.offsetHeight);
+      _pos.x = Math.max(0, Math.min(_pos.x, pr.width  - panel.offsetWidth));
+      _pos.y = Math.max(0, Math.min(_pos.y, pr.height - panel.offsetHeight));
       panel.style.left = _pos.x + 'px';
       panel.style.top  = _pos.y + 'px';
     }
   }
   window.nodeDetailZoom = nodeDetailZoom;
 
-  // Exportieren damit showNodeDetail() es aufrufen kann
+  // Panel schließen und Node-Selektion aufheben
+  function closeNodeDetail() {
+    const panel = document.getElementById('node-detail');
+    if (panel) panel.style.display = 'none';
+    document.querySelectorAll('.node-item').forEach(el => el.classList.remove('selected'));
+    if (typeof selectedNodeName !== 'undefined') selectedNodeName = null;
+  }
+  window.closeNodeDetail    = closeNodeDetail;
   window.initNodeDetailDrag = initNodeDetailDrag;
 })();

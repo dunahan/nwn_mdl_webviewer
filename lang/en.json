@@ -67,6 +67,8 @@
   "nd_alpha":             "Alpha",
   "nd_dangle_info":       "Physics Mesh",
   "nd_dangle_info_label": "Type Info",
+  "nd_close_title":       "Close",
+  "nd_drag_title":        "Drag to move",
 
   "info_supermodel":      "Supermodel",
   "info_class":           "Class",

@@ -336,15 +336,54 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
   display: none; user-select: none;
 }
 #node-detail-handle {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 5px 10px 4px;
+  display: flex; align-items: center;
+  gap: 6px;
+  padding: 5px 8px 4px;
   border-bottom: 1px solid var(--border);
-  cursor: grab; border-radius: 4px 4px 0 0;
+  cursor: default; border-radius: 4px 4px 0 0;
   background: rgba(255,255,255,0.03);
 }
-#node-detail-handle:active { cursor: grabbing; }
-#node-detail-handle .nd-drag-icon { color: var(--muted); font-size: 9px; opacity: 0.5; letter-spacing: 1px; }
-#node-detail-handle .nd-zoom-btns { display: flex; gap: 2px; margin-left: auto; margin-right: 6px; }
+
+/* Drag-Strip: breites Touch-Target zwischen Titel und Zoom-Buttons */
+#node-detail-handle .nd-drag-strip {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center;
+  cursor: grab;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 3px;
+  padding: 4px 0;
+  min-height: 28px;
+  opacity: 0.4;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+  border-radius: 3px;
+  transition: opacity 0.15s, color 0.15s;
+}
+#node-detail-handle .nd-drag-strip:hover  { opacity: 0.8; color: var(--gold); }
+#node-detail-handle .nd-drag-strip:active { cursor: grabbing; }
+
+#node-detail-handle .nd-zoom-btns { display: flex; gap: 2px; flex-shrink: 0; }
+
+/* Close-Button: klein, roter Hover */
+#node-detail-handle .nd-close-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1;
+  padding: 1px 6px 2px;
+  cursor: pointer;
+  font-family: inherit;
+  flex-shrink: 0;
+  transition: color 0.15s, border-color 0.15s;
+}
+#node-detail-handle .nd-close-btn:hover {
+  color: #e06c6c;
+  border-color: #e06c6c;
+}
 .nd-zoom-btn {
   background: none; border: 1px solid var(--border); border-radius: 3px;
   color: var(--muted); font-size: 10px; line-height: 1; padding: 1px 5px;
