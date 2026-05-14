@@ -229,6 +229,7 @@ function parseNode(lines, start) {
     update:         '',   // 'Fountain' | 'Single' | 'Explosion' | ...
     renderMode:     '',   // 'Normal' | 'Billboard_to_Local_Z' | 'Linked' | ...
     xgrid: 1, ygrid: 1,   // Sprite-Sheet-Raster
+    xsize: 0, ysize: 0,   // Emitter-Fläche in cm (Spawn-Streubereich)
     alphaStart: 1, alphaMid: 1, alphaEnd: 0,
     colorStart: [1,1,1], colorMid: [1,1,1], colorEnd: [1,1,1],
     sizeStart: 1, sizeMid: 1, sizeEnd: 1,
@@ -238,9 +239,8 @@ function parseNode(lines, start) {
     velocity:   0,
     randvel:    0,
     spread:     0,
-    grav:        0,
-    drag:        0,
-    particleRot: 0,   // Winkelgeschwindigkeit des Sprites in rad/s
+    grav:       0,
+    drag:       0,
     fps:        0,
     frameStart: 0,
     frameEnd:   0,
@@ -293,6 +293,8 @@ function parseNode(lines, start) {
     else if (k === 'update')            node.update     = t[1] || '';
     else if (k === 'xgrid')             node.xgrid      = parseInt(t[1]) || 1;
     else if (k === 'ygrid')             node.ygrid      = parseInt(t[1]) || 1;
+    else if (k === 'xsize')             node.xsize      = num(t[1]);
+    else if (k === 'ysize')             node.ysize      = num(t[1]);
     else if (k === 'alphastart')        node.alphaStart = num(t[1]);
     else if (k === 'alphamid')          node.alphaMid   = num(t[1]);
     else if (k === 'alphaend')          node.alphaEnd   = num(t[1]);
@@ -310,7 +312,6 @@ function parseNode(lines, start) {
     else if (k === 'spread')            node.spread     = num(t[1]);
     else if (k === 'grav')              node.grav       = num(t[1]);
     else if (k === 'drag')              node.drag       = num(t[1]);
-    else if (k === 'particlerot')       node.particleRot = num(t[1]);
     else if (k === 'fps')               node.fps        = num(t[1]);
     else if (k === 'framestart')        node.frameStart = parseInt(t[1]) || 0;
     else if (k === 'frameend')          node.frameEnd   = parseInt(t[1]) || 0;

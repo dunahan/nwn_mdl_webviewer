@@ -14,7 +14,9 @@
      alphaStart/Mid/End      – Transparenzverlauf
      colorStart/End          – Farbverlauf
      spread                  – Kegelstreuung (half-angle) um Emitter-Richtung
-     grav × mass             – Gravitation (mass skaliert den grav-Wert)
+     grav                    – nur für Point-to-Point-Emitter (Orbital-Bahn)
+     mass                    – Partikelgewicht × NWN_G (9.81): erzeugt Bogenbahn.
+                               mass=0.32 → Scheitelpunkt ~0.23s, Boden ~1.7s
      drag                    – Luftwiderstand (exponentielles Abbremsen)
      particleRot             – Sprite-Rotation in rad/s
    ═══════════════════════════════════════════════ */
@@ -28,13 +30,19 @@ const emitterInstances = {};
 // ─────────────────────────────────────────────
 class NWNParticle {
   /**
-   * @param {THREE.Texture} baseTex   – Shared Canvas-Texture (textureCache-Eintrag)
-   * @param {number}        xgrid     – Sprite-Sheet Spalten
-   * @param {number}        ygrid     – Sprite-Sheet Zeilen
+   * @param {THREE.Texture} baseTex    – Shared Canvas-Texture (textureCache-Eintrag)
+   * @param {number}        xgrid      – Sprite-Sheet Spalten
+   * @param {number}        ygrid      – Sprite-Sheet Zeilen
+   * @param {string}        renderMode – NWN render-Modus des Emitters (z.B. 'Billboard_to_World_Z')
    */
-  constructor(baseTex, xgrid, ygrid) {
+  constructor(baseTex, xgrid, ygrid, renderMode) {
     this.xgrid = xgrid;
     this.ygrid = ygrid;
+
+    // Billboard_to_World_Z: Sprite liegt flach auf dem Boden (XZ-Ebene),
+    // nicht kamerazugewandt. Für alle anderen Modi: normales THREE.Sprite.
+    this.isFlatBillboard =
+      (renderMode || '').toLowerCase() === 'billboard_to_world_z';
 
     // Texture klonen: teilt Canvas-Pixeldaten, hat aber eigene offset/repeat-Vektoren.
     // THREE.Texture.clone() → new THREE.CanvasTexture mit gleicher .image (Canvas).
@@ -47,16 +55,37 @@ class NWNParticle {
     // (visuell oben) bei WebGL v=0 (Sprite-Unten) — ohne Korrektur wäre
     // jeder Frame auf dem Kopf. repeat.y < 0 invertiert die v-Richtung.
 
-    this.mat = new THREE.SpriteMaterial({
-      map:         this.tex,
-      blending:    THREE.AdditiveBlending,   // Lighten ≈ Additive in WebGL
-      depthWrite:  false,
-      transparent: true,
-      fog:         false,
-    });
+    if (this.isFlatBillboard) {
+      // ── Billboard_to_World_Z: flaches Quad horizontal in der XZ-Ebene ──
+      // PlaneGeometry liegt standardmäßig in der XY-Ebene (Normale = +Z).
+      // Rotation −90° um X dreht sie in die XZ-Ebene (Normale = +Y = nach oben).
+      this.mat = new THREE.MeshBasicMaterial({
+        map:         this.tex,
+        blending:    THREE.AdditiveBlending,
+        depthWrite:  false,
+        transparent: true,
+        side:        THREE.DoubleSide,
+        fog:         false,
+      });
+      const geo = new THREE.PlaneGeometry(1, 1);
+      this.obj = new THREE.Mesh(geo, this.mat);
+      this.obj.rotation.x = -Math.PI / 2;   // in XZ-Ebene legen
+    } else {
+      // ── Alle anderen Modi: kamerazugewandtes Sprite ──────────────────
+      this.mat = new THREE.SpriteMaterial({
+        map:         this.tex,
+        blending:    THREE.AdditiveBlending,
+        depthWrite:  false,
+        transparent: true,
+        fog:         false,
+      });
+      this.obj = new THREE.Sprite(this.mat);
+    }
 
-    this.sprite = new THREE.Sprite(this.mat);
-    this.sprite.visible = false;
+    // Rückwärtskompatibilität: this.sprite bleibt als Alias erhalten
+    this.sprite = this.obj;
+
+    this.obj.visible = false;
     this.alive  = false;
     this.node   = null;
     this.age    = 0;
@@ -75,43 +104,46 @@ class NWNParticle {
    * Partikel aktivieren (aus Pool nehmen).
    * @param {THREE.Vector3} worldPos  – Spawn-Position in Welt-Space
    * @param {object}        node      – Geparstes Emitter-Node-Objekt aus parser.js
-   * @param {THREE.Vector3} emitDir   – Normierter Emitter-Richtungsvektor (Welt-Space),
-   *                                    aus der lokalen +X-Achse des Emitter-Objekts.
+   * @param {THREE.Vector3} emitDir   – Lokale +Z-Achse in Welt-Space (Emissionsrichtung)
+   * @param {THREE.Vector3} localX    – Lokale +X-Achse in Welt-Space (für xsize-Streuung)
+   * @param {THREE.Vector3} localY    – Lokale +Y-Achse in Welt-Space (für ysize-Streuung)
    */
-  spawn(worldPos, node, emitDir) {
+  spawn(worldPos, node, emitDir, localX, localY) {
     this.node       = node;
     this.age        = 0;
     this.alive      = true;
     this.rotation   = 0;
-    this.sprite.visible = true;
+    this.obj.visible = true;
 
-    // ── Emitter-Richtung (Fallback: Welt +X) ──────────────────────────
-    // NWN Fountain-Emitter schicken Partikel entlang der lokalen +X-Achse
-    // des Emitter-Nodes. emitDir trägt diese Achse bereits in Welt-Space.
+    // ── Emitter-Richtung ─────────────────────────────────────────────
     const dir = (emitDir && emitDir.lengthSq() > 0.01)
       ? emitDir.clone().normalize()
-      : new THREE.Vector3(1, 0, 0);
+      : new THREE.Vector3(0, 0, 1);
 
-    // ── Zwei Tangenten senkrecht zu dir (für Spread-Kegel + Spawn-Scatter) ──
-    const tang  = new THREE.Vector3();
-    if (Math.abs(dir.x) < 0.9) tang.set(1, 0, 0); else tang.set(0, 1, 0);
-    tang.crossVectors(tang, dir).normalize();
-    const bitan = new THREE.Vector3().crossVectors(dir, tang).normalize();
+    // Lokale Achsen für Spawn-Fläche (Fallback: senkrecht zu dir ableiten)
+    let lx = localX, ly = localY;
+    if (!lx || !ly) {
+      lx = new THREE.Vector3();
+      if (Math.abs(dir.x) < 0.9) lx.set(1, 0, 0); else lx.set(0, 1, 0);
+      lx.crossVectors(lx, dir).normalize();
+      ly = new THREE.Vector3().crossVectors(dir, lx).normalize();
+    }
 
-    // ── Spawn-Position: Streuung in der Tangential-Ebene des Emitters ─
-    const sp = Math.max(node.spread || 0, 0);
-    const scatter = sp * 0.25;   // gleicher Maßstab wie bisher
-    this.sprite.position.set(
-      worldPos.x + (Math.random() - 0.5) * scatter * tang.x
-                 + (Math.random() - 0.5) * scatter * bitan.x,
-      worldPos.y + (Math.random() - 0.5) * scatter * tang.y
-                 + (Math.random() - 0.5) * scatter * bitan.y,
-      worldPos.z + (Math.random() - 0.5) * scatter * tang.z
-                 + (Math.random() - 0.5) * scatter * bitan.z
+    // ── Spawn-Position: xsize/ysize definieren die Emitter-Fläche in cm ─
+    // NWN-Wiki: "particles are emitted randomly within the x/y boundaries (in cm)"
+    // Umrechnung: cm → NWN-Einheiten (÷100), Half-Extent (÷2) → Divisor 200
+    const halfX = (node.xsize || 0) / 200;
+    const halfY = (node.ysize || 0) / 200;
+    const ox = (Math.random() - 0.5) * 2 * halfX;
+    const oy = (Math.random() - 0.5) * 2 * halfY;
+    this.obj.position.set(
+      worldPos.x + lx.x * ox + ly.x * oy,
+      worldPos.y + lx.y * ox + ly.y * oy,
+      worldPos.z + lx.z * ox + ly.z * oy
     );
 
-    // ── Geschwindigkeit: Kegel-Spread um die Emitter-Richtung ─────────
-    // randvel addiert skalaren Zufall zur Geschwindigkeitsgröße.
+    // ── Geschwindigkeit: Kegel-Spread um die Emissionsrichtung ────────
+    const sp  = Math.max(node.spread || 0, 0);
     const rv  = node.randvel || 0;
     const vel = (node.velocity || 0) + (Math.random() - 0.5) * rv;
 
@@ -122,9 +154,9 @@ class NWNParticle {
       const phi       = Math.random() * Math.PI * 2;
       const sinC      = Math.sin(coneAngle);
       const cosC      = Math.cos(coneAngle);
-      this.vx = (dir.x * cosC + tang.x * sinC * Math.cos(phi) + bitan.x * sinC * Math.sin(phi)) * vel;
-      this.vy = (dir.y * cosC + tang.y * sinC * Math.cos(phi) + bitan.y * sinC * Math.sin(phi)) * vel;
-      this.vz = (dir.z * cosC + tang.z * sinC * Math.cos(phi) + bitan.z * sinC * Math.sin(phi)) * vel;
+      this.vx = (dir.x * cosC + lx.x * sinC * Math.cos(phi) + ly.x * sinC * Math.sin(phi)) * vel;
+      this.vy = (dir.y * cosC + lx.y * sinC * Math.cos(phi) + ly.y * sinC * Math.sin(phi)) * vel;
+      this.vz = (dir.z * cosC + lx.z * sinC * Math.cos(phi) + ly.z * sinC * Math.sin(phi)) * vel;
     } else {
       // Kein Spread: direkt entlang Emitter-Achse + randvel-Rauschen
       this.vx = dir.x * vel + (Math.random() - 0.5) * rv;
@@ -150,20 +182,25 @@ class NWNParticle {
 
     if (this.age >= node.lifeExp || node.lifeExp <= 0) {
       this.alive = false;
-      this.sprite.visible = false;
+      this.obj.visible = false;
       return false;
     }
 
     const t = this.age / node.lifeExp;   // normierte Lebenszeit 0..1
 
     // ── Position (Euler-Integration) ──────────────────────────────
-    this.sprite.position.x += this.vx * dt;
-    this.sprite.position.y += this.vy * dt;
-    this.sprite.position.z += this.vz * dt;
+    this.obj.position.x += this.vx * dt;
+    this.obj.position.y += this.vy * dt;
+    this.obj.position.z += this.vz * dt;
 
-    // Gravitation: mass skaliert den grav-Wert (schwerere Partikel fallen schneller)
-    const effectiveMass = (node.mass > 0) ? node.mass : 1;
-    this.vy -= (node.grav || 0) * effectiveMass * dt;
+    // NWN-Gravitation: Das Aurora Engine skaliert 'mass' mit der Erdbeschleunigung.
+    // mass=1.0 → Partikel fällt mit ca. 9.81 NWN-Einheiten/s² (Erdschwerkraft).
+    // mass=0.32 → eff. 3.14/s² → Scheitelpunkt bei t≈0.23s, Partikel erreicht
+    // den Boden (Δy≈−3.9) nach t≈1.7s — erzeugt den sichtbaren Bogen. ✓
+    const NWN_G = 9.81;
+    if (node.mass) {
+      this.vy -= node.mass * NWN_G * dt;
+    }
 
     // Drag: exponentielles Abbremsen — simuliert Luftwiderstand
     // Formel: v *= (1 - drag)^dt  ≈  v * e^(-drag * dt)
@@ -176,9 +213,15 @@ class NWNParticle {
     }
 
     // Sprite-Rotation: particleRot = Winkelgeschwindigkeit in rad/s
+    // Für Billboard_to_World_Z: Rotation um Welt-Y-Achse (Spin auf dem Boden).
+    // Für normale Sprites: Rotation im Screen-Space (SpriteMaterial.rotation).
     if (node.particleRot) {
       this.rotation += node.particleRot * dt;
-      this.mat.rotation = this.rotation;
+      if (this.isFlatBillboard) {
+        this.obj.rotation.y = this.rotation;
+      } else {
+        this.mat.rotation = this.rotation;
+      }
     }
 
     // ── Größe: sizeStart → [sizeMid] → sizeEnd ────────────────────
@@ -194,7 +237,7 @@ class NWNParticle {
         ? sS + (sM - sS) * (t * 2)
         : sM + (sE - sM) * ((t - 0.5) * 2);
     }
-    this.sprite.scale.setScalar(Math.max(size, 0.001));
+    this.obj.scale.setScalar(Math.max(size, 0.001));
 
     // ── Alpha: alphaStart → alphaMid → alphaEnd ───────────────────
     const aS = node.alphaStart, aM = node.alphaMid, aE = node.alphaEnd;
@@ -290,8 +333,8 @@ class NWNEmitter {
     // Partikelanzahl = birthrate × lifeExp + Puffer
     const maxAlive = Math.ceil(maxBirthrate * node.lifeExp) + 6;
     for (let i = 0; i < maxAlive; i++) {
-      const p = new NWNParticle(this.baseTex, node.xgrid, node.ygrid);
-      scene.add(p.sprite);
+      const p = new NWNParticle(this.baseTex, node.xgrid, node.ygrid, node.renderMode);
+      scene.add(p.obj);
       this.pool.push(p);
     }
   }
@@ -319,21 +362,35 @@ class NWNEmitter {
     return pos;
   }
 
-  /**
-   * Emitter-Richtung in Welt-Space ermitteln.
-   * NWN Fountain-Emitter schicken Partikel entlang der lokalen +X-Achse
-   * des Nodes (Aurora-Konvention: die „Emission-Achse" ist local +X;
-   * der Toolset rotiert Emitter so, dass local +X in die gewünschte
-   * Emissionsrichtung zeigt — z.B. −90° um Y für senkrecht nach oben,
-   * ~177° um die XZ-Achse für den Wasserfall-Absturz nach unten).
-   * Die Weltmatrix des Three.js-Objekts enthält Node-Quaternion +
-   * modelGroup.rotation.x = −PI/2 und ist daher vollständig korrekt.
-   */
   _getWorldDir() {
     const obj = nodeObjects[this.node.name];
-    if (!obj) return new THREE.Vector3(1, 0, 0);
+    if (!obj) return new THREE.Vector3(0, 0, 1);
     obj.updateMatrixWorld(true);
-    return new THREE.Vector3(1, 0, 0).transformDirection(obj.matrixWorld).normalize();
+    // NWN-Aurora-Konvention für Fountain: Partikel strömen entlang der lokalen +Z-Achse
+    // des Emitter-Nodes (= NWN-lokales „Oben"). Der Toolset orientiert Emitter so, dass
+    // local +Z in die gewünschte Emissionsrichtung zeigt; bei den Wasserfall-Emittern
+    // (≈177° Rotation) zeigt +Z → Welt (−X, +Y) → erzeugt mit mass-Gravitation einen Bogen.
+    return new THREE.Vector3(0, 0, 1).transformDirection(obj.matrixWorld).normalize();
+  }
+
+  /**
+   * Alle drei lokalen Achsen des Emitter-Nodes in Welt-Space.
+   * localX / localY spannen die Spawn-Fläche auf (für xsize/ysize).
+   * emitDir (localZ) ist die Emissionsrichtung.
+   */
+  _getWorldAxes() {
+    const obj = nodeObjects[this.node.name];
+    if (!obj) return {
+      emitDir: new THREE.Vector3(0, 0, 1),
+      localX:  new THREE.Vector3(1, 0, 0),
+      localY:  new THREE.Vector3(0, 1, 0),
+    };
+    obj.updateMatrixWorld(true);
+    return {
+      emitDir: new THREE.Vector3(0, 0, 1).transformDirection(obj.matrixWorld).normalize(),
+      localX:  new THREE.Vector3(1, 0, 0).transformDirection(obj.matrixWorld).normalize(),
+      localY:  new THREE.Vector3(0, 1, 0).transformDirection(obj.matrixWorld).normalize(),
+    };
   }
 
   /** Pro Frame aufrufen */
@@ -379,16 +436,17 @@ class NWNEmitter {
     // Aus Pool nehmen oder neuen Partikel erstellen
     let p = this.pool.pop();
     if (!p) {
-      p = new NWNParticle(this.baseTex, this.node.xgrid, this.node.ygrid);
-      scene.add(p.sprite);
+      p = new NWNParticle(this.baseTex, this.node.xgrid, this.node.ygrid, this.node.renderMode);
+      scene.add(p.obj);
     }
-    p.spawn(this._getWorldPos(), this.node, this._getWorldDir());
+    const { emitDir, localX, localY } = this._getWorldAxes();
+    p.spawn(this._getWorldPos(), this.node, emitDir, localX, localY);
     this.active.push(p);
   }
 
   _disposeParticles() {
     for (const p of [...this.active, ...this.pool]) {
-      scene.remove(p.sprite);
+      scene.remove(p.obj);
       p.dispose();
     }
     this.active = [];
