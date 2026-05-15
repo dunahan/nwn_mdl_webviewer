@@ -18,10 +18,13 @@ const I18N_BUNDLE = {
     drop_hint:'Multiple files at once supported',
     textures_heading:'Textures', scene_graph:'Scene Graph',
     no_file_loaded:'No file loaded', ctrl_wireframe:'Wireframe',
-    ctrl_lighting:'Lighting', ctrl_mesh_opacity:'Mesh', btn_normals:'Normals', btn_grid:'Grid', btn_walkmesh:'Walkmesh', btn_pwk:'PWK',
+    ctrl_lighting:'Lighting', ctrl_mesh_opacity:'Mesh', btn_normals:'Normals', btn_grid:'Grid', btn_walkmesh:'Walkmesh', btn_pwk:'PWK', btn_dwk:'DWK',
+    dwk_state_closed:'Closed', dwk_state_open1:'Open 1', dwk_state_open2:'Open 2',
+    dwk_pin_title:'Fix DWK when loading next model', dwk_pinned_on:'DWK is pinned — kept on next load',
     btn_bbox:'BBox', btn_axes:'Axes', btn_rotate:'Rotate', btn_resetcam:'↺ Camera', btn_skeleton:'Skeleton', btn_floor:'Floor',
-    ntb_all:'All', ntb_none:'None', colordrop_wok: 'WOK surfaces', colordrop_pwk: 'PWK regions', colordrop_label: "WOK/PWK Mesh-Colors",
-    colordrop_pwk_wg: 'Walk Geometry', colordrop_pwk_iop: 'Interaction Point', anim_heading:'Animations', anim_speed:'Speed:',
+    ntb_all:'All', ntb_none:'None', colordrop_wok: 'WOK surfaces', colordrop_pwk: 'PWK regions', colordrop_dwk: 'DWK door geometry', colordrop_label: "WOK/PWK/DWK Mesh-Colors",
+    colordrop_pwk_wg: 'Walk Geometry', colordrop_pwk_iop: 'Interaction Point',
+    colordrop_dwk_wg: 'Walk Geometry', colordrop_dwk_dp: 'Door Position', anim_heading:'Animations', anim_speed:'Speed:',
     empty_title:'Load MDL File',
     empty_hint:'Drag & Drop · ASCII Format · Decompiled',
     hud_camera:'Camera', hud_orbit:'LMB Orbit', hud_zoom:'RMB/Wheel Zoom',
@@ -162,7 +165,11 @@ const I18N_BUNDLE = {
     wok_loaded:           'Walkmesh loaded: {nodes} node(s), {faces} face(s).',
     // placeable walk geometry
     pwk_loaded:           'PWK loaded: {nodes} mesh(es), {faces} face(s), {iop} interaction point(s).',
-    pwk_no_geom:          'PWK: no geometry or interaction points found.'
+    pwk_no_geom:          'PWK: no geometry or interaction points found.',
+    // door walk geometry
+    dwk_loaded:           'DWK loaded: {nodes} mesh(es), {faces} face(s), {dp} door position(s).',
+    dwk_no_geom:          'DWK: no geometry or door positions found.',
+    err_dwk_load:         'DWK "{name}": {msg}',
   },
   de: {
     _meta: { language: 'Deutsch', code: 'de' },
@@ -171,10 +178,13 @@ const I18N_BUNDLE = {
     drop_hint:'Mehrere Dateien gleichzeitig möglich',
     textures_heading:'Texturen', scene_graph:'Szenen-Graph',
     no_file_loaded:'Keine Datei geladen', ctrl_wireframe:'Gitterlinien',
-    ctrl_lighting:'Beleuchtung', ctrl_mesh_opacity:'Mesh', btn_normals:'Normalen', btn_grid:'Raster', btn_walkmesh:'Walkmesh', btn_pwk:'PWK',
+    ctrl_lighting:'Beleuchtung', ctrl_mesh_opacity:'Mesh', btn_normals:'Normalen', btn_grid:'Raster', btn_walkmesh:'Walkmesh', btn_pwk:'PWK', btn_dwk:'DWK',
+    dwk_state_closed:'Geschlossen', dwk_state_open1:'Offen 1', dwk_state_open2:'Offen 2',
+    dwk_pin_title:'DWK beim nächsten Modell-Laden fixieren', dwk_pinned_on:'DWK ist fixiert — bleibt beim Laden neuer Modelle erhalten',
     btn_bbox:'BBox', btn_axes:'Achsen', btn_rotate:'Rotation', btn_resetcam:'↺ Kamera', btn_skeleton:'Skelett', btn_floor:'Boden',
-    ntb_all:'Alles', ntb_none:'Nichts', colordrop_wok: 'WOK Oberflächen', colordrop_pwk: 'PWK Regionen', colordrop_label: "WOK/PWK Mesh-Farben",
-    colordrop_pwk_wg: 'Begehbarer Bereich', colordrop_pwk_iop: 'Interaktionspunkt', anim_heading:'Animationen', anim_speed:'Tempo:',
+    ntb_all:'Alles', ntb_none:'Nichts', colordrop_wok: 'WOK Oberflächen', colordrop_pwk: 'PWK Regionen', colordrop_dwk: 'DWK Tür-Geometrie', colordrop_label: "WOK/PWK/DWK Mesh-Farben",
+    colordrop_pwk_wg: 'Begehbarer Bereich', colordrop_pwk_iop: 'Interaktionspunkt',
+    colordrop_dwk_wg: 'Begehbarer Bereich', colordrop_dwk_dp: 'Türposition', anim_heading:'Animationen', anim_speed:'Tempo:',
     empty_title:'MDL Datei laden',
     empty_hint:'Drag & Drop · ASCII-Format · Decompiliert',
     hud_camera:'Kamera', hud_orbit:'LMB Orbit', hud_zoom:'RMB/Rad Zoom',
@@ -315,7 +325,11 @@ const I18N_BUNDLE = {
     wok_loaded:           'Walkmesh geladen: {nodes} Node(s), {faces} Face(s).',
     // Placeable Walk Geometry
     pwk_loaded:           'PWK geladen: {nodes} Mesh(es), {faces} Face(s), {iop} Interaktionspunkt(e).',
-    pwk_no_geom:          'PWK: keine Geometrie oder Interaktionspunkte gefunden.'
+    pwk_no_geom:          'PWK: keine Geometrie oder Interaktionspunkte gefunden.',
+    // Door Walk Geometry
+    dwk_loaded:           'DWK geladen: {nodes} Mesh(es), {faces} Face(s), {dp} Türposition(en).',
+    dwk_no_geom:          'DWK: keine Geometrie oder Türpositionen gefunden.',
+    err_dwk_load:         'DWK „{name}": {msg}',
   }
 };
 

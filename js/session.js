@@ -63,6 +63,19 @@ function clearSession(keepTextures = false) {
     const btnPwk = document.getElementById('btn-pwk');
     if (btnPwk) { btnPwk.classList.remove('active'); btnPwk.disabled = true; }
   }
+
+  // DWK bereinigen
+  if (typeof dwkGroup !== 'undefined' && dwkGroup) {
+    scene.remove(dwkGroup);
+    dwkGroup.traverse(c => {
+      if (c.geometry) c.geometry.dispose();
+      if (c.material) c.material.dispose();
+    });
+    dwkGroup = null;
+    dwkVisible = false;
+    const btnDwk = document.getElementById('btn-dwk');
+    if (btnDwk) { btnDwk.classList.remove('active'); btnDwk.disabled = true; }
+  }
  
   // WOK-Button zurücksetzen
   const btnWok = document.getElementById('btn-walkmesh');

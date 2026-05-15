@@ -15,12 +15,12 @@
   --dummy:        #70b870;
   --skin:         #c070c0;
   --emitter:      #f0a030;
-  --danglymesh:   var(--danglymesh);
-  --aabb:         var(--aabb);
+  --danglymesh:   #50b8d0;
+  --aabb:         #e8a020;
   --red:          #c04040;
   --red-light:    #e06060;
-  --log-error:    var(--log-error);
-  --log-warn:     var(--log-warn);
+  --log-error:    #e05050;
+  --log-warn:     #e0a030;
   --scrollbar:    #606880;
   /* RGB channels for rgba() overlays — must match --bg and --gold */
   --bg-rgb:       10, 12, 15;

@@ -30,13 +30,14 @@ Add `?lang=XX` to the URL, where `XX` is the filename without `.json`:
 
 ---
 
-## Key reference / Schlüssel-Referenz (v1.2)
+## Key reference / Schlüssel-Referenz (v1.3)
 
 | Key Group | Description |
 |-----------|-------------|
 | `logo_*` / `drop_*` | Header and Drag & Drop zone text. |
 | `ctrl_*` / `btn_*` | UI Controls (Wireframe, Lighting, Grid, etc.). |
-| `ntb_*` / `colordrop_*` | Mesh visibility and Walkmesh (WOK/PWK) color settings. |
+| `ntb_*` / `colordrop_*` | Mesh visibility and Walkmesh (WOK/PWK/DWK) color settings. |
+| `dwk_*` | Door Walkmesh state labels (Closed / Open 1 / Open 2), pin-toggle tooltip, and DWK load status messages. |
 | `anim_*` | Animation playback controls. |
 | `nd_*` | Node Detail panel (shows specific data for the selected node). |
 | `nd_em_*` | Particle Emitter specific properties in the Node Detail panel. |
@@ -45,7 +46,7 @@ Add `?lang=XX` to the URL, where `XX` is the filename without `.json`:
 | `super_*` | Messages regarding Supermodel/Animation merging. |
 | `err_*` | Error messages for invalid files, parsing issues, or missing themes. |
 | `plt_*` | Labels for the PLT (Pixel Look-up Table) color picker. |
-| `dcmp_*` | UI strings for the MDL decompiler process. |
+| `dcmp_*` | UI strings for the MDL decompiler process, including progressive phase labels (`dcmp_phase_*`). |
 | `cm_*` | Technical log messages for the cleanmodels WASM module. |
 | `wasm_*` | Status and error messages for the WASM decompiler module loading. |
 | `log_em_*` | Log messages for the particle Emitter system initialization and errors. |
@@ -72,15 +73,18 @@ These variables are replaced dynamically at runtime and must not be translated.
 | `{part}` | Name of a sub-part in multi-part assembly | "Multi-Part: \"{part}\" merged into \"{base}\"" |
 | `{bone}` | Name of a skeleton bone | "Part {part} → bone {bone} (Z: {z})" |
 | `{z}` | Z-position of an attachment point | "Part {part} → bone {bone} (Z: {z})" |
+| `{dp}` | Number of door positions in a DWK mesh | "DWK loaded: {nodes} mesh(es), {faces} face(s), {dp} door position(s)." |
+| `{pct}` | WASM download progress in percent | "Downloading WASM… {pct}%" |
 
 ---
 
-## Detailed Feature Notes (v1.1)
+## Detailed Feature Notes (v1.3)
 
 ### Walkmesh & Collision (`colordrop_*`)
 These keys define labels for specialized mesh types.
 * **WOK**: Walkmesh for tilesets (surfaces).
-* **PWK / DWK**: Walkmesh for placeables and doors (regions).
+* **PWK**: Walkmesh for placeables (regions and interaction points).
+* **DWK**: Walkmesh for doors. Supports three states — Closed, Open 1, and Open 2 — selectable via the DWK button in the toolbar. The pin toggle (`dwk_pin_title` / `dwk_pinned_on`) keeps the DWK visible when the next model is loaded.
 * **Walk Geometry**: The actual navigable surface area within a collision mesh.
 
 ### PLT Layers (`plt_layer_N`)
@@ -88,6 +92,20 @@ Neverwinter Nights uses a 10-layer palette system for dynamic coloring of armors
 * **Layers 0–1:** Usually reserved for Skin and Hair.
 * **Layers 2–7:** Materials like Metal, Cloth, and Leather.
 * **Layers 8–9:** Tattoos or special glow effects.
+
+### WASM Decompiler Phases (`dcmp_phase_*`)
+When a binary MDL is loaded, the WASM decompiler goes through a sequence of loading stages. Each stage has its own translatable label shown in the progress overlay:
+
+| Key | Stage |
+|-----|-------|
+| `dcmp_phase_fetch` | Downloading the WASM binary (shows `{pct}%` if progress is available) |
+| `dcmp_phase_fetch_indeterminate` | Downloading WASM without known progress |
+| `dcmp_phase_decode` | Decoding the Base64-encoded WASM data |
+| `dcmp_phase_compile` | Browser compiling the WASM module |
+| `dcmp_phase_instantiate` | Instantiating the compiled module |
+| `dcmp_phase_wait` | Waiting for the Go runtime to become ready |
+| `dcmp_phase_ready` | Module ready — shown briefly before decompilation starts |
+| `dcmp_phase_decompile` | Active decompilation of the MDL file |
 
 ### Multi-Part Assembly (`log_char_*`)
 NWN character models can consist of multiple separate MDL parts (body, helmet, weapons, etc.) that are assembled at runtime. These keys cover the log output during that process.
@@ -117,7 +135,7 @@ NWN uses emitter nodes for particle effects. These keys cover the various physic
 
 | Datei | Sprache | Status |
 |-------|---------|--------|
-| `en.json` | English | Standard / Default (v1.2) |
-| `de.json` | Deutsch | Maintained (v1.2) |
+| `en.json` | English | Standard / Default (v1.3) |
+| `de.json` | Deutsch | Maintained (v1.3) |
 
 Contributions welcome — submit a pull request!

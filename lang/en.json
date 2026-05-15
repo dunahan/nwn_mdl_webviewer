@@ -3,7 +3,7 @@
     "language": "English",
     "code": "en",
     "author": "",
-    "version": "1.2"
+    "version": "1.3"
   },
 
   "logo_subtitle":        "Neverwinter Nights 1 · Enhanced Edition",
@@ -20,9 +20,12 @@
   "ntb_none":             "None",
   "colordrop_wok":        "WOK surfaces",
   "colordrop_pwk":        "PWK regions",
-  "colordrop_label":      "WOK/PWK Mesh-Colors",
+  "colordrop_dwk":        "DWK door geometry",
+  "colordrop_label":      "WOK/PWK/DWK Mesh-Colors",
   "colordrop_pwk_wg":     "Walk Geometry",
   "colordrop_pwk_iop":    "Interaction Point",
+  "colordrop_dwk_wg":     "Walk Geometry",
+  "colordrop_dwk_dp":     "Door Position",
 
   "ctrl_wireframe":       "Wireframe",
   "ctrl_lighting":        "Lighting",
@@ -37,6 +40,12 @@
   "btn_floor":            "Floor",
   "btn_walkmesh":         "Walkmesh",
   "btn_pwk":              "PWK",
+  "btn_dwk":              "DWK",
+  "dwk_state_closed":     "Closed",
+  "dwk_state_open1":      "Open 1",
+  "dwk_state_open2":      "Open 2",
+  "dwk_pin_title":        "Fix DWK when loading next model",
+  "dwk_pinned_on":        "DWK is pinned — kept on next load",
 
   "anim_heading":         "Animations",
   "anim_speed":           "Speed:",
@@ -122,11 +131,19 @@
   "plt_layer_7":          "Leather 2",
   "plt_layer_8":          "Tattoo 1",
   "plt_layer_9":          "Tattoo 2",
-  
+
   "dcmp_title":           "Decompiling…",
   "dcmp_hint":            "Binary MDL · Please wait",
   "dcmp_cancel":          "Cancel",
   "dcmp_cancelled":       "Decompile cancelled.",
+  "dcmp_phase_fetch":               "Downloading WASM… {pct}%",
+  "dcmp_phase_fetch_indeterminate": "Downloading WASM…",
+  "dcmp_phase_decode":              "Decoding…",
+  "dcmp_phase_compile":             "Compiling WASM…",
+  "dcmp_phase_instantiate":         "Instantiating…",
+  "dcmp_phase_wait":                "Starting up…",
+  "dcmp_phase_ready":               "Ready",
+  "dcmp_phase_decompile":           "Decompiling…",
 
   "cm_start":             "[cleanmodels] Start, mode: {mode}",
   "cm_no_wasm_exec":      "[cleanmodels] wasm_exec.js missing.",
@@ -149,11 +166,14 @@
   "dcmp_decompiling":     "[cleanmodels] Decompiling \"{name}\"…",
   "dcmp_done":            "[cleanmodels] \"{name}\" done.",
   "dcmp_error":           "[cleanmodels] \"{name}\" error: {msg}",
+
   "err_wok_load":         "WOK \"{name}\": {msg}",
   "err_pwk_load":         "PWK \"{name}\": {msg}",
+  "err_dwk_load":         "DWK \"{name}\": {msg}",
   "err_tga_load":         "TGA \"{name}\": {msg}",
   "err_dds_load":         "DDS \"{name}\": {msg}",
   "err_plt_load":         "PLT \"{name}\": {msg}",
+
   "nd_em_section":        "Emitter",
   "nd_em_texture":        "Texture",
   "nd_em_blend":          "Blend",
@@ -174,8 +194,10 @@
   "nd_em_grid":           "Sprite Grid",
   "nd_em_grid_frame":     "frame",
   "nd_em_birthrate_key":  "[animated]",
+
   "err_theme_load":       "Theme error: {msg}",
   "err_theme_variables":  "Field \"variables\" missing.",
+
   "log_em_init":          "[Emitter] \"{name}\" initialised",
   "log_em_init_pending":  " (texture pending: \"{tex}\")",
   "log_em_tex_pending":   "(texture pending: \"{tex}\")",
@@ -186,11 +208,15 @@
   "log_char_positioned":  "Character parts positioned via bounding-box stacking",
   "log_char_skeleton":    "Base skeleton found: {name} — using exact attachment positions",
   "log_char_bone":        "Part {part} → bone {bone} (Z: {z})",
+
   "tex_missing_none":     "All referenced textures loaded ✓",
   "tex_missing_header":   "Missing textures ({n}) — not yet loaded:",
-  
+
   "wok_loaded":           "Walkmesh loaded: {nodes} node(s), {faces} face(s).",
-  
+
   "pwk_loaded":           "PWK loaded: {nodes} mesh(es), {faces} face(s), {iop} interaction point(s).",
-  "pwk_no_geom":          "PWK: no geometry or interaction points found."
+  "pwk_no_geom":          "PWK: no geometry or interaction points found.",
+
+  "dwk_loaded":           "DWK loaded: {nodes} mesh(es), {faces} face(s), {dp} door position(s).",
+  "dwk_no_geom":          "DWK: no geometry or door positions found."
 }

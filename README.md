@@ -9,15 +9,89 @@ No installation, no server — just open `index.html` locally or use it directly
 
 ## ✨ Features
 
-- **MDL ASCII Parser** — Parses all node types: `trimesh`, `skin`, `dummy`, `emitter`, `aabb`, `light`, `reference`
-- **3D Rendering** — Phong shading with ambient, directional and fill lights
-- **Scene Graph** — Full node hierarchy in the sidebar, each node individually toggleable
-- **Node Inspector** — Click any node to see vertices, faces, bitmap name, position, diffuse colour, alpha
-- **Camera Controls** — Orbit (LMB drag), Zoom (scroll wheel), Pan (RMB drag), touch support
-- **Wireframe Overlay** — Adjustable opacity slider
-- **Lighting Control** — Intensity slider
-- **Extras** — Auto-rotation, Bounding Box display, Grid toggle, Flat/Smooth shading
-- **Zero dependencies** — Only Three.js r152 (loaded from CDN); runs fully offline once cached
+### MDL Parsing & Rendering
+- **MDL ASCII Parser** — Parses node types: `trimesh`, `skin`, `danglymesh`, `animmesh`, `dummy`, `emitter`, `aabb`, `light`, `reference`
+- **Binary MDL support** — Inline WebAssembly decompilation via [CleanModelsEE](https://github.com/plenarius/cleanmodels/tree/v4-go-rewrite); drag & drop compiled `.mdl` files directly
+- **3D Rendering** — Phong shading with ambient, directional and fill lights; switchable Flat/Smooth shading
+- **EFFECT-class models** — `selfillumcolor` → emissive texture mapping, alpha keyframe animation (e.g. `vdr_globemin`, `vim_cntglobe`)
+- **Skinned meshes** — Skin node orientation (axis-angle) applied for accurate bind positions
+
+### Multi-Part Model Assembly
+- **Character part assembly** — Automatically detects and merges NWN body part files (regex `p[mf][a-z]\d_…`) into a single scene; pelvis-based skeleton alignment
+- **Weapon / prop merging** — Drag multiple `.mdl` files at once; independent part models are merged into one scene
+- **EFFECT-only model inclusion** — Emitter-only models (no geometry) are included in multi-part assemblies
+- **Supermodel chain** — Loads and links `setsupermodel` references when the parent file is dropped together
+
+### Animations
+- **Keyframe playback** — Interpolation for position, orientation, scale, alpha and UV animation keys
+- **Scrubber & speed control** — Interactive timeline with ¼×, ½×, 1×, 2× speed presets
+- **Animation selector** — Drop-down list of `newanim` blocks in the model
+
+### Particle Emitters
+- **Emitter system** — Pool-based particle management with NWN emitter parameter support (`birthrate`, `lifeexp`, `velocity`, `spread`, `particleRot`, …)
+- **Sprite-sheet UV animation** — UV tiling and orientation (TGA flip-Y / `flipY=false` compatible)
+- **Keyframe-driven birthrate** — Emitter birthrate follows animation keyframe curves
+
+### Textures & Materials
+- **Texture formats** — TGA, DDS, PNG, JPG
+- **MTR support** — Enhanced Edition multi-texture material files with per-slot status indicators (✓ loaded / ? missing / — undefined)
+- **TXI support** — Reads texture metadata (clamp, blend mode, …)
+- **PLT (BioWare Palette Texture)** — Full 10-layer palette system with per-layer color picker UI:
+  `skin · hair · metal1 · metal2 · cloth1 · cloth2 · leather1 · leather2 · tattoo1 · tattoo2`
+
+### Walkmesh Visualisation
+- **WOK** (area walkmesh) — Surface-type coloring, per-surface color picker, pinnable across loads
+- **PWK** (placeable walkmesh) — Walk geometry + interaction point regions, individual color pickers, pinnable
+- **DWK** (door walkmesh) — Three door states (Closed / Open 1 / Open 2), per-state geometry, color pickers, pinnable
+
+### Scene Graph & Inspection
+- **Node hierarchy** — Scene graph in the sidebar, collapsible
+- **Per-node visibility** — Toggle individual nodes via ⬡ icon
+- **Type filter toolbar** — One-click bulk toggle for MESH / SKIN / DUMMY / EMIT / LIGHT / AABB / DANG
+- **Node Inspector** — Draggable floating panel with zoom controls (−/○/＋); shows: vertices, faces, bitmap name, position, orientation, diffuse colour, alpha, self-illumination colour
+
+### Camera & Display Controls
+| Control | Description |
+|---------|-------------|
+| Orbit | Left mouse drag |
+| Zoom | Scroll wheel |
+| Pan | Right mouse drag |
+| Touch | Pinch-zoom & drag supported |
+| Reset Camera | Button in toolbar |
+
+| Toggle | Description |
+|--------|-------------|
+| Wireframe | Overlay with adjustable opacity slider |
+| Lighting | Intensity slider |
+| Mesh Opacity | Global mesh transparency slider |
+| Floor Plane | Toggleable reference floor |
+| Grid | Ground grid overlay |
+| Bounding Box | Axis-aligned bounding box helper |
+| Axes Helper | World-space origin axes |
+| Skeleton | Bone visualisation for skinned meshes |
+| Normal Helper | Per-face normal display |
+| Auto-Rotate | Continuous model rotation |
+
+### UI & Theming
+- **Themes** — Built-in *Default* and *High Contrast* themes; load any custom theme via JSON file
+- **i18n** — Full English / German UI (switchable at runtime); all strings externalized to `lang/*.json`
+- **Error Log Panel** — Timestamped entries with three levels:
+
+| Sign | Color | Meaning |
+|------|-------|---------|
+| ✕ | Red | Error (TGA/DDS parse, MDL, FileReader) |
+| ⚠ | Orange | Warning (missing texture, pending supermodel, …) |
+| · | Grey | Info |
+
+The panel opens automatically on errors; the badge counter lights up orange for warnings.
+
+### MTR Texture Status Indicators
+
+| Symbol | Color | Meaning |
+|--------|-------|---------|
+| ✓ | Gold | Texture loaded and active |
+| ? | Amber | Referenced in MTR, but file not loaded |
+| — | Grey | Slot not defined in MTR |
 
 ---
 
@@ -31,20 +105,19 @@ No installation, no server — just open `index.html` locally or use it directly
 
 ### Option B — Local use (with a release)
 
-1. Download the latest Release from GitHub.
+1. Download the latest Release from GitHub
 2. Open in browser (Chrome, Firefox, Edge)
-3. Drag .mdl + texture files (.tga, .dds etc) into the drop zone.
+3. Drag `.mdl` + texture files (`.tga`, `.dds`, `.plt`, …) into the drop zone
 
-### Option C — Local use (python3 needed!)
+### Option C — Local use (build from source)
 
 ```bash
 git clone https://github.com/dunahan/nwn_mdl_webviewer.git
 cd nwn_mdl_webviewer
 
-# creates dist/index.html
+# Creates dist/index.html (self-contained, all JS inlined)
 python3 build.py
 
-# Simply open index.html in any modern browser:
 cd dist
 open index.html          # macOS
 start index.html         # Windows
@@ -53,46 +126,47 @@ xdg-open index.html      # Linux
 
 ---
 
-## 📁 File Format
+## 📁 File Formats Supported
 
-NWN stores models as **compiled binary** `.mdl` files.
-This viewer uses the [CleanModelsEE](https://github.com/plenarius/cleanmodels/tree/v4-go-rewrite) WASM release from plenarius to get the readable ASCII file.
-Despite everything, I recommend converting the binary model using Cleanmodels and ideally also repairing it.
+| Extension | Description |
+|-----------|-------------|
+| `.mdl` | NWN model — ASCII (decompiled) or binary (auto-decompiled via WASM) |
+| `.tga` | TGA texture (parsed in-browser) |
+| `.dds` | DDS texture (compressed formats) |
+| `.png` / `.jpg` | Standard image formats |
+| `.plt` | BioWare Palette Texture (10-layer colourisable texture) |
+| `.mtr` | Enhanced Edition material definition |
+| `.txi` | Texture metadata |
+| `.wok` | Area walkmesh |
+| `.pwk` | Placeable walkmesh |
+| `.dwk` | Door walkmesh |
 
-### How to decompile/repair
+---
 
-**Using `cleanmodels`:**
+## 🔧 Binary MDL Decompilation
 
-Grab the latest binary for your platform for [CleanModelsEE](https://github.com/plenarius/cleanmodels/releases)
+The viewer can decompile binary `.mdl` files **directly in the browser** using an embedded WebAssembly build of [CleanModelsEE](https://github.com/plenarius/cleanmodels/tree/v4-go-rewrite).
+Just drop a compiled model onto the viewer — no external tools required.
+
+For batch decompilation or repair outside the viewer, use the standalone CLI tool:
 
 ```bash
-# Decompile a binary MDL to ASCII (will overwrite the compiled file)
+# Decompile a single binary MDL to ASCII
 cleanmodels decompile plc_torch.mdl plc_torch.mdl
 
-# Output to a separate folder (originals untouched and will produce ASCII files)
+# Repair + decompile an entire folder recursively
 cleanmodels repair -a -r haks/ cleaned/
 
-# Save everything (stdout + stderr)
+# Check + verbose log
 cleanmodels check -r -v models/ &> log.txt
 ```
 
-For more details, take a look at the [CleanModelsEE]([https://github.com/plenarius/cleanmodels/tree/v4-go-rewrite])
-
-**Using `nwnmdlcomp`** (command line tool):
-
-```bash
-# Download from:
-# https://neverwintervault.org/project/nwn1/other/tool/nwnmdlcomp-nwn-model-compiler
-
-nwnmdlcomp -d c_dragon.mdl
-# → outputs c_dragon_ascii.mdl  (or similar name)
-```
-
-**Using other tools:**
+Alternatively:
 
 | Tool | Platform | Notes |
 |------|----------|-------|
-| [NWNExplorer](https://github.com/virusman/nwnexplorer) | Windows | GUI, can export ASCII MDL |
+| [nwnmdlcomp](https://neverwintervault.org/project/nwn1/other/tool/nwnmdlcomp-nwn-model-compiler) | CLI | `nwnmdlcomp -d model.mdl` |
+| [NWNExplorer](https://github.com/virusman/nwnexplorer) | Windows GUI | Can export ASCII MDL |
 
 ---
 
@@ -100,27 +174,53 @@ nwnmdlcomp -d c_dragon.mdl
 
 ```
 nwn-mdl-webviewer/
-├── index.html              # Main application (self-contained)
+├── index.html              # Main entry point
 ├── README.md               # This file
 ├── LICENSE                 # MIT License
-├── build.py                # Python script for building the release
+├── build.py                # Build script (inlines all JS/CSS → dist/)
 ├── .gitignore
-├── wasm/                   # Where the cleanmodel.wasm resides
-├── testfiles/              # some files for testing
-├── src-tauri/icons         # the generated icons for a Tauri build (later)
-├── scripts/                # scripts for manual building the resources for a offline version
+│
+├── css/
+│   └── viewer.css          # All UI styles and theme variables
+│
+├── js/
+│   ├── animation.js        # Keyframe animation playback & scrubber
+│   ├── cleanmodels.js      # WASM bridge for binary MDL decompilation
+│   ├── dwk.js              # Door walkmesh parser & renderer
+│   ├── emitter.js          # Particle emitter system (pool, UV anim)
+│   ├── loader.js           # File drop handler, multi-part assembly logic
+│   ├── log.js              # Error/warning/info log panel
+│   ├── mtr.js              # MTR material file parser
+│   ├── palettes.js         # PLT palette data & getPaletteRGB() API
+│   ├── parser.js           # MDL ASCII parser (all node types)
+│   ├── plt_swatch.js       # PLT layer UI & color picker watcher
+│   ├── pwk.js              # Placeable walkmesh parser & renderer
+│   ├── scene.js            # Three.js scene setup, camera, render loop
+│   ├── scene_build.js      # MDL → Three.js object builder
+│   ├── session.js          # Session state, texture cache, scene reset
+│   ├── textures.js         # TGA/DDS/PNG loader, texture cache
+│   ├── txi.js              # TXI metadata parser
+│   ├── ui.js               # Sidebar, node list, inspector panel, controls
+│   ├── wasm_exec.js        # Go WASM runtime support
+│   └── wok.js              # Area walkmesh parser & renderer
+│
 ├── lang/
-│   ├── de.json             # German translation file
-│   ├── en.json             # English Translation file
-│   └── README.md	        # HowTo set up a new translation and integrate it
-├── js/                     # JavaScript files
+│   ├── en.json             # English UI strings
+│   ├── de.json             # German UI strings
+│   └── README.md           # How to add a new translation
+│
+├── wasm/
+│   └── cleanmodels.wasm    # CleanModelsEE WebAssembly binary
+│
+├── testfiles/              # Sample MDL files for testing
 ├── docs/
 │   ├── FORMAT.md           # NWN MDL format reference
 │   └── DECOMPILE.md        # Step-by-step decompilation guide
-├── css/                    # CSS definition
+│
 └── .github/
     └── workflows/
-        └── pages.yml       # GitHub Pages auto-deploy workflow
+        ├── pages.yml       # GitHub Pages auto-deploy
+        └── update-wasm.yml # Auto-update WASM from CleanModelsEE releases
 ```
 
 ---
@@ -128,67 +228,37 @@ nwn-mdl-webviewer/
 ## 🎮 Usage
 
 1. Open the viewer in your browser
-2. **Drag & drop** a de-/compiled `.mdl` file onto the viewport
-   — or click the drop zone and pick a file
-3. Use the sidebar to inspect nodes and toggle visibility
-4. Click any node name in the list to see its details
-
-### Controls
-
-| Action | Control |
-|--------|---------|
-| Orbit  | Left mouse drag |
-| Zoom   | Scroll wheel |
-| Pan    | Right mouse drag |
-| Inspect node | Click sidebar item |
-| Toggle visibility | Click ⬡ icon next to node |
-
-### Features for Enhanced Edition models (MTR)
-
-| Symbol | Color | Meaning |
-| -- | -- | -- |
-| $\textcolor{gold}{\textsf{✓}}$ | gold | Texture loaded and active |
-| $\textcolor{yellow}{\textsf{?}}$ | amber | Referenced in MTR, but file not loaded |
-| $\textcolor{darkgrey}{\textsf{—}}$ | grey | Slot not defined in MTR |
-
-### Error Log
-
-- A ▲ button with a counter badge appears on the right side of the status bar.
-
-- In case of an error, the panel opens automatically.
-
-- In case of a warning, the badge lights up orange, but it does not open automatically.
-
-- Clicking ▲/▼ manually opens/closes the panel.
-
-- When a new model is loaded, the log is automatically cleared.
-
-| Sign | Color | Hint |
-|--------|---------|--------|
-| $\textcolor{red}{\textsf{✕}}$ | Red | Error (TGA/DDS parse, MDL, file read) |
-| $\textcolor{orange}{\textsf{⚠}}$ | Orange | Warnung |
-| $\textcolor{darkgrey}{\textsf{·}}$ | Grey | Info |
-
-All error sources now write to the panel: for example TGA, DDS, MDL and FileReader errors — with timestamp and filename.
+2. **Drag & drop** one or more `.mdl` files (+ textures) onto the viewport  
+   — or click the drop zone to pick files
+3. For **multi-part models** (character body parts, weapon components), drop all parts at once — the viewer assembles them automatically
+4. Use the **sidebar** to inspect nodes and toggle visibility
+5. Click any node name to open the **Node Inspector** panel (draggable, zoomable)
+6. Drop `.wok` / `.pwk` / `.dwk` files alongside the model to visualise walkmesh geometry
 
 ---
 
 ## ⚠️ Known Limitations
 
-- ~~**Animations**: Keyframe animations defined in `newanim` blocks are parsed (count shown) but not yet played back~~
-- ~~**Binary MDL**: Only ASCII/decompiled format is supported~~
-- ~~**Walkmesh**: AABB nodes are shown as markers but walkmesh geometry is not rendered separately~~
-- Not every model has been tested yet, so there may still be display errors.
+- Not every model variant has been tested; edge cases may still produce display artefacts
+- Supermodel references that are not dropped together with the main model are noted in the log but not loaded automatically
+- Export to glTF / OBJ is not yet implemented
 
 ---
 
 ## 🗺️ Roadmap
 
-- [x] Texture loading (TGA via `tga.js`, DDS support)
-- [x] Animation playback (keyframe interpolation)
-- [ ] Export to glTF/OBJ
-- [ ] Multiple file loading (supermodel chain)
-- [x] Walkmesh visualisation overlay
+- [x] Texture loading (TGA, DDS, PNG, PLT)
+- [x] Animation playback (keyframe interpolation, scrubber, speed control)
+- [x] Binary MDL decompilation (in-browser WASM)
+- [x] Walkmesh visualisation (WOK, PWK, DWK)
+- [x] PLT palette texture system (10 layers, color picker)
+- [x] Particle emitter system (pool-based, sprite-sheet UV)
+- [x] Multi-part model assembly (characters, weapons)
+- [x] EFFECT-class model rendering (selfillum, alpha keyframes)
+- [x] Theme system (built-in + custom JSON)
+- [x] Full i18n (EN / DE)
+- [ ] Export to glTF / OBJ
+- [ ] Automatic supermodel chain loading
 
 ---
 
@@ -197,8 +267,9 @@ All error sources now write to the panel: for example TGA, DDS, MDL and FileRead
 | Technology | Version | Purpose |
 |-----------|---------|---------|
 | [Three.js](https://threejs.org/) | r152 | 3D rendering (WebGL) |
-| Vanilla JS | ES2020 | MDL parser, UI logic |
-| HTML/CSS | — | UI (no framework) |
+| Vanilla JS | ES2020 | MDL parser, UI logic, all modules |
+| HTML / CSS | — | UI (no framework) |
+| WebAssembly | — | In-browser binary MDL decompilation |
 | [Cinzel](https://fonts.google.com/specimen/Cinzel) | — | Display font (Google Fonts) |
 | [Share Tech Mono](https://fonts.google.com/specimen/Share+Tech+Mono) | — | Monospace UI font |
 
@@ -213,6 +284,7 @@ MIT — see [LICENSE](LICENSE)
 ## 🙏 Credits
 
 - **Bioware / Beamdog** for the NWN MDL format
+- **plenarius** for [CleanModelsEE](https://github.com/plenarius/cleanmodels) (WASM decompiler)
 - **Three.js** contributors
 - NWN community tools: nwneetools, NWNExplorer
 

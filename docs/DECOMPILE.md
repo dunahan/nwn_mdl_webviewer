@@ -1,13 +1,16 @@
 # How to Decompile NWN MDL Files
 
-NWN ships models as **compiled binary** `.mdl` files. This viewer needs the **ASCII / decompiled** version.  
-Here are step-by-step instructions for each platform.
+NWN ships models as **compiled binary** `.mdl` files.
+
+> **Note:** The viewer can decompile binary MDL files **directly in the browser** via an embedded WebAssembly build of CleanModels — just drop the compiled `.mdl` and the viewer handles the rest. No external tools required.
+
+The methods below are useful for **batch processing**, **repair**, or when working outside the viewer.
 
 ---
 
 ## Method 1 — CleanModels EE (Bash/CLI-Application, Windows GUI) - Recommended, all platforms
 
-Grab the latest binary for your platform for [CleanModelsEE]([https://github.com/plenarius/cleanmodels/releases])
+Grab the latest binary for your platform from [CleanModelsEE](https://github.com/plenarius/cleanmodels/releases)
 
 ```bash
 # Decompile a binary MDL to ASCII (will overwrite the compiled file)
@@ -20,7 +23,7 @@ cleanmodels repair -a -r haks/ cleaned/
 cleanmodels check -r -v models/ &> log.txt
 ```
 
-For more details, take a look at the [CleanModelsEE]([https://github.com/plenarius/cleanmodels/tree/v4-go-rewrite])
+For more details, take a look at the [CleanModelsEE documentation](https://github.com/plenarius/cleanmodels/tree/v4-go-rewrite)
 
 ---
 
@@ -43,10 +46,8 @@ For more details, take a look at the [CleanModelsEE]([https://github.com/plenari
 **Windows:** Download from  
 [neverwintervault.org](https://neverwintervault.org/project/nwn1/other/tool/nwnmdlcomp-nwn-model-compiler)
 
-**Linux / macOS:**
-```bash
-# actually I don't have Linux installed, so I can't provide a way here. Will follow.
-```
+**Linux / macOS:**  
+`nwnmdlcomp` is a Windows-only binary. Use **Method 1 (CleanModels EE)** instead — pre-built binaries are available for Linux and macOS on the [CleanModels releases page](https://github.com/plenarius/cleanmodels/releases).
 
 ### Usage
 
@@ -112,7 +113,7 @@ If you see binary garbage, it's still in compiled format — decompile it first.
 → File is still binary. Use one of the methods above to decompile.
 
 **Mesh appears but looks wrong / inside-out**  
-→ Normal behaviour for some NWN models that use double-sided rendering. Enable "Normalen" button in the viewer.
+→ Normal behaviour for some NWN models that use double-sided rendering. Enable the **Normals** button in the viewer.
 
 **Empty scene (only grid shown)**  
 → Model may be a pure dummy hierarchy (e.g. a supermodel base). Try loading an actual character or placeable model.

@@ -29,7 +29,10 @@ WASM_DIR      = ROOT / 'wasm'
 WASM_B64_FILE = JS_DIR / 'cleanmodels_wasm.js'   # Base64 bundle for file:// mode
 
 def read(path):
-    return Path(path).read_text(encoding='utf-8')
+    p = Path(path)
+    if not p.exists():
+        raise FileNotFoundError(f'Required file not found: {p}')
+    return p.read_text(encoding='utf-8')
 
 def extract_js_order(html: str) -> list[str]:
     """
@@ -99,7 +102,7 @@ def build():
     js_combined = '\n\n'.join(js_parts)
     replacement = f'<script>\n{js_combined}\n</script>'
     html = re.sub(
-        r'<!-- NWN MDL Viewer — Module -->.*?(?=\n</body>)',
+        r'<!-- NWN MDL Viewer — Module -->.*?(?=\s*</body>)',
         lambda m: replacement,
         html,
         flags=re.DOTALL
@@ -148,6 +151,10 @@ if __name__ == '__main__':
 
             class Handler(FileSystemEventHandler):
                 def on_modified(self, event):
+                    # Änderungen im dist/-Ausgabeverzeichnis ignorieren,
+                    # sonst löst jeder Build einen weiteren Build aus.
+                    if str(Path(event.src_path)).startswith(str(DIST)):
+                        return
                     if event.src_path.endswith(('.html', '.css', '.js', '.json')):
                         print(f'  Changed: {event.src_path}')
                         try:
