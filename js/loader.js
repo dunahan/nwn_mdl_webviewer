@@ -13,9 +13,10 @@ function loadFiles(fileList) {
   const mtrFiles = files.filter(f => /\.mtr$/i.test(f.name));
   const wokFiles = files.filter(f => /\.wok$/i.test(f.name));
   const pwkFiles = files.filter(f => /\.pwk$/i.test(f.name));
+  const dwkFiles = files.filter(f => /\.dwk$/i.test(f.name));
 
   if (mdlFiles.length === 0 && texFiles.length === 0 && mtrFiles.length === 0
-      && wokFiles.length === 0 && pwkFiles.length === 0) {
+      && wokFiles.length === 0 && pwkFiles.length === 0 && dwkFiles.length === 0) {
     setStatus(L('status_no_files'));
     return;
   }
@@ -102,6 +103,22 @@ function loadFiles(fileList) {
         if (btn) btn.disabled = false;
       } catch (err) {
         logErrorI18n('err_pwk_load', { name: file.name, msg: err.message });
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  // DWK-Dateien direkt als Text einlesen
+  for (const file of dwkFiles) {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const dwk = parseDWK(ev.target.result);
+        buildDWKMesh(dwk);
+        const btn = document.getElementById('btn-dwk');
+        if (btn) btn.disabled = false;
+      } catch (err) {
+        logErrorI18n('err_dwk_load', { name: file.name, msg: err.message });
       }
     };
     reader.readAsText(file);
@@ -289,7 +306,7 @@ function logMissingTextures(model) {
   // Platzhalter und bereits geladene Texturen herausfiltern
   const missing = [...needed].filter(
     name => name && name !== 'null' && name !== '' && !textureCache[name]
-  );
+  ).sort();
 
   const logEntries = document.getElementById('log-entries');
 

@@ -41,7 +41,7 @@
       <span data-i18n="drop_or">or click to open</span><br>
       <small style="color:var(--muted)" data-i18n="drop_hint">Multiple files at once supported</small>
     </div>
-    <input type="file" id="file-input" accept=".mdl,.tga,.dds,.plt,.mtr,.txi,.wok,.pwk,.png,.jpg,.txt" multiple>
+    <input type="file" id="file-input" accept=".mdl,.tga,.dds,.plt,.mtr,.txi,.wok,.pwk,.dwk,.png,.jpg,.txt" multiple>
 
     <div id="texture-status" style="margin:0 12px 8px;display:none;">
       <div id="texture-header" onclick="toggleTextureList()">
@@ -147,6 +147,13 @@
         <button class="toggle-btn" id="btn-walkmesh"      onclick="toggleWalkMesh()"  data-i18n="btn_walkmesh" disabled>Walkmesh</button>
         <button class="pin-btn"    id="btn-walkmesh-pin"  onclick="toggleWokPin()"    title="Walkmesh beim nächsten Modell-Laden fixieren">📌</button>
       </div>
+      <div class="ctrl-row" style="gap:6px">
+        <button class="toggle-btn" id="btn-dwk"     onclick="toggleDWK()"         data-i18n="btn_dwk" disabled>DWK</button>
+        <button class="pin-btn"    id="btn-dwk-pin" onclick="toggleDwkPin()"       data-i18n-title="dwk_pin_title" title="DWK beim nächsten Modell-Laden fixieren">📌</button>
+        <button class="speed-btn active" id="dwk-state-closed" onclick="setDWKState('closed')" data-i18n="dwk_state_closed">Closed</button>
+        <button class="speed-btn"        id="dwk-state-open1"  onclick="setDWKState('open1')"  data-i18n="dwk_state_open1">Open 1</button>
+        <button class="speed-btn"        id="dwk-state-open2"  onclick="setDWKState('open2')"  data-i18n="dwk_state_open2">Open 2</button>
+      </div>
     </div>
   </div>
 
@@ -205,6 +212,18 @@
           </div>
         </div>
 
+        <div class="cdrop-section" id="cdrop-dwk-section" style="display:none">
+          <div class="cdrop-heading" data-i18n="colordrop_dwk">DWK door geometry</div>
+          <div class="cdrop-row">
+            <label data-i18n="colordrop_dwk_wg">Walk Geometry</label>
+            <input type="color" id="cdwk-wg"  value="#00aacc" oninput="updateDwkColor('wg', this.value)">
+          </div>
+          <div class="cdrop-row">
+            <label data-i18n="colordrop_dwk_dp">Door Position</label>
+            <input type="color" id="cdwk-dp"  value="#ffaa00" oninput="updateDwkColor('dp', this.value)">
+          </div>
+        </div>
+
         <div id="cdrop-empty" class="cdrop-empty" data-i18n="no_file_loaded">
           No file loaded
         </div>
@@ -249,6 +268,7 @@
 <script src="js/textures.js"></script>    <!-- Tex Functions --!>
 <script src="js/wok.js"></script>         <!-- WOK Functions --!>
 <script src="js/pwk.js"></script>         <!-- PWK Functions --!>
+<script src="js/dwk.js"></script>         <!-- DWK Functions --!>
 <script src="js/parser.js"></script>      <!-- Parser Functions --!>
 <script src="js/scene.js"></script>       <!-- Scene Functions --!>
 <script src="js/scene_build.js"></script> <!-- Scene Build Functions --!>
