@@ -79,9 +79,9 @@ No installation, no server — just open `index.html` locally or use it directly
 
 | Sign | Color | Meaning |
 |------|-------|---------|
-| ✕ | Red | Error (TGA/DDS parse, MDL, FileReader) |
-| ⚠ | Orange | Warning (missing texture, pending supermodel, …) |
-| · | Grey | Info |
+| $${\color{red}✕}$$ | $${\color{red}Red}$$ | Error (TGA/DDS parse, MDL, FileReader) |
+| $${\color{orange}⚠}$$ | $${\color{orange}Orange}$$ | Warning (missing texture, pending supermodel, …) |
+| $${\color{grey}·}$$ | $${\color{grey}Grey}$$ | Info |
 
 The panel opens automatically on errors; the badge counter lights up orange for warnings.
 
@@ -89,9 +89,9 @@ The panel opens automatically on errors; the badge counter lights up orange for 
 
 | Symbol | Color | Meaning |
 |--------|-------|---------|
-| ✓ | Gold | Texture loaded and active |
-| ? | Amber | Referenced in MTR, but file not loaded |
-| — | Grey | Slot not defined in MTR |
+| $${\color{gold}✓}$$ | $${\color{gold}Gold}$$ | Texture loaded and active |
+| $${\color{yellow}?}$$ | $${\color{yellow}Amber}$$ | Referenced in MTR, but file not loaded |
+| $${\color{grey}—}$$ | $${\color{grey}Grey}$$ | Slot not defined in MTR |
 
 ---
 
