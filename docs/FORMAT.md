@@ -36,6 +36,8 @@ donemodel <modelname>
 | `dummy` | Empty transform node, used for hierarchy/attachment points |
 | `trimesh` | Static triangle mesh (geometry) |
 | `skin` | Skinned/deformable mesh (for animated characters) |
+| `danglymesh` | Physics-simulated mesh (cloth, hair); per-vertex constraints define rigidity |
+| `animmesh` | Mesh with per-frame vertex/UV animation via `animverts` / `animtverts` |
 | `emitter` | Particle emitter |
 | `aabb` | Axis-aligned bounding box (walkmesh collision) |
 | `light` | Light source |
@@ -58,10 +60,12 @@ scale <float>
 
 ```
 bitmap <texturename>             # Texture (without extension)
+materialname <mtrname>           # MTR material file reference (Enhanced Edition)
 ambient <r> <g> <b>
 diffuse <r> <g> <b>
 specular <r> <g> <b>
 shininess <float>
+selfillumcolor <r> <g> <b>       # Self-illumination (emissive) colour; used by EFFECT-class models
 alpha <float>                    # 0.0 = transparent, 1.0 = opaque
 render <0|1>
 shadow <0|1>
@@ -91,10 +95,12 @@ faces <count>
 
 ## Coordinate System
 
-NWN uses a **right-handed** coordinate system:
-- **X** — right
-- **Y** — up (height)
-- **Z** — forward (into screen)
+NWN uses a **right-handed, Z-up** coordinate system:
+- **X** — right (east)
+- **Y** — forward (north)
+- **Z** — up (height)
+
+The viewer converts this to Three.js's Y-up convention internally by applying a `−90°` rotation around the X axis (`rotation.x = -π/2`).
 
 Angles in orientation quaternions: `(x, y, z, w)` — standard quaternion notation.  
 UV origin is **bottom-left** (V is flipped compared to OpenGL convention — the viewer corrects this automatically with `1 - v`).
@@ -123,8 +129,9 @@ NWN models can reference a **supermodel** for shared geometry/animations:
 setsupermodel c_human c_human_base
 ```
 
-The viewer currently loads only the directly specified file.  
-Supermodel chaining (loading the parent model automatically) is a planned feature.
+The viewer resolves `setsupermodel` references **when the parent file is dropped together** with the child model in the same file selection. The supermodel's nodes and animations are merged into the scene automatically.
+
+If the referenced supermodel file is not present in the drop, the viewer logs a warning and continues with the child model alone.
 
 ---
 
@@ -132,4 +139,4 @@ Supermodel chaining (loading the parent model automatically) is a planned featur
 
 - [NWN MDL format notes (Neverwinter Vault)](https://neverwintervault.org)
 - [nwneetools source](https://github.com/nwneetools/nwneetools) — reference C implementation
-- [NWNNSSCOMP / MDL compiler](https://github.com/nwneetools) — official Beamdog toolchain
+- [CleanModels EE](https://github.com/plenarius/cleanmodels/tree/v4-go-rewrite) — cross-platform MDL decompiler/repair tool (also embedded as WASM in this viewer)

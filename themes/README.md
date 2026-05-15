@@ -10,8 +10,8 @@ The viewer supports custom themes in JSON format. You can fully customize the ap
 2. Click on **📂 Custom…** in the dropdown next to the language selection. 
 3. Select your `.json` file.
 
-The theme is applied immediately and will automatically load as the "Default" upon the next start.
-**Note:** Custom themes are not saved when the browser is closed — you will need to reload them next time.
+The theme is applied immediately.
+**Note:** Custom themes are stored in `localStorage` and will be restored automatically on the next visit — as long as you use the same browser and have not cleared site data.
 
 ---
 
@@ -63,7 +63,7 @@ The same applies to `--gold` → `--gold-rgb`.
 
 ---
 
-### Akzentfarben
+### Accent Colors
 
 | Variable | Default | Description |
 |---|---|---|
@@ -117,7 +117,7 @@ The same applies to `--gold` → `--gold-rgb`.
 
 ---
 
-### Schriftgrößen
+### Font Sizes
 
 | Variable | Default | Description |
 |---|---|---|
@@ -127,6 +127,8 @@ The same applies to `--gold` → `--gold-rgb`.
 | `--font-size-tiny` | `9px` | Very small text (badges, speed buttons) |
 | `--font-size-log` | `12px` | Log panel text (entries, timestamp, toggle) |
 | `--font-size-node` | `12px` | Node names in the Scene Graph list (type badges scale automatically: `node - 2px`) |
+| `--font-size-label` | `10px` | Reserved for labels and panel titles — defined but not yet applied via `var()` in the stylesheet; setting this has no visible effect until the CSS is wired up. |
+| `--font-size-tiny` | `9px` | Reserved for very small text (badges, speed buttons) — same status as `--font-size-label`. |
 
 ---
 
@@ -177,6 +179,6 @@ You can copy and customize this template directly. Save it as `mein-theme.json`:
 ## Tips
 
 - **Farben** can be specified in any CSS color format: `#rrggbb`, `#rgb`, `rgb(r,g,b)`, `hsl(...)` etc.
-- **`--bg-rgb` and `--gold-rgb`** ust always be provided as comma-separated RGB numbers (without the `rgb()` wrapper), as they are used internally for semi-transparent backgrounds (e.g., `rgba(var(--bg-rgb), 0.85)`).
+- **`--bg-rgb` and `--gold-rgb`** must always be provided as comma-separated RGB numbers (without the `rgb()` wrapper), as they are used internally for semi-transparent backgrounds (e.g., `rgba(var(--bg-rgb), 0.85)`).
 - You can override only specific variables — any unlisted variables will retain their default values.
 - A good tool for choosing colors: [coolors.co](https://coolors.co) or the color picker in your operating system.
