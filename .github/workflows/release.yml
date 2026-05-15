@@ -65,7 +65,7 @@ jobs:
       - name: Rename dist file for release
         run: cp dist/index.html dist/nwn_mdl_webviewer.html
 
-      # Source ZIP: now includes wasm/ and scripts/ directories
+      # Source ZIP: now includes wasm/, scripts/, themes/ and docs/ directories
       - name: Create source ZIP
         run: |
           zip -r dist/nwn-mdl-webviewer-src.zip \
@@ -74,6 +74,8 @@ jobs:
             lang/ \
             wasm/ \
             scripts/ \
+            themes/ \
+            docs/ \
             index.html \
             build.py
 
@@ -108,7 +110,7 @@ jobs:
             | File | Description |
             |---|---|
             | `nwn_mdl_webviewer.html` | **Standalone Version** — simply open in your browser, no server required |
-            | `nwn-mdl-webviewer-src.zip` | Complete source code (HTML + CSS + JS + WASM + lang/) |
+            | `nwn-mdl-webviewer-src.zip` | Complete source code (HTML + CSS + JS + WASM + lang/ + themes/ + docs/) |
 
             ### Usage
             1. Download `nwn_mdl_webviewer.html`
