@@ -27,6 +27,13 @@ function parseNWNDDS(buffer) {
   const data = new Uint8Array(buffer);
   if (data.length < 20) throw new Error('DDS: Datei zu kurz');
 
+  // Standard-DDS erkennen: Magic "DDS " (0x44 0x44 0x53 0x20) bei Offset 0.
+  // NWN/Bioware Custom-DDS hat kein Magic — dort steht direkt die Breite.
+  // NWN:EE-Texturen (Normal Maps, Specular Maps) nutzen Standard-DDS mit ATI1/ATI2.
+  if (data[0] === 0x44 && data[1] === 0x44 && data[2] === 0x53 && data[3] === 0x20) {
+    return parseStandardDDS(buffer);
+  }
+
   const w      = data[0]|(data[1]<<8)|(data[2]<<16)|(data[3]<<24);
   const h      = data[4]|(data[5]<<8)|(data[6]<<16)|(data[7]<<24);
   const mip0sz = data[12]|(data[13]<<8)|(data[14]<<16)|(data[15]<<24);
@@ -128,6 +135,203 @@ function parseNWNDDS(buffer) {
   if (!tex.userData) tex.userData = {};
   tex.userData.hasAlpha = (fmt === 'DXT5');
   tex.needsUpdate=true;
+  return tex;
+}
+
+// ─────────────────────────────────────────────
+//  Standard-DDS-Parser  (NWN:EE — ATI1/BC4, ATI2/BC5, DXT1/DXT3/DXT5)
+//
+//  Standard-DDS-Header-Layout:
+//    [0-3]   "DDS "   Magic
+//    [4-7]   124      dwSize
+//    [8-11]           dwFlags
+//    [12-15]          dwHeight
+//    [16-19]          dwWidth
+//    ...
+//    [76-79]  32      DDS_PIXELFORMAT.dwSize
+//    [80-83]          DDS_PIXELFORMAT.dwFlags
+//    [84-87]          DDS_PIXELFORMAT.dwFourCC  ('ATI1','ATI2','DXT1',…)
+//    [128+]           Bilddaten (ohne DX10-Extension)
+//    [148+]           Bilddaten (mit DX10-Extension, FourCC='DX10')
+//
+//  ATI1 = BC4 (ein Kanal, z.B. Specular Map)
+//  ATI2 = BC5 (zwei Kanäle RG, z.B. Normal Map — Z wird rekonstruiert)
+// ─────────────────────────────────────────────
+function parseStandardDDS(buffer) {
+  const data = new Uint8Array(buffer);
+  const view = new DataView(buffer);
+
+  if (data.length < 128) throw new Error('DDS: Standard-Header zu kurz');
+
+  const dwHeight = view.getUint32(12, true);
+  const dwWidth  = view.getUint32(16, true);
+
+  if (dwWidth <= 0 || dwHeight <= 0 || dwWidth > 8192 || dwHeight > 8192)
+    throw new Error('DDS: Ungültige Auflösung ' + dwWidth + 'x' + dwHeight);
+
+  // FourCC aus Pixel-Format-Block (Offset 84)
+  const pfFourCC = String.fromCharCode(data[84], data[85], data[86], data[87]);
+
+  const w = dwWidth, h = dwHeight;
+  const blocksX = Math.max(1, Math.ceil(w / 4));
+  const blocksY = Math.max(1, Math.ceil(h / 4));
+  const pixels  = new Uint8ClampedArray(w * h * 4);
+
+  // DX10-Extension: zusätzliche 20 Bytes nach Standard-Header
+  const dataOffset = (pfFourCC === 'DX10') ? 148 : 128;
+
+  // ── BC4-Block-Decoder ────────────────────────────────────────────────────
+  // Identisch mit DXT5-Alpha-Block: 8 Bytes, ein Kanal, 16 interpolierte Werte.
+  // Wird für ATI1 (direkt) und ATI2 (zwei Mal pro Block) genutzt.
+  function decodeBC4Block(off) {
+    const a0 = data[off], a1 = data[off + 1];
+    const av = [a0, a1, 0, 0, 0, 0, 0, 0];
+    if (a0 > a1) {
+      for (let i = 2; i < 8; i++) av[i] = ((8-i)*a0 + (i-1)*a1) / 7 | 0;
+    } else {
+      for (let i = 2; i < 6; i++) av[i] = ((6-i)*a0 + (i-1)*a1) / 5 | 0;
+      av[6] = 0; av[7] = 255;
+    }
+    const b = [data[off+2], data[off+3], data[off+4], data[off+5], data[off+6], data[off+7]];
+    const result = new Uint8Array(16);
+    let bit = 0;
+    for (let i = 0; i < 16; i++) {
+      const byteIdx = Math.floor(bit / 8), shift = bit % 8;
+      let v = b[byteIdx] >> shift;
+      if (shift > 5) v |= (b[byteIdx + 1] << (8 - shift));
+      result[i] = av[v & 7];
+      bit += 3;
+    }
+    return result;
+  }
+
+  // ── rgb565 + DXT1-Block-Decoder (für Standard-DXT1/DXT3/DXT5) ───────────
+  function rgb565(v) {
+    return [((v>>11)&0x1F)*255/31|0, ((v>>5)&0x3F)*255/63|0, (v&0x1F)*255/31|0];
+  }
+
+  function decodeDXT1Block(off, bx, by, alphaOverride) {
+    const c0=data[off]|(data[off+1]<<8), c1=data[off+2]|(data[off+3]<<8);
+    const [r0,g0,b0]=rgb565(c0), [r1,g1,b1]=rgb565(c1);
+    const cr=[r0,r1,0,0], cg=[g0,g1,0,0], cb=[b0,b1,0,0], ca=[255,255,255,255];
+    if (c0>c1) {
+      cr[2]=(2*r0+r1)/3|0; cg[2]=(2*g0+g1)/3|0; cb[2]=(2*b0+b1)/3|0;
+      cr[3]=(r0+2*r1)/3|0; cg[3]=(g0+2*g1)/3|0; cb[3]=(b0+2*b1)/3|0;
+    } else {
+      cr[2]=(r0+r1)/2|0; cg[2]=(g0+g1)/2|0; cb[2]=(b0+b1)/2|0;
+      cr[3]=0; cg[3]=0; cb[3]=0; ca[3]=0;
+    }
+    let idx=data[off+4]|(data[off+5]<<8)|(data[off+6]<<16)|(data[off+7]<<24);
+    for (let py=0;py<4;py++) for (let px=0;px<4;px++) {
+      const dx=bx*4+px, dy=by*4+py;
+      if (dx<w&&dy<h) {
+        const i=idx&3, p=(dy*w+dx)*4;
+        pixels[p]=cr[i]; pixels[p+1]=cg[i]; pixels[p+2]=cb[i];
+        pixels[p+3]=alphaOverride ? alphaOverride[py*4+px] : ca[i];
+      }
+      idx>>>=2;
+    }
+  }
+
+  let hasAlpha   = false;
+  let isNormalMap = false;
+
+  if (pfFourCC === 'ATI1') {
+    // ── BC4: 8 Bytes/Block, ein Kanal (Specular, Greyscale) ─────────────
+    let off = dataOffset;
+    for (let by=0; by<blocksY; by++) for (let bx=0; bx<blocksX; bx++) {
+      const vals = decodeBC4Block(off);
+      for (let py=0; py<4; py++) for (let px=0; px<4; px++) {
+        const dx=bx*4+px, dy=by*4+py;
+        if (dx<w&&dy<h) {
+          const v=vals[py*4+px], p=(dy*w+dx)*4;
+          pixels[p]=v; pixels[p+1]=v; pixels[p+2]=v; pixels[p+3]=255;
+        }
+      }
+      off += 8;
+    }
+
+  } else if (pfFourCC === 'ATI2') {
+    // ── BC5: 16 Bytes/Block, zwei Kanäle R+G (Normal Map XY) ────────────
+    // Z-Komponente wird aus X und Y rekonstruiert: Z = sqrt(1 - X² - Y²)
+    isNormalMap = true;
+    let off = dataOffset;
+    for (let by=0; by<blocksY; by++) for (let bx=0; bx<blocksX; bx++) {
+      const rVals = decodeBC4Block(off);
+      const gVals = decodeBC4Block(off + 8);
+      for (let py=0; py<4; py++) for (let px=0; px<4; px++) {
+        const dx=bx*4+px, dy=by*4+py;
+        if (dx<w&&dy<h) {
+          const ri=rVals[py*4+px], gi=gVals[py*4+px];
+          // [0,255] → [-1,1] → Z berechnen → [0,255]
+          const rx=ri/127.5-1.0, ry=gi/127.5-1.0;
+          const rz=Math.sqrt(Math.max(0.0, 1.0-rx*rx-ry*ry));
+          const bi=Math.round((rz+1.0)*127.5);
+          const p=(dy*w+dx)*4;
+          pixels[p]=ri; pixels[p+1]=gi; pixels[p+2]=bi; pixels[p+3]=255;
+        }
+      }
+      off += 16;
+    }
+
+  } else if (pfFourCC === 'DXT1') {
+    // ── Standard DXT1: 8 Bytes/Block ────────────────────────────────────
+    let off = dataOffset;
+    for (let by=0; by<blocksY; by++) for (let bx=0; bx<blocksX; bx++) {
+      decodeDXT1Block(off, bx, by, null);
+      off += 8;
+    }
+
+  } else if (pfFourCC === 'DXT3') {
+    // ── Standard DXT3: expliziter 4-bit-Alpha + DXT1 (16 Bytes/Block) ───
+    hasAlpha = true;
+    let off = dataOffset;
+    for (let by=0; by<blocksY; by++) for (let bx=0; bx<blocksX; bx++) {
+      const alphas = new Uint8Array(16);
+      for (let i=0; i<8; i++) {
+        alphas[i*2]   = (data[off+i] & 0xF) * 17;   // 4-bit → 8-bit
+        alphas[i*2+1] = (data[off+i] >> 4)  * 17;
+      }
+      decodeDXT1Block(off + 8, bx, by, alphas);
+      off += 16;
+    }
+
+  } else if (pfFourCC === 'DXT5') {
+    // ── Standard DXT5: interpolierter Alpha-Block + DXT1 (16 Bytes/Block)
+    hasAlpha = true;
+    let off = dataOffset;
+    for (let by=0; by<blocksY; by++) for (let bx=0; bx<blocksX; bx++) {
+      // Alpha-Block = BC4-Block (identisches Format)
+      const alphas = decodeBC4Block(off);
+      decodeDXT1Block(off + 8, bx, by, alphas);
+      off += 16;
+    }
+
+  } else {
+    throw new Error('DDS: Nicht unterstütztes Format: "' + pfFourCC + '"');
+  }
+
+  // Vertikal spiegeln — Standard-DDS: top-to-bottom, Three.js flipY=false erwartet bottom-to-top
+  const rowBytes = w * 4;
+  const tmp = new Uint8ClampedArray(rowBytes);
+  for (let row=0; row<(h>>1); row++) {
+    const top=row*rowBytes, bot=(h-1-row)*rowBytes;
+    tmp.set(pixels.subarray(top, top+rowBytes));
+    pixels.copyWithin(top, bot, bot+rowBytes);
+    pixels.set(tmp, bot);
+  }
+
+  const cvs = document.createElement('canvas');
+  cvs.width = w; cvs.height = h;
+  cvs.getContext('2d').putImageData(new ImageData(pixels, w, h), 0, 0);
+  const tex = new THREE.CanvasTexture(cvs);
+  tex.flipY = false;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  if (!tex.userData) tex.userData = {};
+  tex.userData.hasAlpha    = hasAlpha;
+  tex.userData.isNormalMap = isNormalMap;
+  tex.needsUpdate = true;
   return tex;
 }
 

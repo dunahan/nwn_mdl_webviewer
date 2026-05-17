@@ -153,7 +153,8 @@ const I18N_BUNDLE = {
     log_em_error:         '[Emitter] "{name}" error: {msg}',
     log_em_tex_pending:   '(texture pending: "{tex}")',
     // multipart msg
-    log_char_part:        'Multi-Part: "{part}" merged into "{base}"',
+    log_multi_part:       'Multi-Part assembly: "{part}" merged into "{base}"',
+    log_char_part:        'Character assembly: "{part}" merged into "{base}"',
     log_char_assembly:    'Multi-Part model loading...',
     log_char_positioned:  'Character parts positioned via bounding-box stacking',
     log_char_skeleton:    'Base skeleton found: {name} — using exact attachment positions',
@@ -313,7 +314,8 @@ const I18N_BUNDLE = {
     log_em_error:         '[Emitter] "{name}" Fehler: {msg}',
     log_em_tex_pending:   '(Textur ausstehend: "{tex}")',
     // multipart msg
-    log_char_part:        'Multi-Part: "{part}" → "{base}" zusammengeführt',
+    log_multi_part:       'Multi-Part-Assembly: "{part}" → "{base}" zusammengeführt',
+    log_char_part:        'Charakter-Assembly: "{part}" → "{base}" zusammengeführt',
     log_char_assembly:    'Multi-Part Modell wird geladen...',
     log_char_positioned:  'Charakterteile per Bounding-Box gestapelt',
     log_char_skeleton:    'Basis-Skelett gefunden: {name} — exakte Attachment-Positionen werden verwendet',
