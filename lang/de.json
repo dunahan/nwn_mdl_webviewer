@@ -203,7 +203,8 @@
   "log_em_tex_pending":   "(Textur ausstehend: \"{tex}\")",
   "log_em_error":         "[Emitter] \"{name}\" Fehler: {msg}",
 
-  "log_char_part":        "Multi-Part: \"{part}\" → \"{base}\" zusammengeführt",
+  "log_multi_part":       "Multi-Part-Assembly: \"{part}\" → \"{base}\" zusammengeführt",
+  "log_char_part":        "Charakter-Assembly: \"{part}\" → \"{base}\" zusammengeführt",
   "log_char_assembly":    "Multi-Part Modell wird geladen...",
   "log_char_positioned":  "Charakterteile per Bounding-Box gestapelt",
   "log_char_skeleton":    "Basis-Skelett gefunden: {name} — exakte Attachment-Positionen werden verwendet",

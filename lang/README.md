@@ -50,7 +50,8 @@ Add `?lang=XX` to the URL, where `XX` is the filename without `.json`:
 | `cm_*` | Technical log messages for the cleanmodels WASM module. |
 | `wasm_*` | Status and error messages for the WASM decompiler module loading. |
 | `log_em_*` | Log messages for the particle Emitter system initialization and errors. |
-| `log_char_*` | Log messages for Multi-Part character/weapon assembly (part merging, skeleton attachment, bounding-box stacking). |
+| `log_multi_part` | Log message for generic Multi-Part assembly (e.g. weapon parts `_b_` / `_m_` / `_t_`). |
+| `log_char_*` | Log messages for Multi-Part character assembly (part merging, skeleton attachment, bounding-box stacking). |
 
 ### Placeholder Dictionary
 These variables are replaced dynamically at runtime and must not be translated.
@@ -107,10 +108,15 @@ When a binary MDL is loaded, the WASM decompiler goes through a sequence of load
 | `dcmp_phase_ready` | Module ready — shown briefly before decompilation starts |
 | `dcmp_phase_decompile` | Active decompilation of the MDL file |
 
-### Multi-Part Assembly (`log_char_*`)
-NWN character models can consist of multiple separate MDL parts (body, helmet, weapons, etc.) that are assembled at runtime. These keys cover the log output during that process.
-* **`log_char_assembly`**: Logged when the multi-part pipeline starts.
-* **`log_char_part`**: Logged for each part merged into the base model.
+### Multi-Part Assembly (`log_multi_part`, `log_char_*`)
+NWN models can consist of multiple separate MDL parts assembled at runtime. The viewer distinguishes two assembly types:
+
+**Generic Multi-Part (Fall C)** — e.g. weapon parts (`_b_` blade / `_m_` middle / `_t_` top):
+* **`log_multi_part`**: Logged for each part merged into the base model during generic assembly.
+
+**Character Multi-Part (Fall D)** — body parts of dynamic characters (chest, head, legs, …):
+* **`log_char_assembly`**: Logged when the character multi-part pipeline starts.
+* **`log_char_part`**: Logged for each character part merged into the base model.
 * **`log_char_positioned`**: Logged when parts are stacked via bounding-box fallback (no skeleton found).
 * **`log_char_skeleton`**: Logged when a base skeleton is found and exact bone attachment is used.
 * **`log_char_bone`**: Logged for each individual part-to-bone mapping with its Z-offset.

@@ -203,7 +203,8 @@
   "log_em_tex_pending":   "(texture pending: \"{tex}\")",
   "log_em_error":         "[Emitter] \"{name}\" error: {msg}",
 
-  "log_char_part":        "Multi-Part: \"{part}\" merged into \"{base}\"",
+  "log_multi_part":       "Multi-Part assembly: \"{part}\" merged into \"{base}\"",
+  "log_char_part":        "Character assembly: \"{part}\" merged into \"{base}\"",
   "log_char_assembly":    "Multi-Part model loading...",
   "log_char_positioned":  "Character parts positioned via bounding-box stacking",
   "log_char_skeleton":    "Base skeleton found: {name} — using exact attachment positions",
