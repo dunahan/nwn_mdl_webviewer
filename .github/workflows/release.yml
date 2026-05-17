@@ -41,8 +41,10 @@ jobs:
 
   # ── Job 2: Build & Release ─────────────────────────────────────────────────
   release:
-    needs: update-wasm   # Waits until update-wasm is completed
+    needs: update-wasm
     runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{ steps.tag.outputs.name }}
 
     steps:
       # Fresh checkout — important: update-wasm might have pushed a new commit
@@ -59,26 +61,6 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Run build script
-        run: python build.py
-
-      - name: Rename dist file for release
-        run: cp dist/index.html dist/nwn_mdl_webviewer.html
-
-      # Source ZIP: now includes wasm/, scripts/, themes/ and docs/ directories
-      - name: Create source ZIP
-        run: |
-          zip -r dist/nwn-mdl-webviewer-src.zip \
-            css/ \
-            js/ \
-            lang/ \
-            wasm/ \
-            scripts/ \
-            themes/ \
-            docs/ \
-            index.html \
-            build.py
-
       - name: Determine tag name
         id: tag
         run: |
@@ -87,6 +69,9 @@ jobs:
           else
             echo "name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
           fi
+
+      - name: Run build script
+        run: python build.py --version "${{ steps.tag.outputs.name }}"
 
       # WASM version info for the release notes
       - name: Determine WASM version
@@ -121,6 +106,8 @@ jobs:
             - ASCII MDL (decompiled with NWN Explorer or similar)
             - Binary MDL (automatically decompiled via cleanmodels WASM)
             - NWN/Bioware DDS (20-byte header, DXT1/DXT5)
+            - Standard DDS (ATI1/BC4, ATI2/BC5, DXT1/DXT3/DXT5) — NWN:EE Normal/Specular Maps
+            - MTR material files (Normal Mapping, Specular, Roughness, PBR parameters)
             - TGA (Type 2/10, 16/24/32-bit)
             - PLT (BioWare Palette Texture)
 
@@ -133,3 +120,15 @@ jobs:
           files: |
             dist/nwn_mdl_webviewer.html
             dist/nwn-mdl-webviewer-src.zip
+
+  # ── Job 3: Deploy to GitHub Pages ──────────────────────────────────────────
+  # Ruft pages.yml als reusable workflow auf und übergibt die bekannte Version.
+  # So landet immer die korrekte Versionsnummer auch auf GitHub Pages.
+  deploy-pages:
+    needs: release
+    uses: ./.github/workflows/pages.yml
+    with:
+      version: ${{ needs.release.outputs.tag_name }}
+    permissions:
+      pages: write
+      id-token: write

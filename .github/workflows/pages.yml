@@ -4,6 +4,18 @@ on:
   push:
     branches: [ "main", "master" ]
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version string to inject (e.g. v1.2.3). Falls back to latest git tag.'
+        required: false
+        default: ''
+  workflow_call:
+    inputs:
+      version:
+        description: 'Version string passed from release.yml'
+        type: string
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -23,6 +35,27 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # Alle Tags für git describe benötigt
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Determine version
+        id: ver
+        run: |
+          # Priorität: workflow_call/dispatch-Input → neuester Git-Tag → leer
+          VERSION="${{ inputs.version }}"
+          if [ -z "$VERSION" ]; then
+            VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          fi
+          echo "name=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Run build script
+        run: python build.py --version "${{ steps.ver.outputs.name }}"
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -30,8 +63,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload entire repository root (index.html must be at root)
-          path: '.'
+          path: './dist'
 
       - name: Deploy to GitHub Pages
         id: deployment
