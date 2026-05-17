@@ -61,7 +61,7 @@ def extract_js_order(html: str) -> list[str]:
     return files
 
 
-def build():
+def build(version: str = ''):
     DIST.mkdir(exist_ok=True)
 
     html = read(SRC)
@@ -69,6 +69,13 @@ def build():
     # ── 0. Derive JS order from HTML ─────────────────────────────────────────
     js_order = extract_js_order(html)
     print(f'  JS files ({len(js_order)}): {", ".join(js_order)}')
+
+    # ── 0.5. Inject version string ────────────────────────────────────────────
+    # index.html enthält den Platzhalter {{APP_VERSION}}.
+    # Bei lokalem Build ohne --version bleibt das Element leer (CSS: display:none).
+    html = html.replace('{{APP_VERSION}}', version)
+    if version:
+        print(f'  Version: {version}')
 
     # ── 1. Inline CSS ─────────────────────────────────────────────────────────
     css_content = read(CSS)
@@ -143,7 +150,15 @@ def build():
 
 
 if __name__ == '__main__':
-    if '--watch' in sys.argv:
+    # --version vX.Y.Z  → wird in den HTML-Platzhalter {{APP_VERSION}} eingesetzt
+    version = ''
+    argv = sys.argv[1:]
+    if '--version' in argv:
+        i = argv.index('--version')
+        if i + 1 < len(argv):
+            version = argv[i + 1]
+
+    if '--watch' in argv:
         try:
             from watchdog.observers import Observer
             from watchdog.events import FileSystemEventHandler
@@ -158,7 +173,7 @@ if __name__ == '__main__':
                     if event.src_path.endswith(('.html', '.css', '.js', '.json')):
                         print(f'  Changed: {event.src_path}')
                         try:
-                            build()
+                            build(version=version)
                         except Exception as e:
                             print(f'  Build error: {e}')
 
@@ -166,7 +181,7 @@ if __name__ == '__main__':
             observer.schedule(Handler(), str(ROOT), recursive=True)
             observer.start()
             print('Watching for changes… (Ctrl+C to stop)')
-            build()
+            build(version=version)
             try:
                 while True:
                     time.sleep(1)
@@ -177,4 +192,4 @@ if __name__ == '__main__':
             print('watchdog not installed. Run: pip install watchdog')
             sys.exit(1)
     else:
-        build()
+        build(version=version)
