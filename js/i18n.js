@@ -171,6 +171,16 @@ const I18N_BUNDLE = {
     dwk_loaded:           'DWK loaded: {nodes} mesh(es), {faces} face(s), {dp} door position(s).',
     dwk_no_geom:          'DWK: no geometry or door positions found.',
     err_dwk_load:         'DWK "{name}": {msg}',
+    // Hot-Reload (Texture Watch)
+    hr_btn_watch:         'Watch Folder',
+    hr_btn_stop:          'Stop Watch',
+    hr_watching:          'Watching: {n} file(s)',
+    hr_reloaded:          'Hot-Reload: {name} updated',
+    hr_not_supported:     'Hot-Reload requires Chrome or Edge.',
+    hr_dir_picked:        '{n} texture(s) found, watching…',
+    hr_no_textures:       'No texture files found in folder.',
+    hr_parse_error:       'Hot-Reload parse error: {name} — {msg}',
+    hr_tauri_not_impl:    '[HotReload] Tauri backend not yet implemented.',
   },
   de: {
     _meta: { language: 'Deutsch', code: 'de' },
@@ -332,6 +342,16 @@ const I18N_BUNDLE = {
     dwk_loaded:           'DWK geladen: {nodes} Mesh(es), {faces} Face(s), {dp} Türposition(en).',
     dwk_no_geom:          'DWK: keine Geometrie oder Türpositionen gefunden.',
     err_dwk_load:         'DWK „{name}": {msg}',
+    // Hot-Reload (Textur-Beobachtung)
+    hr_btn_watch:         'Ordner beobachten',
+    hr_btn_stop:          'Beobachtung stoppen',
+    hr_watching:          'Beobachte: {n} Datei(en)',
+    hr_reloaded:          'Hot-Reload: {name} aktualisiert',
+    hr_not_supported:     'Hot-Reload erfordert Chrome oder Edge.',
+    hr_dir_picked:        '{n} Textur(en) gefunden, Beobachtung aktiv…',
+    hr_no_textures:       'Keine Texturdateien im Ordner gefunden.',
+    hr_parse_error:       'Hot-Reload Parse-Fehler: {name} — {msg}',
+    hr_tauri_not_impl:    '[HotReload] Tauri-Backend noch nicht implementiert.',
   }
 };
 
