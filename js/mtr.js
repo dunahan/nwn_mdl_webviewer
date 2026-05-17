@@ -7,11 +7,13 @@ const mtrCache = {};
 
 function parseMTR(text) {
   const result = {
-    renderhint:   null,   // 'NormalAndSpecMapped' | 'NormalTangents' | null
-    textures:     {},     // index (0–10) → name (lowercase) | null
-    transparency: false,
-    twosided:     false,
-    params:       {},     // name → { type, values }
+    renderhint:    null,   // 'NormalAndSpecMapped' | 'NormalTangents' | null
+    textures:      {},     // index (0–10) → name (lowercase) | null
+    transparency:  false,
+    twosided:      false,
+    params:        {},     // name → { type, values }
+    customShaderVS: null,  // z.B. 'vslit_nm' — nur für Logging/zukünftige Nutzung
+    customShaderFS: null,  // z.B. 'fslit_nm'
   };
 
   const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
@@ -27,6 +29,12 @@ function parseMTR(text) {
 
     if (key === 'renderhint') {
       result.renderhint = parts[1] || null;
+
+    } else if (key === 'customshadervs') {
+      result.customShaderVS = parts[1] || null;
+
+    } else if (key === 'customshaderfs') {
+      result.customShaderFS = parts[1] || null;
 
     } else if (/^texture\d+$/.test(key)) {
       const idx = parseInt(key.replace('texture', ''));

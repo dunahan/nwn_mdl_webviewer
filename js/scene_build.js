@@ -86,43 +86,86 @@ function buildScene(model) {
         geo.userData.animVertCount  = node.tverts.length;
       }
 
+      // ── MTR-Lookup: materialname → MTR-Cache hat Vorrang vor bitmap ───────
+      // mtrCache ist in mtr.js global definiert und beim buildScene()-Aufruf
+      // bereits befüllt (Ladereihenfolge: Texturen+MTR → buildScene).
+      const mtrKey = node.materialname
+        ? node.materialname.toLowerCase()
+        : (node.bitmap ? node.bitmap.toLowerCase() : null);
+      const mtr = (mtrKey && typeof mtrCache !== 'undefined') ? (mtrCache[mtrKey] || null) : null;
+
+      // Effektiver renderhint: MTR überschreibt MDL-Node-Wert.
+      // Wichtig: NWN:EE setzt renderhint oft nur im MTR, nicht im MDL selbst.
+      const effectiveRenderhint = (mtr && mtr.renderhint)
+        ? mtr.renderhint
+        : (node.renderhint || '');
+
       // NEU — Tangenten berechnen wenn renderhint gesetzt
       // computeTangents() benötigt: position + normal + uv — alle vorhanden.
       // Skin-Meshes: einmalig in Bind-Pose, bleibt statisch während Animationen (akzeptabel für Viewer).
-      const needsTangents = node.renderhint &&
-        (node.renderhint.toLowerCase() === 'normalandspecmapped' ||
-         node.renderhint.toLowerCase() === 'normaltangents');
+      const needsTangents = effectiveRenderhint &&
+        (effectiveRenderhint.toLowerCase() === 'normalandspecmapped' ||
+         effectiveRenderhint.toLowerCase() === 'normaltangents');
       if (needsTangents) {
         geo.computeTangents();
         geo.userData.hasTangents = true;
       }
 
       const d = node.diffuse;
-      const bitmapKey = node.bitmap ? node.bitmap.toLowerCase() : '';
-      const tex = bitmapKey ? (textureCache[bitmapKey] || null) : null;
+
+      // Diffuse-Textur: MTR texture0 > node.bitmap
+      const diffuseKey = (mtr && mtr.textures[0])
+        ? mtr.textures[0].toLowerCase()
+        : (node.bitmap ? node.bitmap.toLowerCase() : '');
+      const tex = diffuseKey ? (textureCache[diffuseKey] || null) : null;
+
+      // Normal-Map: MTR texture1 (nur wenn Tangenten berechnet wurden — sonst sinnlos)
+      const normalTexKey = (mtr && mtr.textures[1] && needsTangents)
+        ? mtr.textures[1].toLowerCase() : null;
+      const normalTex = normalTexKey ? (textureCache[normalTexKey] || null) : null;
+
+      // Specular-Map → Roughness-Map (invertiert): MTR texture2
+      // invertSpecToRoughnessMap() ist in textures.js definiert; cache-Key mit Suffix
+      // damit die invertierte Version separat gecacht wird.
+      const specTexKey = (mtr && mtr.textures[2]) ? mtr.textures[2].toLowerCase() : null;
+      const specTex    = specTexKey ? (textureCache[specTexKey] || null) : null;
+      const roughTex   = specTex ? invertSpecToRoughnessMap(specTex, specTexKey + '_inv') : null;
+
+      // MTR-Parameter: Roughness und Specularity (names sind case-sensitive laut parseMTR)
+      const mtrRoughParam = mtr?.params?.['Roughness']?.values?.[0] ?? null;
+      const mtrSpecParam  = mtr?.params?.['Specularity']?.values?.[0] ?? null;
 
       // transparencyhint 1 → Textur hat Alpha-Kanal (Decals, Splotches, Pflanzen).
       // Nur anwenden wenn die Textur auch wirklich einen Alpha-Kanal hat (DXT5/32-bit TGA/PNG).
       // DXT1-Texturen haben keinen Alpha-Kanal — transparencyhint wäre ein Modellierfehler.
-      const texHasAlpha = tex ? (tex.userData.hasAlpha === true) : false;
+      const texHasAlpha  = tex ? (tex.userData.hasAlpha === true) : false;
       const useTexAlpha  = node.transparencyhint === 1 && texHasAlpha;
       const useMeshAlpha = node.alpha < 0.99;
+      const useMtrTrans  = mtr ? mtr.transparency : false;
 
-      // Update für r152
-      // Phong-Werte auf PBR abbilden:
-      //   shininess (0–128+) → roughness (1.0 = rau, 0.1 = glatt)
-      //   specular-Intensität → metalness (NWN-Modelle sind meist nicht-metallisch)
-      const roughness = Math.max(0.1, 1.0 - Math.min(node.shininess / 64.0, 0.9));
+      // Roughness + Metalness:
+      // Wenn roughnessMap vorhanden → scalar = Multiplikator (1.0 = Map volle Wirkung).
+      // Wenn kein roughnessMap → aus MDL-Phong-Werten konvertieren.
+      // MTR-Roughness-Parameter überschreibt beides wenn explizit gesetzt.
+      const roughness = roughTex
+        ? (mtrRoughParam !== null ? mtrRoughParam : 1.0)
+        : (mtrRoughParam !== null
+            ? mtrRoughParam
+            : Math.max(0.1, 1.0 - Math.min(node.shininess / 64.0, 0.9)));
       const specMax   = Math.max(node.specular[0], node.specular[1], node.specular[2]);
-      const metalness = Math.min(specMax * 1.5, 0.6);
+      const metalness = mtrSpecParam !== null
+        ? Math.min(mtrSpecParam * 0.4, 0.6)
+        : Math.min(specMax * 1.5, 0.6);
 
       const mat = new THREE.MeshStandardMaterial({
-        color:       tex ? new THREE.Color(1, 1, 1) : new THREE.Color(d[0] || 0.8, d[1] || 0.8, d[2] || 0.8),
-        map:         tex || null,
+        color:        tex ? new THREE.Color(1, 1, 1) : new THREE.Color(d[0] || 0.8, d[1] || 0.8, d[2] || 0.8),
+        map:          tex       || null,
+        normalMap:    normalTex || null,
+        roughnessMap: roughTex  || null,
         roughness,
         metalness,
         side:        THREE.DoubleSide,
-        transparent: useMeshAlpha || useTexAlpha,
+        transparent: useMeshAlpha || useTexAlpha || useMtrTrans,
         opacity:     node.alpha,
         alphaTest:   useTexAlpha ? 0.1 : 0,
         depthWrite:  !useTexAlpha,
@@ -130,8 +173,8 @@ function buildScene(model) {
 
       // Fallback-Farbe wenn kein Bitmap und diffuse ist schwarz
       if (!tex && d[0] === 0 && d[1] === 0 && d[2] === 0) mat.color.set(0x888888);
-      // Wenn Bitmap referenziert aber Textur noch nicht geladen: Hinweis-Farbe
-      if (node.bitmap && !tex) mat.color.set(nodeColor(node.type));
+      // Wenn Textur referenziert (via bitmap oder MTR texture0) aber noch nicht geladen: Hinweis-Farbe
+      if ((node.bitmap || (mtr && mtr.textures[0])) && !tex) mat.color.set(nodeColor(node.type));
 
       // selfillumcolor → Emissive (EFFECT-Modelle mit Eigenleuchten, z. B. vdr_globemin, vim_cntglobe)
       // WICHTIG: emissiveMap = tex setzen, damit die *Textur* selbst leuchtet und nicht
