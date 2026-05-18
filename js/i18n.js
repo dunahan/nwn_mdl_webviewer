@@ -181,6 +181,8 @@ const I18N_BUNDLE = {
     hr_no_textures:       'No texture files found in folder.',
     hr_parse_error:       'Hot-Reload parse error: {name} — {msg}',
     hr_tauri_not_impl:    '[HotReload] Tauri backend not yet implemented.',
+    hr_filled_missing:    '{n} missing texture(s) loaded from watch folder.',
+    hr_indicator_title:   'Texture is being watched for changes',
   },
   de: {
     _meta: { language: 'Deutsch', code: 'de' },
@@ -352,6 +354,8 @@ const I18N_BUNDLE = {
     hr_no_textures:       'Keine Texturdateien im Ordner gefunden.',
     hr_parse_error:       'Hot-Reload Parse-Fehler: {name} — {msg}',
     hr_tauri_not_impl:    '[HotReload] Tauri-Backend noch nicht implementiert.',
+    hr_filled_missing:    '{n} fehlende Textur(en) aus dem Beobachtungsordner geladen.',
+    hr_indicator_title:   'Textur wird auf Änderungen beobachtet',
   }
 };
 
