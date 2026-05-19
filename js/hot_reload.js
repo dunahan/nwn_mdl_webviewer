@@ -55,6 +55,10 @@ const HotReload = (() => {
   // Set: Keys die der User explizit angeklickt hat (hervorgehobener Zustand)
   const _selectedWatchKeys = new Set();
 
+  // FileSystemFileHandle des zuletzt per Drag & Drop geladenen MDL –
+  // wird als startIn-Hint für showDirectoryPicker() genutzt.
+  let _modelFileHandle = null;
+
   // ── Hilfsfunktion: Dateiname → basename + ext ────────────────────────────
   function _splitName(name) {
     const lower = name.toLowerCase();
@@ -127,7 +131,10 @@ const HotReload = (() => {
     // ── browser-fsa ──────────────────────────────────────────────────
     let dirHandle;
     try {
-      dirHandle = await window.showDirectoryPicker({ mode: 'read' });
+      dirHandle = await window.showDirectoryPicker({
+        mode:    'read',
+        startIn: _modelFileHandle ?? 'documents',
+      });
     } catch (_) {
       // User hat Dialog abgebrochen → still ignorieren
       return;
@@ -536,7 +543,13 @@ const HotReload = (() => {
     _updateIndicatorStates();
   }
 
-  return { init, toggle, getBackend, onModelLoaded };
+  // Von loader.js nach einem Drag & Drop aufgerufen.
+  // Speichert den MDL-FileHandle als Startordner-Hint für showDirectoryPicker().
+  function setModelFileHandle(handle) {
+    _modelFileHandle = handle;
+  }
+
+  return { init, toggle, getBackend, onModelLoaded, setModelFileHandle };
 
 })();
 

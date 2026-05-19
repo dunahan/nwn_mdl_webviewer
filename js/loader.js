@@ -998,8 +998,31 @@ function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
   viewport.addEventListener(ev, () => dropZone.classList.remove('drag-over'));
   dropZone.addEventListener(ev, () => dropZone.classList.remove('drag-over'));
 });
-viewport.addEventListener('drop', e => { loadFiles(e.dataTransfer.files); });
-dropZone.addEventListener('drop', e => { loadFiles(e.dataTransfer.files); });
+// Versucht den FileSystemFileHandle der MDL-Datei aus einem Drop-Event zu lesen
+// und übergibt ihn an HotReload als Startordner-Hint für showDirectoryPicker().
+// Nur in Chrome/Edge verfügbar (getAsFileSystemHandle); in anderen Browsern no-op.
+async function _captureModelHandle(items) {
+  if (typeof HotReload === 'undefined' || !items) return;
+  for (const item of items) {
+    if (item.kind !== 'file') continue;
+    try {
+      const handle = await item.getAsFileSystemHandle();
+      if (handle?.kind === 'file' && handle.name.toLowerCase().endsWith('.mdl')) {
+        HotReload.setModelFileHandle(handle);
+        break;
+      }
+    } catch (_) { /* API nicht verfügbar oder Zugriff verweigert */ }
+  }
+}
+
+viewport.addEventListener('drop', async e => {
+  await _captureModelHandle(e.dataTransfer.items);
+  loadFiles(e.dataTransfer.files);
+});
+dropZone.addEventListener('drop', async e => {
+  await _captureModelHandle(e.dataTransfer.items);
+  loadFiles(e.dataTransfer.files);
+});
 document.getElementById('file-input').addEventListener('change', e => { loadFiles(e.target.files); e.target.value=''; });
 
 // ─────────────────────────────────────────────
