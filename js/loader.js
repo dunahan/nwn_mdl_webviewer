@@ -1027,6 +1027,26 @@ dropZone.addEventListener('drop', e => {
 });
 document.getElementById('file-input').addEventListener('change', e => { loadFiles(e.target.files); e.target.value=''; });
 
+// ── Viewport Drag-Highlight (nur wenn Sidebar ausgeblendet) ──────────────
+// Zeigt einen goldenen Border-Ring + Label wenn Dateien über den Viewport
+// gezogen werden und die Sidebar collapsed ist.
+const _vpOverlay = document.getElementById('viewport-drag-overlay');
+
+viewport.addEventListener('dragover', () => {
+  if (document.getElementById('sidebar').classList.contains('collapsed')) {
+    _vpOverlay.classList.add('drag-active');
+  }
+});
+
+viewport.addEventListener('dragleave', e => {
+  // Nur deaktivieren wenn der Cursor den Viewport wirklich verlässt
+  if (!e.relatedTarget || !viewport.contains(e.relatedTarget)) {
+    _vpOverlay.classList.remove('drag-active');
+  }
+});
+
+viewport.addEventListener('drop', () => _vpOverlay.classList.remove('drag-active'));
+
 // ─────────────────────────────────────────────
 // ─────────────────────────────────────────────
 //  Decompile-Overlay

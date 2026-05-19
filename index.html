@@ -111,16 +111,6 @@
       </div>
     </div>
 
-    <!-- ── Texture Hot-Reload ── -->
-    <div id="hot-reload-panel">
-      <div class="ctrl-row" style="gap:6px">
-        <button class="toggle-btn" id="btn-hot-reload"
-                onclick="HotReload.toggle()"
-                data-i18n="hr_btn_watch">Watch Folder</button>
-        <span id="hot-reload-status"></span>
-      </div>
-    </div>
-
     <div id="controls-panel">
       <div class="ctrl-row">
         <span class="ctrl-label" data-i18n="ctrl_wireframe">Wireframe</span>
@@ -171,6 +161,11 @@
   <!-- ── Viewport ── -->
   <div id="viewport">
     <canvas id="canvas"></canvas>
+
+    <!-- ── Viewport Drag-Highlight (bei ausgeblendeter Sidebar) ── -->
+    <div id="viewport-drag-overlay">
+      <span id="viewport-drag-label" data-i18n="drop_title">Drop MDL + Textures here</span>
+    </div>
 
     <!-- ── Decompile-Overlay ── -->
     <div id="decompile-overlay">
@@ -289,6 +284,5 @@
 <script src="js/loader.js"></script>      <!-- Loader Functions --!>
 <script src="js/emitter.js"></script>     <!-- Particle Emitter Engine --!>
 <script src="js/animation.js"></script>   <!-- Animation Functions--!>
-<script src="js/hot_reload.js"></script>  <!-- Texture Hot-Reload --!>
 </body>
 </html>
