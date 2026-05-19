@@ -3,7 +3,7 @@
     "language": "English",
     "code": "en",
     "author": "",
-    "version": "1.3"
+    "version": "1.4"
   },
 
   "logo_subtitle":        "Neverwinter Nights 1 · Enhanced Edition",
@@ -219,5 +219,17 @@
   "pwk_no_geom":          "PWK: no geometry or interaction points found.",
 
   "dwk_loaded":           "DWK loaded: {nodes} mesh(es), {faces} face(s), {dp} door position(s).",
-  "dwk_no_geom":          "DWK: no geometry or door positions found."
+  "dwk_no_geom":          "DWK: no geometry or door positions found.",
+
+  "hr_btn_watch":         "Watch Folder",
+  "hr_btn_stop":          "Stop Watch",
+  "hr_watching":          "Watching: {n} file(s)",
+  "hr_reloaded":          "Hot-Reload: {name} updated",
+  "hr_not_supported":     "Hot-Reload requires Chrome or Edge.",
+  "hr_dir_picked":        "{n} texture(s) found, watching…",
+  "hr_no_textures":       "No texture files found in folder.",
+  "hr_parse_error":       "Hot-Reload parse error: {name} — {msg}",
+  "hr_filled_missing":    "{n} missing texture(s) loaded from watch folder.",
+  "hr_indicator_title":   "Texture is being watched for changes",
+  "hr_watching_node":     "Watching: {names}"
 }

@@ -44,6 +44,7 @@ function loadFiles(fileList) {
       loadAllMDLFiles(mdlFiles);
     } else if (currentModel) {
       const n = applyTexturesToScene();
+      if (typeof HotReload !== 'undefined') HotReload.onModelLoaded();
       resolveMissingTextures();
       setStatus(fmt('status_tex_applied', { n }));
     }
@@ -270,16 +271,40 @@ function mergeAnimationsFromSupermodel(mainModel, superModel) {
 // '__header__' ist der Zähler-Eintrag oben.
 const _missingTexEntries = {};
 
-function logMissingTextures(model) {
-  if (!model) return;
+// Gibt die Textur-Keys (lowercase, ohne Extension) eines einzelnen Nodes zurück.
+// Wird von hot_reload.js für die Node-Watch-Indikatoren im Szene-Graph genutzt.
+function getNodeTexKeys(node) {
+  const keys   = new Set();
+  const mtrKey = node.materialname
+    ? node.materialname.toLowerCase()
+    : (node.bitmap ? node.bitmap.toLowerCase() : null);
+  const mtr    = mtrKey ? (mtrCache[mtrKey] || null) : null;
 
-  // Alte Referenzen beim Neu-Laden verwerfen
-  for (const key of Object.keys(_missingTexEntries)) delete _missingTexEntries[key];
+  if (mtr) {
+    for (let i = 0; i <= 5; i++) {
+      if (mtr.textures[i]) keys.add(mtr.textures[i].toLowerCase());
+    }
+  } else {
+    if (node.bitmap) keys.add(node.bitmap.toLowerCase());
+    if (node.textures) {
+      for (const t of Object.values(node.textures)) {
+        if (t && t !== 'null') keys.add(t.toLowerCase());
+      }
+    }
+  }
+  if (node.emitterTexture) keys.add(node.emitterTexture.toLowerCase());
+  keys.delete('null');
+  keys.delete('');
+  return keys;
+}
 
+// Gibt alle vom Modell benötigten Textur-Keys (lowercase, ohne Extension) zurück.
+// Gemeinsame Basis für logMissingTextures() und HotReload._fillMissingTextures().
+function getNeededTextures(model) {
   const needed = new Set();
+  if (!model) return needed;
 
   for (const node of model.nodes) {
-    // MTR-Pfad: materialname → MTR-Cache → Textur-Slots prüfen
     const mtrKey = node.materialname
       ? node.materialname.toLowerCase()
       : (node.bitmap ? node.bitmap.toLowerCase() : null);
@@ -290,7 +315,6 @@ function logMissingTextures(model) {
         if (mtr.textures[i]) needed.add(mtr.textures[i].toLowerCase());
       }
     } else {
-      // Direkte Bitmap- und Textur-Slots aus dem MDL-Node
       if (node.bitmap) needed.add(node.bitmap.toLowerCase());
       if (node.textures) {
         for (const t of Object.values(node.textures)) {
@@ -298,15 +322,22 @@ function logMissingTextures(model) {
         }
       }
     }
-
-    // Emitter-Textur
     if (node.emitterTexture) needed.add(node.emitterTexture.toLowerCase());
   }
 
-  // Platzhalter und bereits geladene Texturen herausfiltern
-  const missing = [...needed].filter(
-    name => name && name !== 'null' && name !== '' && !textureCache[name]
-  ).sort();
+  needed.delete('null');
+  needed.delete('');
+  return needed;
+}
+
+function logMissingTextures(model) {
+  if (!model) return;
+
+  // Alte Referenzen beim Neu-Laden verwerfen
+  for (const key of Object.keys(_missingTexEntries)) delete _missingTexEntries[key];
+
+  const needed  = getNeededTextures(model);
+  const missing = [...needed].filter(name => !textureCache[name]).sort();
 
   const logEntries = document.getElementById('log-entries');
 
@@ -708,6 +739,7 @@ function loadAllMDLFiles(mdlFiles) {
           // ─────────────────────────────────────────────────────────────────────
 
           const n = applyTexturesToScene();
+          if (typeof HotReload !== 'undefined') HotReload.onModelLoaded();
           logMissingTextures(base);
           if (n > 0) setStatus(fmt('status_model_tex', { name: base.name, n }));
 
@@ -790,6 +822,7 @@ function loadAllMDLFiles(mdlFiles) {
 
           buildScene(base);
           const n = applyTexturesToScene();
+          if (typeof HotReload !== 'undefined') HotReload.onModelLoaded();
           logMissingTextures(base);
           if (n > 0) setStatus(fmt('status_model_tex', { name: base.name, n }));
           return;
@@ -853,6 +886,7 @@ function loadAllMDLFiles(mdlFiles) {
     // Szene mit der Geometrie des Hauptmodells aufbauen
     buildScene(mainModel);
     const n = applyTexturesToScene();
+    if (typeof HotReload !== 'undefined') HotReload.onModelLoaded();
     logMissingTextures(mainModel);
     if (n > 0) setStatus(fmt('status_model_tex', { name: mainModel.name, n }));
 
@@ -964,8 +998,31 @@ function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
   viewport.addEventListener(ev, () => dropZone.classList.remove('drag-over'));
   dropZone.addEventListener(ev, () => dropZone.classList.remove('drag-over'));
 });
-viewport.addEventListener('drop', e => { loadFiles(e.dataTransfer.files); });
-dropZone.addEventListener('drop', e => { loadFiles(e.dataTransfer.files); });
+// Versucht den FileSystemFileHandle der MDL-Datei aus einem Drop-Event zu lesen
+// und übergibt ihn an HotReload als Startordner-Hint für showDirectoryPicker().
+// Nur in Chrome/Edge verfügbar (getAsFileSystemHandle); in anderen Browsern no-op.
+async function _captureModelHandle(items) {
+  if (typeof HotReload === 'undefined' || !items) return;
+  for (const item of items) {
+    if (item.kind !== 'file') continue;
+    try {
+      const handle = await item.getAsFileSystemHandle();
+      if (handle?.kind === 'file' && handle.name.toLowerCase().endsWith('.mdl')) {
+        HotReload.setModelFileHandle(handle);
+        break;
+      }
+    } catch (_) { /* API nicht verfügbar oder Zugriff verweigert */ }
+  }
+}
+
+viewport.addEventListener('drop', async e => {
+  await _captureModelHandle(e.dataTransfer.items);
+  loadFiles(e.dataTransfer.files);
+});
+dropZone.addEventListener('drop', async e => {
+  await _captureModelHandle(e.dataTransfer.items);
+  loadFiles(e.dataTransfer.files);
+});
 document.getElementById('file-input').addEventListener('change', e => { loadFiles(e.target.files); e.target.value=''; });
 
 // ─────────────────────────────────────────────
