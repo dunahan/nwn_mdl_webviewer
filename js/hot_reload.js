@@ -181,6 +181,7 @@ const HotReload = (() => {
     if (_active) return;
     _active    = true;
     _pollTimer = setInterval(_poll, POLL_MS);
+    document.getElementById('node-list')?.classList.add('node-list-watching');
     _updateUI();
   }
 
@@ -189,6 +190,7 @@ const HotReload = (() => {
     _active = false;
     clearInterval(_pollTimer);
     _pollTimer = null;
+    document.getElementById('node-list')?.classList.remove('node-list-watching');
   }
 
   // ── Polling-Schleife (browser-fsa) ───────────────────────────────────────

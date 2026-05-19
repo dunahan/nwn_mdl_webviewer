@@ -1015,13 +1015,15 @@ async function _captureModelHandle(items) {
   }
 }
 
-viewport.addEventListener('drop', async e => {
-  await _captureModelHandle(e.dataTransfer.items);
-  loadFiles(e.dataTransfer.files);
+viewport.addEventListener('drop', e => {
+  const files = e.dataTransfer.files;          // synchron sichern, bevor DataTransfer gelöscht wird
+  _captureModelHandle(e.dataTransfer.items);   // fire-and-forget – Handle wird erst beim Picker gebraucht
+  loadFiles(files);
 });
-dropZone.addEventListener('drop', async e => {
-  await _captureModelHandle(e.dataTransfer.items);
-  loadFiles(e.dataTransfer.files);
+dropZone.addEventListener('drop', e => {
+  const files = e.dataTransfer.files;
+  _captureModelHandle(e.dataTransfer.items);
+  loadFiles(files);
 });
 document.getElementById('file-input').addEventListener('change', e => { loadFiles(e.target.files); e.target.value=''; });
 
