@@ -391,8 +391,8 @@ function updateTextureUI() {
   if (keys.length === 0) { panel.style.display = 'none'; return; }
   panel.style.display = 'block';
   list.innerHTML = keys.map(k =>
-    `<span style="color:var(--gold2)">✓</span> <span style="color:var(--text)">${k}</span>`
-  ).join('<br>');
+    `<span class="tex-entry" data-texkey="${k}"><span style="color:var(--gold2)">✓</span> <span style="color:var(--text)">${k}</span></span>`
+  ).join('');
 }
 
 // ─────────────────────────────────────────────

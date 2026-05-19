@@ -52,6 +52,9 @@ const HotReload = (() => {
   // Map: basename (lowercase, ohne ext) → { handle, ext, lastModified }
   const _watched = new Map();
 
+  // Set: Keys die der User explizit angeklickt hat (hervorgehobener Zustand)
+  const _selectedWatchKeys = new Set();
+
   // ── Hilfsfunktion: Dateiname → basename + ext ────────────────────────────
   function _splitName(name) {
     const lower = name.toLowerCase();
@@ -95,6 +98,7 @@ const HotReload = (() => {
       // Watcher läuft → stoppen und Handles verwerfen
       _backendStopWatch();
       _watched.clear();
+      _selectedWatchKeys.clear();
       _refreshNodeIndicators();
       _updateUI();
     } else {
@@ -130,6 +134,7 @@ const HotReload = (() => {
     }
 
     _watched.clear();
+    _selectedWatchKeys.clear();
     let count = 0;
 
     try {
@@ -391,10 +396,18 @@ const HotReload = (() => {
 
       if (isWatched) {
         if (!existing) {
+          const watchedKeys = [...getNodeTexKeys(node)].filter(k => _watched.has(k));
           const ind = document.createElement('span');
-          ind.className  = 'watch-indicator';
+          ind.className   = 'watch-indicator';
           ind.textContent = '↻';
-          ind.title       = L('hr_indicator_title');
+          // Tooltip: echte Textur-Dateinamen anzeigen
+          ind.title = watchedKeys
+            .map(k => k + '.' + (_watched.get(k)?.ext ?? ''))
+            .join('\n');
+          ind.onclick = (e) => {
+            e.stopPropagation();
+            _showWatchedTexInfo(watchedKeys);
+          };
           item.appendChild(ind);
         }
       } else {
@@ -421,6 +434,69 @@ const HotReload = (() => {
         void ind.offsetWidth;
         ind.classList.add('watch-flash');
       }
+    });
+  }
+
+  // Klick auf ↻: Selektion toggeln, Zustände aller Indikatoren aktualisieren,
+  // Texturliste hervorheben und Statuszeile setzen.
+  function _showWatchedTexInfo(watchedKeys) {
+    if (!watchedKeys.length) return;
+
+    // Toggle: waren alle angeklickten Keys bereits ausgewählt → abwählen, sonst auswählen
+    const allAlreadySelected = watchedKeys.every(k => _selectedWatchKeys.has(k));
+    if (allAlreadySelected) {
+      watchedKeys.forEach(k => _selectedWatchKeys.delete(k));
+    } else {
+      watchedKeys.forEach(k => _selectedWatchKeys.add(k));
+    }
+
+    _updateIndicatorStates();
+
+    // Statuszeile + Texturlisten-Highlight nur beim Auswählen (nicht beim Abwählen)
+    if (!allAlreadySelected) {
+      const names = watchedKeys
+        .map(k => k + '.' + (_watched.get(k)?.ext ?? ''))
+        .join(', ');
+      setStatus(fmt('hr_watching_node', { names }));
+
+      watchedKeys.forEach(k => {
+        const entry = document.querySelector(
+          `#texture-list .tex-entry[data-texkey="${CSS.escape(k)}"]`
+        );
+        if (!entry) return;
+        entry.classList.remove('tex-watch-highlight');
+        void entry.offsetWidth;
+        entry.classList.add('tex-watch-highlight');
+        entry.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      });
+    }
+  }
+
+  // Alle ↻-Indikatoren gemäß aktuellem Selektionszustand einfärben:
+  //   Keine Auswahl aktiv  → alle hellblau (Neutral)
+  //   Auswahl aktiv:
+  //     ausgewählte Keys   → gold (wi-selected)
+  //     alle anderen       → dunkles Blau (wi-dimmed)
+  function _updateIndicatorStates() {
+    const hasSelection = _selectedWatchKeys.size > 0;
+
+    document.querySelectorAll('.node-item').forEach(item => {
+      const ind = item.querySelector('.watch-indicator');
+      if (!ind) return;
+
+      ind.classList.remove('wi-selected', 'wi-dimmed');
+      if (!hasSelection) return;   // Neutral → keine Extra-Klasse
+
+      const nodeName = item.dataset.name;
+      const node = (typeof currentModel !== 'undefined' && currentModel)
+        ? currentModel.nodes.find(n => n.name === nodeName)
+        : null;
+
+      const isSelected = node &&
+        typeof getNodeTexKeys === 'function' &&
+        [...getNodeTexKeys(node)].some(k => _selectedWatchKeys.has(k));
+
+      ind.classList.add(isSelected ? 'wi-selected' : 'wi-dimmed');
     });
   }
 
@@ -456,7 +532,8 @@ const HotReload = (() => {
   function onModelLoaded() {
     if (!_active || _watched.size === 0) return;
     _fillMissingTextures();
-    _refreshNodeIndicators();   // Indikatoren für neu geladenes Modell setzen
+    _refreshNodeIndicators();
+    _updateIndicatorStates();
   }
 
   return { init, toggle, getBackend, onModelLoaded };

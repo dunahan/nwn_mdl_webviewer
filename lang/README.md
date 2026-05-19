@@ -30,7 +30,7 @@ Add `?lang=XX` to the URL, where `XX` is the filename without `.json`:
 
 ---
 
-## Key reference / Schlüssel-Referenz (v1.3)
+## Key reference / Schlüssel-Referenz (v1.4)
 
 | Key Group | Description |
 |-----------|-------------|
@@ -52,6 +52,7 @@ Add `?lang=XX` to the URL, where `XX` is the filename without `.json`:
 | `log_em_*` | Log messages for the particle Emitter system initialization and errors. |
 | `log_multi_part` | Log message for generic Multi-Part assembly (e.g. weapon parts `_b_` / `_m_` / `_t_`). |
 | `log_char_*` | Log messages for Multi-Part character assembly (part merging, skeleton attachment, bounding-box stacking). |
+| `hr_*` | Texture Hot-Reload feature (watch folder button, status messages, node indicator tooltip). |
 
 ### Placeholder Dictionary
 These variables are replaced dynamically at runtime and must not be translated.
@@ -76,6 +77,7 @@ These variables are replaced dynamically at runtime and must not be translated.
 | `{z}` | Z-position of an attachment point | "Part {part} → bone {bone} (Z: {z})" |
 | `{dp}` | Number of door positions in a DWK mesh | "DWK loaded: {nodes} mesh(es), {faces} face(s), {dp} door position(s)." |
 | `{pct}` | WASM download progress in percent | "Downloading WASM… {pct}%" |
+| `{names}` | Comma-separated list of watched texture filenames | "Watching: cube_diff.tga, cube_norm.tga" |
 
 ---
 
@@ -121,6 +123,25 @@ NWN models can consist of multiple separate MDL parts assembled at runtime. The 
 * **`log_char_skeleton`**: Logged when a base skeleton is found and exact bone attachment is used.
 * **`log_char_bone`**: Logged for each individual part-to-bone mapping with its Z-offset.
 
+### Texture Hot-Reload (`hr_*`)
+The viewer can watch a local folder for texture changes and automatically reload updated files without reloading the model. This feature requires Chrome or Edge (File System Access API).
+
+| Key | Description |
+|-----|-------------|
+| `hr_btn_watch` | Label for the "Watch Folder" button in the sidebar (inactive state). |
+| `hr_btn_stop` | Label for the same button when watching is active. |
+| `hr_watching` | Status text shown next to the button: number of watched files. Placeholder: `{n}`. |
+| `hr_reloaded` | Status bar message after a texture was successfully reloaded. Placeholder: `{name}`. |
+| `hr_not_supported` | Tooltip on the disabled button when the browser does not support the File System Access API. |
+| `hr_dir_picked` | Status message after a watch folder was selected, showing how many texture files were found. Placeholder: `{n}`. |
+| `hr_no_textures` | Status message when the selected folder contains no supported texture files (TGA/DDS/PLT). |
+| `hr_parse_error` | Log warning when a changed file could not be parsed. Placeholders: `{name}`, `{msg}`. |
+| `hr_filled_missing` | Status message after missing textures for the loaded model were automatically filled from the watch folder. Placeholder: `{n}`. |
+| `hr_indicator_title` | Tooltip text for the `↻` watch indicator icon shown next to nodes in the Scene Graph. |
+| `hr_watching_node` | Status bar message when the user clicks a `↻` indicator to inspect which textures are watched. Placeholder: `{names}` (comma-separated filenames). |
+
+**Note:** The `hr_tauri_not_impl` key exists in the built-in fallback strings but is intentionally omitted from the external JSON files — it is a developer-facing placeholder for a future Tauri desktop backend and does not require translation.
+
 ### Supermodel Logic (`super_*`)
 If a model references a Supermodel for animations, these strings guide the user to load the required additional `.mdl` files to enable animations.
 
@@ -141,7 +162,7 @@ NWN uses emitter nodes for particle effects. These keys cover the various physic
 
 | Datei | Sprache | Status |
 |-------|---------|--------|
-| `en.json` | English | Standard / Default (v1.3) |
-| `de.json` | Deutsch | Maintained (v1.3) |
+| `en.json` | English | Standard / Default (v1.4) |
+| `de.json` | Deutsch | Maintained (v1.4) |
 
 Contributions welcome — submit a pull request!

@@ -214,24 +214,49 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg);
 .vis-toggle:hover { color: var(--gold); }
 
 /* ── Hot-Reload Node-Indikator ── */
+/* Zustand 1 – Neutral: Ordner beobachtet, keine Auswahl */
 .watch-indicator {
   font-size: 13px;
   color: #4a9eca;
   flex-shrink: 0;
-  cursor: default;
+  cursor: pointer;
   line-height: 1;
   opacity: 0.75;
-  transition: opacity 0.2s;
+  transition: color 0.2s, opacity 0.2s;
 }
 .node-item:hover .watch-indicator { opacity: 1; }
 
-@keyframes watch-flash {
-  0%   { color: #4a9eca; opacity: 0.75; }
-  30%  { color: #a8d8f0; opacity: 1;    text-shadow: 0 0 6px #4a9eca; }
-  100% { color: #4a9eca; opacity: 0.75; text-shadow: none; }
+/* Zustand 2 – Ausgewählt: User hat diesen Node angeklickt */
+.watch-indicator.wi-selected {
+  color: var(--gold);
+  opacity: 1;
 }
+
+/* Zustand 3 – Gedimmt: andere sind ausgewählt, dieser nicht */
+.watch-indicator.wi-dimmed {
+  color: #1e4d6a;
+  opacity: 0.5;
+}
+
+@keyframes watch-flash {
+  0%   { opacity: 0.75; text-shadow: none; }
+  30%  { opacity: 1;    text-shadow: 0 0 6px currentColor; }
+  100% { opacity: 0.75; text-shadow: none; }
+}
+.watch-indicator.wi-selected.watch-flash,
 .watch-indicator.watch-flash {
   animation: watch-flash 0.7s ease-out forwards;
+}
+
+/* Texturlisten-Eintrag kurz hervorheben beim Klick auf ↻ */
+.tex-entry { display: block; }
+@keyframes tex-watch-highlight {
+  0%   { background: transparent; }
+  25%  { background: rgba(var(--gold-rgb), 0.2); border-radius: 3px; }
+  100% { background: transparent; }
+}
+.tex-entry.tex-watch-highlight {
+  animation: tex-watch-highlight 1.2s ease-out forwards;
 }
 
 /* ── Node-Visibility-Toolbar ── */
