@@ -73,6 +73,22 @@ jobs:
       - name: Run build script
         run: python build.py --version "${{ steps.tag.outputs.name }}"
 
+      - name: Rename dist file for release
+        run: cp dist/index.html dist/nwn_mdl_webviewer.html
+
+      - name: Create source ZIP
+        run: |
+          zip -r dist/nwn-mdl-webviewer-src.zip \
+            css/ \
+            js/ \
+            lang/ \
+            wasm/ \
+            scripts/ \
+            themes/ \
+            docs/ \
+            index.html \
+            build.py
+
       # WASM version info for the release notes
       - name: Determine WASM version
         id: wasm_ver
