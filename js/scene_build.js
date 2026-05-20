@@ -100,13 +100,55 @@ function buildScene(model) {
         ? mtr.renderhint
         : (node.renderhint || '');
 
-      // NEU — Tangenten berechnen wenn renderhint gesetzt
-      // computeTangents() benötigt: position + normal + uv — alle vorhanden.
-      // Skin-Meshes: einmalig in Bind-Pose, bleibt statisch während Animationen (akzeptabel für Viewer).
+      // Tangenten setzen wenn renderhint Normal-Mapping erfordert.
+      // Pfad A: MDL enthält bereits Tangenten → direkt unrollen (bevorzugt, exakte Autorendaten).
+      // Pfad B: Fallback via computeTangents() wenn keine Tangenten im MDL vorhanden.
       const needsTangents = effectiveRenderhint &&
         (effectiveRenderhint.toLowerCase() === 'normalandspecmapped' ||
          effectiveRenderhint.toLowerCase() === 'normaltangents');
-      if (needsTangents) {
+
+      // Pfad A — Parsed Tangents aus MDL nutzen
+      // Sanity-Check: Anzahl muss mit verts übereinstimmen, sonst Fallback
+      const hasParsedTangents = needsTangents &&
+        node.tangents && node.tangents.length > 0 &&
+        node.tangents.length === node.verts.length;
+
+      if (hasParsedTangents) {
+        // Tangenten in Flat-Array unrollen (Face-Vertex-Reihenfolge wie positions/normals).
+        // Three.js erwartet vec4: [tx, ty, tz, w] — w = Handedness (+1 / -1).
+        // w = sign(dot(cross(N, T), B))
+        const tangentArr = new Float32Array(node.faces.length * 3 * 4);
+        for (let fi = 0; fi < node.faces.length; fi++) {
+          const face = node.faces[fi];
+          for (let fk = 0; fk < 3; fk++) {
+            const vi = face.v[fk];
+            const tg = node.tangents[vi];
+            if (!tg) continue;
+            const [tx, ty, tz, bx, by, bz, nx, ny, nz] = tg;
+            // cross(N, T)
+            const cx = ny * tz - nz * ty;
+            const cy = nz * tx - nx * tz;
+            const cz = nx * ty - ny * tx;
+            const w = (cx * bx + cy * by + cz * bz) >= 0 ? 1 : -1;
+            const base = (fi * 3 + fk) * 4;
+            tangentArr[base + 0] = tx;
+            tangentArr[base + 1] = ty;
+            tangentArr[base + 2] = tz;
+            tangentArr[base + 3] = w;
+          }
+        }
+        geo.setAttribute('tangent', new THREE.BufferAttribute(tangentArr, 4));
+        geo.userData.hasTangents = true;
+
+      } else if (needsTangents) {
+        // Pfad B — Fallback: Tangenten berechnen.
+        // computeTangents() erfordert Index-Buffer → sequentiellen Index anlegen.
+        if (!geo.index) {
+          const n = positions.length / 3;
+          const idx = new Uint32Array(n);
+          for (let i = 0; i < n; i++) idx[i] = i;
+          geo.setIndex(new THREE.BufferAttribute(idx, 1));
+        }
         geo.computeTangents();
         geo.userData.hasTangents = true;
       }
@@ -347,8 +389,53 @@ function buildScene(model) {
 
       obj = group;
 
+    } else if (node.type === 'light') {
+      // ── Light-Node ────────────────────────────────────────────────────────
+      const group = new THREE.Group();
+
+      // Marker: kleine Kugel in Lichtfarbe (aufgehellt damit sichtbar)
+      const lc = node.lightColor;
+      const markerColor = new THREE.Color(
+        Math.max(lc[0], 0.45),
+        Math.max(lc[1], 0.45),
+        Math.max(lc[2], 0.45)
+      );
+      const sGeo = new THREE.SphereGeometry(0.05, 8, 6);
+      const sMat = new THREE.MeshBasicMaterial({ color: markerColor });
+      group.add(new THREE.Mesh(sGeo, sMat));
+
+      // Linienkreuz: zeigt Lichtposition im Raum an
+      const linePts = new Float32Array([
+        -0.13,0,0,  0.13,0,0,
+         0,-0.13,0,  0,0.13,0,
+         0,0,-0.13,  0,0,0.13,
+      ]);
+      const lGeo = new THREE.BufferGeometry();
+      lGeo.setAttribute('position', new THREE.Float32BufferAttribute(linePts, 3));
+      const lMat = new THREE.LineBasicMaterial({ color: markerColor, transparent: true, opacity: 0.55 });
+      group.add(new THREE.LineSegments(lGeo, lMat));
+
+      // Three.js-Licht anlegen
+      const lightColor = new THREE.Color(lc[0], lc[1], lc[2]);
+      let mdlLight;
+      if (node.lightAmbientOnly) {
+        // ambientonly → AmbientLight mit reduzierter Intensität (würde sonst Szene überfluten)
+        mdlLight = new THREE.AmbientLight(lightColor, node.lightMultiplier * 0.25);
+      } else {
+        // PointLight: decay=1 (linearer Abfall, näher an NWN-Verhalten als physikalisch korrekt)
+        mdlLight = new THREE.PointLight(lightColor, node.lightMultiplier, node.lightRadius, 1);
+        mdlLight.castShadow = false;   // Shadow von Modell-Lichtern zu teuer für Viewer
+      }
+      group.add(mdlLight);
+
+      // Referenz für animation.js (colorkey / radiuskey / multiplierkey)
+      group.userData.mdlLight      = mdlLight;
+      group.userData.isLightNode   = true;
+
+      obj = group;
+
     } else {
-      // Dummy / light / reference / etc → kleine Kugel
+      // Dummy / reference / unbekannte Typen → kleine Kugel
       const geo = new THREE.SphereGeometry(0.04, 6, 6);
       const mat = new THREE.MeshBasicMaterial({ color: nodeColor(node.type) });
       obj = new THREE.Mesh(geo, mat);

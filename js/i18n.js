@@ -144,7 +144,19 @@ const I18N_BUNDLE = {
     nd_em_grid:           'Sprite Grid',
     nd_em_grid_frame:     'frame',
     nd_em_birthrate_key:  '[animated]',
-    // Theme / misc errors
+    // Node Inspector — Light
+    nd_lt_section:        'Light',
+    nd_lt_color:          'Color',
+    nd_lt_radius:         'Radius',
+    nd_lt_multiplier:     'Multiplier',
+    nd_lt_ambient_only:   'Ambient Only',
+    nd_lt_ndynamic:       'Dyn. Type',
+    nd_lt_affect_dynamic: 'Affect Dynamic',
+    nd_lt_priority:       'Priority',
+    nd_lt_fading:         'Fading',
+    nd_lt_shadow:         'Shadow',
+    nd_lt_yes:            'yes',
+    nd_lt_no:             'no',
     err_theme_load:       'Theme error: {msg}',
     err_theme_variables:  'Field "variables" missing.',
     // Emitter log messages
@@ -318,7 +330,19 @@ const I18N_BUNDLE = {
     nd_em_grid:           'Sprite-Raster',
     nd_em_grid_frame:     'Frame',
     nd_em_birthrate_key:  '[animiert]',
-    // Theme / sonstige Fehler
+    // Node Inspector — Licht
+    nd_lt_section:        'Licht',
+    nd_lt_color:          'Farbe',
+    nd_lt_radius:         'Radius',
+    nd_lt_multiplier:     'Multiplikator',
+    nd_lt_ambient_only:   'Nur Umgebung',
+    nd_lt_ndynamic:       'Dyn. Typ',
+    nd_lt_affect_dynamic: 'Dyn. Berechnung',
+    nd_lt_priority:       'Priorität',
+    nd_lt_fading:         'Ausblenden',
+    nd_lt_shadow:         'Schatten',
+    nd_lt_yes:            'ja',
+    nd_lt_no:             'nein',
     err_theme_load:       'Theme-Fehler: {msg}',
     err_theme_variables:  'Feld "variables" fehlt.',
     // Log-Meldungen

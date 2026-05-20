@@ -21,9 +21,10 @@ function parseMDL(text) {
   while (i < lines.length) {
     const k = key(i);
     const t = tok(i);
-    if (k === 'newmodel')       model.name = t[1] || 'unknown';
-    else if (k === 'setsupermodel') model.supermodel = t[2] || '';
+    if (k === 'newmodel')            model.name = t[1] || 'unknown';
+    else if (k === 'setsupermodel')  model.supermodel = t[2] || '';
     else if (k === 'classification') model.classification = t[1] || 'unknown';
+    else if (k === 'setanimationscale') model.animationScale = parseFloat(t[1]) || 1.0;
     else if (k === 'beginmodelgeom') {
       i++;
       while (i < lines.length && key(i) !== 'endmodelgeom') {
@@ -55,13 +56,18 @@ function parseMDL(text) {
           const result = parseFullAnimNode(lines, i);
           anim.nodes[result.name] = result.data;
           // Rest-Pose aus erster Animation (Zeit=0)
-          if (model.animCount === 1 && (result.data.oriKeys.length > 0 || result.data.posKeys.length > 0)) {
+          if (model.animCount === 1 && (
+              result.data.oriKeys.length > 0 ||
+              result.data.posKeys.length > 0 ||
+              result.data.scaleKeys.length > 0)) {
             if (!model.restPose) model.restPose = {};
-            const firstOri = result.data.oriKeys[0];
-            const firstPos = result.data.posKeys[0];
+            const firstOri   = result.data.oriKeys[0];
+            const firstPos   = result.data.posKeys[0];
+            const firstScale = result.data.scaleKeys[0];
             model.restPose[result.name] = {
-              orientation: firstOri ? [firstOri.ax, firstOri.ay, firstOri.az, firstOri.angle] : null,
-              position:    firstPos ? [firstPos.x, firstPos.y, firstPos.z] : null,
+              orientation: firstOri   ? [firstOri.ax, firstOri.ay, firstOri.az, firstOri.angle] : null,
+              position:    firstPos   ? [firstPos.x, firstPos.y, firstPos.z] : null,
+              scale:       firstScale ? firstScale.s : null,
             };
           }
           i = result.next;
@@ -86,7 +92,7 @@ function parseFullAnimNode(lines, start) {
   const hdr = lines[start].trim().split(/\s+/);
   const name = hdr[2] || '';
   const data = {
-    posKeys: [], oriKeys: [], emitterKeys: {},
+    posKeys: [], oriKeys: [], scaleKeys: [], emitterKeys: {},
     samplePeriod: 0, animVerts: [], animTverts: [],  // animmesh UV/Vertex-Animation
   };
   let i = start + 1;
@@ -143,7 +149,13 @@ function parseFullAnimNode(lines, start) {
       data.posKeys = res.keys.map(k => ({ t: k.t, x: k.vals[0], y: k.vals[1], z: k.vals[2] }));
       i = res.next;
       continue;
-    } else if (k !== 'scalekey' && k.endsWith('key')) {
+    } else if (k === 'scalekey') {
+      const count = (t.length > 1 && !isNaN(parseInt(t[1]))) ? parseInt(t[1]) : 0;
+      const res = readAllKeys(i + 1, 1, count);
+      data.scaleKeys = res.keys.map(k => ({ t: k.t, s: k.vals[0] }));
+      i = res.next;
+      continue;
+    } else if (k.endsWith('key')) {
       // ── Generischer Emitter-Controller-Key ─────────────────────────────
       // Format: <baseName>key <count>
       //           <time> <val> [<val2> <val3>]
@@ -213,7 +225,7 @@ function parseNode(lines, start) {
     materialname: '',
     textures: {},     // index → name (aus MDL-Node, z.B. texture0, texture1 ...)
     renderhint: '',   // 'NormalAndSpecMapped' | 'NormalTangents' | ''
-    verts: [], tverts: [], normals: [], faces: [],
+    verts: [], tverts: [], normals: [], tangents: [], faces: [],
     ambient: [0.2, 0.2, 0.2],
     diffuse: [0.8, 0.8, 0.8],
     specular: [0, 0, 0],
@@ -245,6 +257,19 @@ function parseNode(lines, start) {
     frameStart: 0,
     frameEnd:   0,
     chunkName:  '',   // Chunk-Modell für Rock-Emitter (chunkName)
+    // ── Light-spezifische Properties ─────────────────────────────────────────
+    lightColor:         [1, 1, 1],  // [r, g, b] — Lichtfarbe
+    lightRadius:         5.0,       // Reichweite (Falloff-Distanz)
+    lightMultiplier:     1.0,       // Intensitäts-Multiplikator
+    lightAmbientOnly:    0,         // 1 → AmbientLight, 0 → PointLight
+    lightIsDynamic:      1,
+    lightNDynamicType:   0,         // nDynamicType: 0=none, 1=dynamic, 2=dynamic+shadow
+    lightAffectDynamic:  1,
+    lightPriority:       5,
+    lightFadingLight:    1,
+    lightShadow:         0,
+    lightGenerateFlare:  0,
+    lightFlareRadius:    0,
   };
 
   function tok(idx) { return lines[idx].trim().split(/\s+/).filter(x => x.length > 0); }
@@ -284,7 +309,7 @@ function parseNode(lines, start) {
       else node.render = parseInt(t[1]) || 0;
     }
     else if (k === 'alpha')             node.alpha = num(t[1]);
-    else if (k === 'selfillumcolor')    node.selfIllumColor = [num(t[1]), num(t[2]), num(t[3])];
+    else if (k === 'selfillumcolor' || k === 'setfillumcolor')    node.selfIllumColor = [num(t[1]), num(t[2]), num(t[3])];
     else if (k === 'tilefade')          node.tilefade = parseInt(t[1]) || 0;
     else if (k === 'transparencyhint')  node.transparencyhint = parseInt(t[1]) || 0;
     // ── Emitter-Properties ──────────────────────────────────────────────
@@ -316,6 +341,19 @@ function parseNode(lines, start) {
     else if (k === 'framestart')        node.frameStart = parseInt(t[1]) || 0;
     else if (k === 'frameend')          node.frameEnd   = parseInt(t[1]) || 0;
     else if (k === 'chunkname')         node.chunkName  = (t[1]||'').toLowerCase();
+    // ── Light-Properties (nur für node.type === 'light') ─────────────────────
+    else if (k === 'color'         && node.type === 'light') node.lightColor        = [num(t[1]), num(t[2]), num(t[3])];
+    else if (k === 'radius'        && node.type === 'light') node.lightRadius        = num(t[1]);
+    else if (k === 'multiplier')                             node.lightMultiplier    = num(t[1]);
+    else if (k === 'ambientonly')                            node.lightAmbientOnly   = parseInt(t[1]) || 0;
+    else if (k === 'isdynamic')                              node.lightIsDynamic     = parseInt(t[1]) || 0;
+    else if (k === 'ndynamictype')                           node.lightNDynamicType  = parseInt(t[1]) || 0;
+    else if (k === 'affectdynamic')                          node.lightAffectDynamic = parseInt(t[1]) || 0;
+    else if (k === 'lightpriority')                          node.lightPriority      = parseInt(t[1]) || 5;
+    else if (k === 'fadinglight')                            node.lightFadingLight   = parseInt(t[1]) || 1;
+    else if (k === 'shadow'        && node.type === 'light') node.lightShadow        = parseInt(t[1]) || 0;
+    else if (k === 'generateflare')                          node.lightGenerateFlare = parseInt(t[1]) || 0;
+    else if (k === 'flareradius')                            node.lightFlareRadius   = num(t[1]);
     else if (k === 'verts') {
       const count = parseInt(t[1]) || 0;
       for (let j = 0; j < count; j++) {
@@ -339,6 +377,19 @@ function parseNode(lines, start) {
         if (i >= lines.length) break;
         const vt = tok(i);
         if (vt.length >= 3) node.normals.push([num(vt[0]), num(vt[1]), num(vt[2])]);
+      }
+    } else if (k === 'tangents') {
+      // Pro Vertex: tx ty tz  bx by bz  nx ny nz  (Tangente, Binormale, Normale — je 3 Floats)
+      const count = parseInt(t[1]) || 0;
+      for (let j = 0; j < count; j++) {
+        i++;
+        if (i >= lines.length) break;
+        const vt = tok(i);
+        if (vt.length >= 9) node.tangents.push([
+          num(vt[0]), num(vt[1]), num(vt[2]),  // T  — Tangente
+          num(vt[3]), num(vt[4]), num(vt[5]),  // B  — Binormale
+          num(vt[6]), num(vt[7]), num(vt[8]),  // N  — Normale (im Tangent-Space)
+        ]);
       }
     } else if (k === 'faces') {
       const count = parseInt(t[1]) || 0;

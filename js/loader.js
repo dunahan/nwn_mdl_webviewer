@@ -232,6 +232,7 @@ function mergeAnimationsFromSupermodel(mainModel, superModel) {
   }
 
   const mainNodeNames = new Set(mainModel.nodes.map(n => n.name));
+  const animScale = mainModel.animationScale || 1.0;
 
   for (const anim of superModel.animations) {
     const remapped = { name: anim.name, length: anim.length, transtime: anim.transtime, nodes: {} };
@@ -239,7 +240,17 @@ function mergeAnimationsFromSupermodel(mainModel, superModel) {
       // Root-Node-Name remappen: supermodel.name → mainmodel.name
       const mapped = (nodeName === superModel.name) ? mainModel.name : nodeName;
       if (mainNodeNames.has(mapped) || mapped === mainModel.name) {
-        remapped.nodes[mapped] = data;
+        // posKeys ggf. skalieren — data-Objekt nicht mutieren (shared mit superModel)
+        if (animScale !== 1.0 && data.posKeys.length > 0) {
+          remapped.nodes[mapped] = {
+            ...data,
+            posKeys: data.posKeys.map(k => ({
+              t: k.t, x: k.x * animScale, y: k.y * animScale, z: k.z * animScale
+            }))
+          };
+        } else {
+          remapped.nodes[mapped] = data;
+        }
       }
     }
     mainModel.animations.push(remapped);
@@ -255,6 +266,7 @@ function mergeAnimationsFromSupermodel(mainModel, superModel) {
         mainModel.restPose[nodeName] = {
           orientation: firstOri ? [firstOri.ax, firstOri.ay, firstOri.az, firstOri.angle] : null,
           position:    firstPos ? [firstPos.x, firstPos.y, firstPos.z] : null,
+          // posKeys wurden beim Merge bereits skaliert — firstPos ist schon skaliert
         };
       }
     }
@@ -1026,6 +1038,26 @@ dropZone.addEventListener('drop', e => {
   loadFiles(files);
 });
 document.getElementById('file-input').addEventListener('change', e => { loadFiles(e.target.files); e.target.value=''; });
+
+// ── Viewport Drag-Highlight (nur wenn Sidebar ausgeblendet) ──────────────
+// Zeigt einen goldenen Border-Ring + Label wenn Dateien über den Viewport
+// gezogen werden und die Sidebar collapsed ist.
+const _vpOverlay = document.getElementById('viewport-drag-overlay');
+
+viewport.addEventListener('dragover', () => {
+  if (document.getElementById('sidebar').classList.contains('collapsed')) {
+    _vpOverlay.classList.add('drag-active');
+  }
+});
+
+viewport.addEventListener('dragleave', e => {
+  // Nur deaktivieren wenn der Cursor den Viewport wirklich verlässt
+  if (!e.relatedTarget || !viewport.contains(e.relatedTarget)) {
+    _vpOverlay.classList.remove('drag-active');
+  }
+});
+
+viewport.addEventListener('drop', () => _vpOverlay.classList.remove('drag-active'));
 
 // ─────────────────────────────────────────────
 // ─────────────────────────────────────────────

@@ -164,6 +164,22 @@ function selectNode(name) {
   let extraRows = '';
   if (n.type === 'danglymesh') {
     extraRows = '<div class="nd-row"><span>' + L('nd_dangle_info_label') + '</span><span class="nd-val">' + L('nd_dangle_info') + '</span></div>';
+  } else if (n.type === 'light') {
+    const _rgb = c => 'rgb(' + c.map(v => Math.round(v*255)).join(',') + ')';
+    const _sw  = 'display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:4px;vertical-align:middle;background:';
+    const swL  = '<span style="' + _sw + _rgb(n.lightColor) + '"></span>';
+    const yn   = v => v ? L('nd_lt_yes') : L('nd_lt_no');
+    extraRows =
+      '<div class="nd-section-header">' + L('nd_lt_section') + '</div>' +
+      '<div class="nd-row"><span>' + L('nd_lt_color')         + '</span><span class="nd-val">' + swL + n.lightColor.map(v => v.toFixed(3)).join(', ') + '</span></div>' +
+      '<div class="nd-row"><span>' + L('nd_lt_radius')        + '</span><span class="nd-val">' + n.lightRadius.toFixed(2) + '</span></div>' +
+      '<div class="nd-row"><span>' + L('nd_lt_multiplier')    + '</span><span class="nd-val">' + n.lightMultiplier.toFixed(2) + '</span></div>' +
+      '<div class="nd-row"><span>' + L('nd_lt_ambient_only')  + '</span><span class="nd-val">' + yn(n.lightAmbientOnly) + '</span></div>' +
+      '<div class="nd-row"><span>' + L('nd_lt_ndynamic')      + '</span><span class="nd-val">' + n.lightNDynamicType + '</span></div>' +
+      '<div class="nd-row"><span>' + L('nd_lt_affect_dynamic')+ '</span><span class="nd-val">' + yn(n.lightAffectDynamic) + '</span></div>' +
+      '<div class="nd-row"><span>' + L('nd_lt_priority')      + '</span><span class="nd-val">' + n.lightPriority + '</span></div>' +
+      '<div class="nd-row"><span>' + L('nd_lt_fading')        + '</span><span class="nd-val">' + yn(n.lightFadingLight) + '</span></div>' +
+      '<div class="nd-row"><span>' + L('nd_lt_shadow')        + '</span><span class="nd-val">' + yn(n.lightShadow) + '</span></div>';
   } else if (n.type === 'emitter') {
     const _rgb = c => 'rgb(' + c.map(v => Math.round(v*255)).join(',') + ')';
     const _sw  = 'display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:4px;vertical-align:middle;background:';
