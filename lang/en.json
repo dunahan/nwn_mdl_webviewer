@@ -3,7 +3,7 @@
     "language": "English",
     "code": "en",
     "author": "",
-    "version": "1.4"
+    "version": "1.4.1"
   },
 
   "logo_subtitle":        "Neverwinter Nights 1 · Enhanced Edition",
@@ -194,6 +194,19 @@
   "nd_em_grid":           "Sprite Grid",
   "nd_em_grid_frame":     "frame",
   "nd_em_birthrate_key":  "[animated]",
+
+  "nd_lt_section":        "Light",
+  "nd_lt_color":          "Color",
+  "nd_lt_radius":         "Radius",
+  "nd_lt_multiplier":     "Multiplier",
+  "nd_lt_ambient_only":   "Ambient Only",
+  "nd_lt_ndynamic":       "Dyn. Type",
+  "nd_lt_affect_dynamic": "Affect Dynamic",
+  "nd_lt_priority":       "Priority",
+  "nd_lt_fading":         "Fading",
+  "nd_lt_shadow":         "Shadow",
+  "nd_lt_yes":            "yes",
+  "nd_lt_no":             "no",
 
   "err_theme_load":       "Theme error: {msg}",
   "err_theme_variables":  "Field \"variables\" missing.",

@@ -19,8 +19,9 @@ function saveGeometryPose() {
   geometryPose = {};
   for (const [name, obj] of Object.entries(nodeObjects)) {
     geometryPose[name] = {
-      pos:  obj.position.clone(),
-      quat: obj.quaternion.clone(),
+      pos:   obj.position.clone(),
+      quat:  obj.quaternion.clone(),
+      scale: obj.scale.clone(),
     };
   }
 }
@@ -41,6 +42,18 @@ function lerpKeys(keys, time) {
   const a = keys[lo], b = keys[hi];
   const alpha = (b.t === a.t) ? 0 : (time - a.t) / (b.t - a.t);
   return { lo: a, hi: b, alpha };
+}
+
+// Interpolation für emitterKey-Arrays ({ t, vals[] }) — gibt interpoliertes vals-Array zurück.
+function lerpEmitterKey(keys, time) {
+  if (!keys || keys.length === 0) return null;
+  if (time <= keys[0].t) return keys[0].vals;
+  if (time >= keys[keys.length - 1].t) return keys[keys.length - 1].vals;
+  let lo = 0, hi = keys.length - 1;
+  while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (keys[mid].t <= time) lo = mid; else hi = mid; }
+  const a = keys[lo], b = keys[hi];
+  const frac = (b.t === a.t) ? 0 : (time - a.t) / (b.t - a.t);
+  return a.vals.map((v, i) => v + (b.vals[i] - v) * frac);
 }
 
 function applyAnimFrame(anim, time) {
@@ -74,6 +87,16 @@ function applyAnimFrame(anim, time) {
       }
     }
 
+    // Scale interpolieren (scalekey)
+    if (data.scaleKeys && data.scaleKeys.length > 0) {
+      const r = lerpKeys(data.scaleKeys, time);
+      if (r && r.alpha !== undefined) {
+        obj.scale.setScalar(r.lo.s + (r.hi.s - r.lo.s) * r.alpha);
+      } else if (r) {
+        obj.scale.setScalar(r.s);
+      }
+    }
+
     // Alpha interpolieren (alphakey — EFFECT-Modelle animieren Mesh-Transparenz)
     const aKeys = data.emitterKeys && data.emitterKeys.alpha;
     if (aKeys && aKeys.length > 0) {
@@ -95,6 +118,26 @@ function applyAnimFrame(anim, time) {
         mat.opacity     = alpha * (typeof meshOpacity === 'number' ? meshOpacity : 1.0);
         mat.transparent = true;
         mat.visible     = mat.opacity > 0.001;
+      }
+    }
+
+    // Licht-Properties animieren (colorkey, radiuskey, multiplierkey)
+    const mdlLight = obj.userData && obj.userData.mdlLight;
+    if (mdlLight && data.emitterKeys) {
+      const ck = data.emitterKeys.color;
+      if (ck && ck.length > 0) {
+        const v = lerpEmitterKey(ck, time);
+        if (v && v.length >= 3) mdlLight.color.setRGB(v[0], v[1], v[2]);
+      }
+      const rk = data.emitterKeys.radius;
+      if (rk && rk.length > 0) {
+        const v = lerpEmitterKey(rk, time);
+        if (v) mdlLight.distance = v[0];
+      }
+      const mk = data.emitterKeys.multiplier;
+      if (mk && mk.length > 0) {
+        const v = lerpEmitterKey(mk, time);
+        if (v) mdlLight.intensity = v[0];
       }
     }
 
@@ -140,6 +183,15 @@ function resetToPose() {
     if (!obj) continue;
     obj.position.copy(pose.pos);
     obj.quaternion.copy(pose.quat);
+    if (pose.scale) obj.scale.copy(pose.scale);
+    // Licht-Properties auf MDL-Basiswerte zurücksetzen
+    if (obj.userData && obj.userData.mdlLight && obj.userData.nodeData) {
+      const nd    = obj.userData.nodeData;
+      const light = obj.userData.mdlLight;
+      light.color.setRGB(nd.lightColor[0], nd.lightColor[1], nd.lightColor[2]);
+      light.distance  = nd.lightRadius;
+      light.intensity = nd.lightMultiplier;
+    }
     // animmesh: UVs in den Geometrie-Grundzustand zuruecksetzen,
     // damit beim Wechsel auf eine anim ohne animtverts kein veralteter Frame sichtbar bleibt.
     if (obj.geometry && obj.geometry.userData.baseUVs) {
@@ -233,6 +285,9 @@ function applyRestPose(model) {
       }
       if (restPose.position) {
         obj.position.set(...restPose.position);
+      }
+      if (restPose.scale != null) {
+        obj.scale.setScalar(restPose.scale);
       }
     }
   }

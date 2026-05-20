@@ -232,6 +232,7 @@ function mergeAnimationsFromSupermodel(mainModel, superModel) {
   }
 
   const mainNodeNames = new Set(mainModel.nodes.map(n => n.name));
+  const animScale = mainModel.animationScale || 1.0;
 
   for (const anim of superModel.animations) {
     const remapped = { name: anim.name, length: anim.length, transtime: anim.transtime, nodes: {} };
@@ -239,7 +240,17 @@ function mergeAnimationsFromSupermodel(mainModel, superModel) {
       // Root-Node-Name remappen: supermodel.name → mainmodel.name
       const mapped = (nodeName === superModel.name) ? mainModel.name : nodeName;
       if (mainNodeNames.has(mapped) || mapped === mainModel.name) {
-        remapped.nodes[mapped] = data;
+        // posKeys ggf. skalieren — data-Objekt nicht mutieren (shared mit superModel)
+        if (animScale !== 1.0 && data.posKeys.length > 0) {
+          remapped.nodes[mapped] = {
+            ...data,
+            posKeys: data.posKeys.map(k => ({
+              t: k.t, x: k.x * animScale, y: k.y * animScale, z: k.z * animScale
+            }))
+          };
+        } else {
+          remapped.nodes[mapped] = data;
+        }
       }
     }
     mainModel.animations.push(remapped);
@@ -255,6 +266,7 @@ function mergeAnimationsFromSupermodel(mainModel, superModel) {
         mainModel.restPose[nodeName] = {
           orientation: firstOri ? [firstOri.ax, firstOri.ay, firstOri.az, firstOri.angle] : null,
           position:    firstPos ? [firstPos.x, firstPos.y, firstPos.z] : null,
+          // posKeys wurden beim Merge bereits skaliert — firstPos ist schon skaliert
         };
       }
     }

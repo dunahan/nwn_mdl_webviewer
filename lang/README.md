@@ -41,6 +41,7 @@ Add `?lang=XX` to the URL, where `XX` is the filename without `.json`:
 | `anim_*` | Animation playback controls. |
 | `nd_*` | Node Detail panel (shows specific data for the selected node). |
 | `nd_em_*` | Particle Emitter specific properties in the Node Detail panel. |
+| `nd_lt_*` | Light properties in the Node Detail panel. |
 | `info_*` | Model Info panel (general statistics like vertex count). |
 | `status_*` | Bottom status bar messages (supports placeholders). |
 | `super_*` | Messages regarding Supermodel/Animation merging. |
@@ -81,7 +82,7 @@ These variables are replaced dynamically at runtime and must not be translated.
 
 ---
 
-## Detailed Feature Notes (v1.3)
+## Detailed Feature Notes (v1.4)
 
 ### Walkmesh & Collision (`colordrop_*`)
 These keys define labels for specialized mesh types.
