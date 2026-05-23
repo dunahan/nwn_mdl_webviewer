@@ -12,6 +12,20 @@ const NODE_COLORS = {
 };
 function nodeColor(type) { return NODE_COLORS[type] || 0x808080; }
 
+function refreshBBox() {
+  if (!modelGroup) return;
+
+  // Alten Helper entfernen
+  if (bboxHelper) { scene.remove(bboxHelper); bboxHelper = null; }
+
+  const box = new THREE.Box3().setFromObject(modelGroup);
+  if (box.isEmpty()) return;
+
+  bboxHelper = new THREE.Box3Helper(box, new THREE.Color(0xc8a44a));
+  bboxHelper.visible = document.getElementById('btn-bbox').classList.contains('active');
+  scene.add(bboxHelper);
+}
+
 function buildScene(model) {
   // modelGroup/wireGroup/bboxHelper wurden bereits durch clearSession() bereinigt.
   // (clearSession wird vor jedem MDL-Ladevorgang aufgerufen)
@@ -498,9 +512,11 @@ function buildScene(model) {
     orbit.initPhi    = orbit.phi;
 
     // BBox helper
-    bboxHelper = new THREE.Box3Helper(box, new THREE.Color(0xc8a44a));
+/*  bboxHelper = new THREE.Box3Helper(box, new THREE.Color(0xc8a44a));
     bboxHelper.visible = document.getElementById('btn-bbox').classList.contains('active');
-    scene.add(bboxHelper);
+    scene.add(bboxHelper);*/
+    
+    refreshBBox();
     
     // NEU: SkeletonHelper initialisieren
     skeletonHelper = new THREE.SkeletonHelper(modelGroup);
