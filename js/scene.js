@@ -12,9 +12,9 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.setClearColor(0x0a0c0f);
 
-// Update für r152
-// r152: ColorManagement ist standardmäßig true — hier explizit gesetzt.
-// Hex-Farben werden automatisch von sRGB nach Linear konvertiert.
+// Update for r152
+// r152: ColorManagement is true by default — explicitly set here.
+// Hex colors are automatically converted from sRGB to linear.
 THREE.ColorManagement.enabled = true;
 
 const scene  = new THREE.Scene();
@@ -22,27 +22,24 @@ const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 5000);
 camera.position.set(2, 2, 4);
 camera.lookAt(0, 0, 0);
 
-// Lights, updates für r152
-//const ambientLight = new THREE.AmbientLight(0xffffff, 0.35);
+// Lights, updates for r152
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambientLight);
 
-//const dirLight = new THREE.DirectionalLight(0xfff0d0, 1.0);
 const dirLight = new THREE.DirectionalLight(0xfff0d0, 1.4);
 dirLight.position.set(5, 10, 8);
 dirLight.castShadow = true;
 scene.add(dirLight);
 
-//const dirLight2 = new THREE.DirectionalLight(0xd0e0ff, 0.4);
 const dirLight2 = new THREE.DirectionalLight(0xd0e0ff, 0.6);
 dirLight2.position.set(-6, 3, -5);
 scene.add(dirLight2);
 
-// Grid, update für r152
+// Grid, update for r152
 const gridHelper = new THREE.GridHelper(10, 20, 0x4a5a6a, 0x3a4858);
 scene.add(gridHelper);
 
-// Undurchsichtiger Einschlagsboden (standardmäßig ausgeblendet)
+// Opaque Impact Surface (hidden by default)
 const floorGeo  = new THREE.PlaneGeometry(20, 20);
 const floorMat  = new THREE.MeshStandardMaterial({
   color:     0x1a1f26,
@@ -50,6 +47,7 @@ const floorMat  = new THREE.MeshStandardMaterial({
   metalness: 0.05,
   side:      THREE.FrontSide,
 });
+
 const floorMesh = new THREE.Mesh(floorGeo, floorMat);
 floorMesh.rotation.x = -Math.PI / 2;   // XY-Plane → horizontal
 floorMesh.receiveShadow = true;
@@ -70,10 +68,10 @@ let selectedNodeName = null;
 let wireOpacity = 0;
 let meshOpacity = 1.0;
 
-// Name des Supermodells das noch erwartet wird (null = keins ausstehend)
+// Name of the supermodel still expected (null = none pending)
 let pendingSupermodel = null;
 
-// Implementierung des SkeletonHelpers
+// Implementation of the SkeletonHelpers
 let skeletonHelper = null;
 
 // ─────────────────────────────────────────────
@@ -106,6 +104,7 @@ canvas.addEventListener('mousedown', e => {
   if (e.button === 1 || e.button === 2) { orbit.panning = true; }
   orbit.lastX = e.clientX; orbit.lastY = e.clientY;
 });
+
 window.addEventListener('mouseup', () => { orbit.dragging = false; orbit.panning = false; });
 window.addEventListener('mousemove', e => {
   const dx = e.clientX - orbit.lastX;
@@ -113,7 +112,7 @@ window.addEventListener('mousemove', e => {
   orbit.lastX = e.clientX; orbit.lastY = e.clientY;
   if (orbit.dragging) {
     orbit.theta -= dx * 0.007;
-    orbit.phi   += dy * 0.007;
+    orbit.phi   += (e.shiftKey ? -dy : dy) * 0.007;
     updateCamera();
   }
   if (orbit.panning) {
@@ -128,15 +127,17 @@ window.addEventListener('mousemove', e => {
     updateCamera();
   }
 });
+
 canvas.addEventListener('wheel', e => {
   orbit.radius *= 1 + e.deltaY * 0.001;
   updateCamera();
   e.preventDefault();
 }, { passive: false });
 canvas.addEventListener('contextmenu', e => e.preventDefault());
-// Touch support (1-Finger Orbit, 2-Finger Pinch-Zoom + Pan)
-let _pinchDist0  = null;  // Fingerabstand zu Beginn des Pinch
-let _pinchMidX   = null;  // Mittelpunkt X zu Beginn (2-Finger-Pan)
+
+// Touch support (1-finger orbit, 2-finger pinch-zoom + pan)
+let _pinchDist0  = null;  // Finger spacing at the start of the pinch
+let _pinchMidX   = null;  // Center Point X at Start (2-Finger Pan)
 let _pinchMidY   = null;
 
 canvas.addEventListener('touchstart', e => {
@@ -162,7 +163,7 @@ canvas.addEventListener('touchend', e => {
     _pinchDist0 = null;
     _pinchMidX  = null;
   } else if (e.touches.length === 1) {
-    // 2→1 Finger: Orbit neu initialisieren um Positionssprung zu vermeiden
+    // 2→1 Fingers: Reinitialize orbit to avoid a position jump.
     orbit.dragging = true;
     orbit.lastX    = e.touches[0].clientX;
     orbit.lastY    = e.touches[0].clientY;
@@ -188,13 +189,13 @@ canvas.addEventListener('touchmove', e => {
     const dist = Math.hypot(dx, dy);
 
     if (_pinchDist0 !== null && dist > 0) {
-      // Spreizen → kleiner radius → zoom in; Zusammenführen → zoom out
+      // Spread → smaller radius → zoom in; Pinch → zoom out
       orbit.radius *= _pinchDist0 / dist;
       updateCamera();
     }
     _pinchDist0 = dist;
 
-    // ── 2 Finger: Pan (Mittelpunkt-Verschiebung) ───────────────────────
+    // ── 2 Fingers: Pan (Shift Center) ─────────────────────────────────
     const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
     const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
     if (_pinchMidX !== null) {

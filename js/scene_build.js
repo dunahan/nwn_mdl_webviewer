@@ -4,18 +4,129 @@
 
 //  Build scene from parsed model
 // ─────────────────────────────────────────────
+
+// ─────────────────────────────────────────────
+//  Smoothing-Group-aware normal calculation
+//  (NWN / 3dsMax compatible)
+//
+//  Two faces smooth across a shared vertex if and only if
+//  (sgA & sgB) !== 0. sg === 0 means: no group → always
+//  hard edge (flat normal for this face).
+// ─────────────────────────────────────────────
+function computeSGNormals(node) {
+  const faces = node.faces;
+  const verts = node.verts;
+  const fCount = faces.length;
+
+  // 1. Calculate flat face normals
+  const faceNX = new Float32Array(fCount);
+  const faceNY = new Float32Array(fCount);
+  const faceNZ = new Float32Array(fCount);
+
+  for (let fi = 0; fi < fCount; fi++) {
+    const [a, b, c] = faces[fi].v;
+    const va = verts[a] || [0, 0, 0];
+    const vb = verts[b] || [0, 0, 0];
+    const vc = verts[c] || [0, 0, 0];
+    const e1x = vb[0] - va[0], e1y = vb[1] - va[1], e1z = vb[2] - va[2];
+    const e2x = vc[0] - va[0], e2y = vc[1] - va[1], e2z = vc[2] - va[2];
+    let nx = e1y * e2z - e1z * e2y;
+    let ny = e1z * e2x - e1x * e2z;
+    let nz = e1x * e2y - e1y * e2x;
+    const len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+    faceNX[fi] = nx / len; faceNY[fi] = ny / len; faceNZ[fi] = nz / len;
+  }
+
+  // 2. Vertex → List of faces using it
+  const vertFaces = new Array(verts.length);
+  for (let fi = 0; fi < fCount; fi++) {
+    for (let k = 0; k < 3; k++) {
+      const vi = faces[fi].v[k];
+      if (!vertFaces[vi]) vertFaces[vi] = [];
+      vertFaces[vi].push(fi);
+    }
+  }
+
+  // 3. Per vertex: Cluster faces by SG connectivity using Union-Find,
+  //    then average normals within each cluster.
+  const out = new Float32Array(fCount * 9);
+
+  for (let vi = 0; vi < verts.length; vi++) {
+    const fList = vertFaces[vi];
+    if (!fList) continue;
+    const n = fList.length;
+
+    // Union-Find
+    const parent = new Int32Array(n);
+    for (let i = 0; i < n; i++) parent[i] = i;
+
+    const _find = (x) => {
+      while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; }
+      return x;
+    };
+
+    for (let i = 0; i < n; i++) {
+      const sgi = faces[fList[i]].sg;
+      if (sgi === 0) continue;           // sg=0: isolated, never merge
+      for (let j = i + 1; j < n; j++) {
+        const sgj = faces[fList[j]].sg;
+        if (sgj === 0) continue;
+        if (sgi & sgj) {
+          const ri = _find(i), rj = _find(j);
+          if (ri !== rj) parent[ri] = rj;
+        }
+      }
+    }
+
+    // Accumulate cluster normals
+    const clNX = new Map(), clNY = new Map(), clNZ = new Map();
+    for (let i = 0; i < n; i++) {
+      // sg=0: each face gets a unique key → no merge
+      const key = (faces[fList[i]].sg === 0) ? ~i : _find(i);
+      clNX.set(key, (clNX.get(key) || 0) + faceNX[fList[i]]);
+      clNY.set(key, (clNY.get(key) || 0) + faceNY[fList[i]]);
+      clNZ.set(key, (clNZ.get(key) || 0) + faceNZ[fList[i]]);
+    }
+
+    // Normalize
+    const nrmX = new Map(), nrmY = new Map(), nrmZ = new Map();
+    for (const [key, nx] of clNX) {
+      const ny = clNY.get(key), nz = clNZ.get(key);
+      const len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+      nrmX.set(key, nx / len); nrmY.set(key, ny / len); nrmZ.set(key, nz / len);
+    }
+
+    // Write to exploded buffer
+    for (let i = 0; i < n; i++) {
+      const fi  = fList[i];
+      const key = (faces[fi].sg === 0) ? ~i : _find(i);
+      for (let k = 0; k < 3; k++) {
+        if (faces[fi].v[k] === vi) {
+          out[fi * 9 + k * 3 + 0] = nrmX.get(key);
+          out[fi * 9 + k * 3 + 1] = nrmY.get(key);
+          out[fi * 9 + k * 3 + 2] = nrmZ.get(key);
+          break;
+        }
+      }
+    }
+  }
+
+  return out;
+}
+
 const NODE_COLORS = {
   trimesh: 0x4a90c0, skin: 0xc070c0, dummy: 0x70b870,
   animmesh: 0x6ab84a,
   danglymesh: 0x50b8d0,
   emitter: 0xf0a030, aabb: 0xe8a020, light: 0xf8f050, reference: 0x80c0e0,
 };
+
 function nodeColor(type) { return NODE_COLORS[type] || 0x808080; }
 
 function refreshBBox() {
   if (!modelGroup) return;
 
-  // Alten Helper entfernen
+  // Remove old helper
   if (bboxHelper) { scene.remove(bboxHelper); bboxHelper = null; }
 
   const box = new THREE.Box3().setFromObject(modelGroup);
@@ -27,13 +138,13 @@ function refreshBBox() {
 }
 
 function buildScene(model) {
-  // modelGroup/wireGroup/bboxHelper wurden bereits durch clearSession() bereinigt.
-  // (clearSession wird vor jedem MDL-Ladevorgang aufgerufen)
+  // modelGroup/wireGroup/bboxHelper have already been cleared by clearSession().
+  // (clearSession is called before every MDL load)
 
   modelGroup = new THREE.Group();
 
-  // NWN verwendet Z-Up Koordinatensystem, Three.js erwartet Y-Up.
-  // Rotation um -90° an der X-Achse: NWN-Z wird zu Three.js-Y (oben).
+  // NWN uses a Z-up coordinate system, Three.js expects Y-up.
+  // Rotation by -90° on the X-axis: NWN-Z becomes Three.js-Y (up).
   const NWN_TO_THREEJS = -Math.PI / 2;
   modelGroup.rotation.x = NWN_TO_THREEJS;
 
@@ -79,15 +190,19 @@ function buildScene(model) {
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
       geo.setAttribute('uv',       new THREE.BufferAttribute(uvs, 2));
-      if (hasNormals) geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
-      else geo.computeVertexNormals();
 
-      // Basis-UVs sichern — wird beim Animationswechsel (resetToPose) benoetigt,
-      // damit animmesh-Nodes wieder in den Grundzustand zurueckkehren koennen.
+      if (hasNormals) {
+        geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+      } else {
+        geo.setAttribute('normal', new THREE.BufferAttribute(computeSGNormals(node), 3));
+      }
+
+      // Save base UVs — needed when changing animations (resetToPose),
+      // so animmesh nodes can return to their base state.
       geo.userData.baseUVs = uvs.slice();
 
-      // animmesh: Face->Tvert-Mapping fuer UV-Animation speichern.
-      // animation.js berechnet daraus pro Frame die korrekten UV-Koordinaten.
+      // animmesh: Store Face->Tvert mapping for UV animation.
+      // animation.js uses this to calculate the correct UV coordinates per frame.
       if (node.type === 'animmesh') {
         const faceTverts = new Int16Array(node.faces.length * 3);
         for (let fi = 0; fi < node.faces.length; fi++) {
@@ -100,36 +215,36 @@ function buildScene(model) {
         geo.userData.animVertCount  = node.tverts.length;
       }
 
-      // ── MTR-Lookup: materialname → MTR-Cache hat Vorrang vor bitmap ───────
-      // mtrCache ist in mtr.js global definiert und beim buildScene()-Aufruf
-      // bereits befüllt (Ladereihenfolge: Texturen+MTR → buildScene).
+      // ── MTR-Lookup: materialname → MTR cache takes precedence over bitmap ───────
+      // mtrCache is defined globally in mtr.js and is already populated
+      // when buildScene() is called (Load order: Textures+MTR → buildScene).
       const mtrKey = node.materialname
         ? node.materialname.toLowerCase()
         : (node.bitmap ? node.bitmap.toLowerCase() : null);
       const mtr = (mtrKey && typeof mtrCache !== 'undefined') ? (mtrCache[mtrKey] || null) : null;
 
-      // Effektiver renderhint: MTR überschreibt MDL-Node-Wert.
-      // Wichtig: NWN:EE setzt renderhint oft nur im MTR, nicht im MDL selbst.
+      // Effective renderhint: MTR overwrites MDL node value.
+      // Important: NWN:EE often sets renderhint only in the MTR, not in the MDL itself.
       const effectiveRenderhint = (mtr && mtr.renderhint)
         ? mtr.renderhint
         : (node.renderhint || '');
 
-      // Tangenten setzen wenn renderhint Normal-Mapping erfordert.
-      // Pfad A: MDL enthält bereits Tangenten → direkt unrollen (bevorzugt, exakte Autorendaten).
-      // Pfad B: Fallback via computeTangents() wenn keine Tangenten im MDL vorhanden.
+      // Set tangents if renderhint requires normal mapping.
+      // Path A: MDL already contains tangents → unroll directly (preferred, exact author data).
+      // Path B: Fallback via computeTangents() if no tangents are present in the MDL.
       const needsTangents = effectiveRenderhint &&
         (effectiveRenderhint.toLowerCase() === 'normalandspecmapped' ||
          effectiveRenderhint.toLowerCase() === 'normaltangents');
 
-      // Pfad A — Parsed Tangents aus MDL nutzen
-      // Sanity-Check: Anzahl muss mit verts übereinstimmen, sonst Fallback
+      // Path A — Use parsed tangents from MDL
+      // Sanity check: Count must match verts, otherwise fallback
       const hasParsedTangents = needsTangents &&
         node.tangents && node.tangents.length > 0 &&
         node.tangents.length === node.verts.length;
 
       if (hasParsedTangents) {
-        // Tangenten in Flat-Array unrollen (Face-Vertex-Reihenfolge wie positions/normals).
-        // Three.js erwartet vec4: [tx, ty, tz, w] — w = Handedness (+1 / -1).
+        // Unroll tangents into flat array (Face-Vertex order like positions/normals).
+        // Three.js expects vec4: [tx, ty, tz, w] — w = Handedness (+1 / -1).
         // w = sign(dot(cross(N, T), B))
         const tangentArr = new Float32Array(node.faces.length * 3 * 4);
         for (let fi = 0; fi < node.faces.length; fi++) {
@@ -155,8 +270,8 @@ function buildScene(model) {
         geo.userData.hasTangents = true;
 
       } else if (needsTangents) {
-        // Pfad B — Fallback: Tangenten berechnen.
-        // computeTangents() erfordert Index-Buffer → sequentiellen Index anlegen.
+        // Path B — Fallback: Calculate tangents.
+        // computeTangents() requires an index buffer → create sequential index.
         if (!geo.index) {
           const n = positions.length / 3;
           const idx = new Uint32Array(n);
@@ -169,40 +284,40 @@ function buildScene(model) {
 
       const d = node.diffuse;
 
-      // Diffuse-Textur: MTR texture0 > node.bitmap
+      // Diffuse texture: MTR texture0 > node.bitmap
       const diffuseKey = (mtr && mtr.textures[0])
         ? mtr.textures[0].toLowerCase()
         : (node.bitmap ? node.bitmap.toLowerCase() : '');
       const tex = diffuseKey ? (textureCache[diffuseKey] || null) : null;
 
-      // Normal-Map: MTR texture1 (nur wenn Tangenten berechnet wurden — sonst sinnlos)
+      // Normal map: MTR texture1 (only if tangents were calculated — otherwise pointless)
       const normalTexKey = (mtr && mtr.textures[1] && needsTangents)
         ? mtr.textures[1].toLowerCase() : null;
       const normalTex = normalTexKey ? (textureCache[normalTexKey] || null) : null;
 
-      // Specular-Map → Roughness-Map (invertiert): MTR texture2
-      // invertSpecToRoughnessMap() ist in textures.js definiert; cache-Key mit Suffix
-      // damit die invertierte Version separat gecacht wird.
+      // Specular map → Roughness map (inverted): MTR texture2
+      // invertSpecToRoughnessMap() is defined in textures.js; cache key with suffix
+      // so the inverted version is cached separately.
       const specTexKey = (mtr && mtr.textures[2]) ? mtr.textures[2].toLowerCase() : null;
       const specTex    = specTexKey ? (textureCache[specTexKey] || null) : null;
       const roughTex   = specTex ? invertSpecToRoughnessMap(specTex, specTexKey + '_inv') : null;
 
-      // MTR-Parameter: Roughness und Specularity (names sind case-sensitive laut parseMTR)
+      // MTR parameters: Roughness and Specularity (names are case-sensitive according to parseMTR)
       const mtrRoughParam = mtr?.params?.['Roughness']?.values?.[0] ?? null;
       const mtrSpecParam  = mtr?.params?.['Specularity']?.values?.[0] ?? null;
 
-      // transparencyhint 1 → Textur hat Alpha-Kanal (Decals, Splotches, Pflanzen).
-      // Nur anwenden wenn die Textur auch wirklich einen Alpha-Kanal hat (DXT5/32-bit TGA/PNG).
-      // DXT1-Texturen haben keinen Alpha-Kanal — transparencyhint wäre ein Modellierfehler.
+      // transparencyhint 1 → Texture has an alpha channel (Decals, Splotches, Plants).
+      // Only apply if the texture actually has an alpha channel (DXT5/32-bit TGA/PNG).
+      // DXT1 textures have no alpha channel — transparencyhint would be a modeling error.
       const texHasAlpha  = tex ? (tex.userData.hasAlpha === true) : false;
       const useTexAlpha  = node.transparencyhint === 1 && texHasAlpha;
       const useMeshAlpha = node.alpha < 0.99;
       const useMtrTrans  = mtr ? mtr.transparency : false;
 
       // Roughness + Metalness:
-      // Wenn roughnessMap vorhanden → scalar = Multiplikator (1.0 = Map volle Wirkung).
-      // Wenn kein roughnessMap → aus MDL-Phong-Werten konvertieren.
-      // MTR-Roughness-Parameter überschreibt beides wenn explizit gesetzt.
+      // If roughnessMap is present → scalar = multiplier (1.0 = map has full effect).
+      // If no roughnessMap → convert from MDL Phong values.
+      // MTR Roughness parameter overwrites both if explicitly set.
       const roughness = roughTex
         ? (mtrRoughParam !== null ? mtrRoughParam : 1.0)
         : (mtrRoughParam !== null
@@ -227,14 +342,14 @@ function buildScene(model) {
         depthWrite:  !useTexAlpha,
       });
 
-      // Fallback-Farbe wenn kein Bitmap und diffuse ist schwarz
+      // Fallback color if no bitmap and diffuse is black
       if (!tex && d[0] === 0 && d[1] === 0 && d[2] === 0) mat.color.set(0x888888);
-      // Wenn Textur referenziert (via bitmap oder MTR texture0) aber noch nicht geladen: Hinweis-Farbe
+      // If texture is referenced (via bitmap or MTR texture0) but not yet loaded: Hint color
       if ((node.bitmap || (mtr && mtr.textures[0])) && !tex) mat.color.set(nodeColor(node.type));
 
-      // selfillumcolor → Emissive (EFFECT-Modelle mit Eigenleuchten, z. B. vdr_globemin, vim_cntglobe)
-      // WICHTIG: emissiveMap = tex setzen, damit die *Textur* selbst leuchtet und nicht
-      // das gesamte Material weiß wird (mat.emissive ohne Map = Vollfarbe über alles).
+      // selfillumcolor → Emissive (EFFECT models with self-illumination, e.g., vdr_globemin, vim_cntglobe)
+      // IMPORTANT: Set emissiveMap = tex, so the *texture* itself glows and not
+      // the entire material turns white (mat.emissive without Map = solid color over everything).
       if (node.selfIllumColor) {
         const [sr, sg, sb] = node.selfIllumColor;
         if ((sr > 0 || sg > 0 || sb > 0) && tex) {
@@ -247,28 +362,28 @@ function buildScene(model) {
       const mesh = new THREE.Mesh(geo, mat);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
-      // Originalwerte merken — wird von updateMeshOpacity zum Zurücksetzen genutzt
+      // Store original values — used by updateMeshOpacity to reset
       mesh.userData.baseOpacity     = node.alpha;
       mesh.userData.baseTransparent = useMeshAlpha || useTexAlpha;
       mesh.userData.baseDepthWrite  = !useTexAlpha;
       obj = mesh;
 
-      // Wireframe-Overlay: als Kind des eigentlichen Mesh einhängen,
-      // damit es die komplette Transformations-Hierarchie automatisch erbt.
+      // Wireframe overlay: attach as child of the main mesh,
+      // so it automatically inherits the entire transformation hierarchy.
       const wireMat = new THREE.MeshBasicMaterial({
         color: 0xffffff, wireframe: true, transparent: true, opacity: wireOpacity,
       });
       const wireMesh = new THREE.Mesh(geo, wireMat);
       wireMesh.visible = wireOpacity > 0;
       wireMesh.userData.isWireframe = true;
-      obj.add(wireMesh);   // ← Kind von obj, nicht von wireGroup
+      obj.add(wireMesh);   // ← Child of obj, not of wireGroup
 
       totalVerts += node.verts.length;
       totalFaces += node.faces.length;
     } else if (node.type === 'aabb' && node.faces.length > 0 && node.verts.length > 0) {
       // ── Walkmesh (AABB) ───────────────────────────────────────────────
-      // Einfache Dreieck-Geometrie aus Verts + Faces (keine UVs/Normalen nötig).
-      // Darstellung: halbtransparente Füllung + Wireframe-Overlay in Amber.
+      // Simple triangle geometry from verts + faces (no UVs/normals needed).
+      // Display: semi-transparent fill + wireframe overlay in amber.
       const positions = new Float32Array(node.faces.length * 9);
       for (let fi = 0; fi < node.faces.length; fi++) {
         const face = node.faces[fi];
@@ -284,7 +399,7 @@ function buildScene(model) {
       geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
       geo.computeVertexNormals();
 
-      // Halbtransparente Füllung
+      // Semi-transparent fill
       const fillMat = new THREE.MeshBasicMaterial({
         color: 0xe8a020,
         transparent: true,
@@ -294,7 +409,7 @@ function buildScene(model) {
       });
       const fillMesh = new THREE.Mesh(geo, fillMat);
 
-      // Wireframe-Overlay
+      // Wireframe overlay
       const wireMat = new THREE.MeshBasicMaterial({
         color: 0xe8a020,
         wireframe: true,
@@ -304,59 +419,59 @@ function buildScene(model) {
       const wireMesh = new THREE.Mesh(geo, wireMat);
       wireMesh.userData.isWireframe = true;
 
-      // Gruppe aus Füllung + Wireframe
+      // Group of fill + wireframe
       obj = new THREE.Group();
       obj.add(fillMesh);
       obj.add(wireMesh);
       obj.userData.isAABB = true;
 
     } else if (node.type === 'emitter') {
-      // ── Emitter-Marker ────────────────────────────────────────────────
-      // Koordinatensystem-Hinweis:
-      //   modelGroup hat rotation.x = -π/2  →  R_x(-π/2) transformiert Vektoren:
-      //     lokal (x,y,z) → welt (x, z, -y)
-      //   Daraus folgt:
-      //     lokal -Z → welt +Y  (aufwärts, Partikelrichtung) ← Pfeile
-      //     lokal -Y → welt +Z  (zur Kamera)                 ← Preview-Quad
+      // ── Emitter Marker ────────────────────────────────────────────────
+      // Coordinate system note:
+      //   modelGroup has rotation.x = -π/2  →  R_x(-π/2) transforms vectors:
+      //     local (x,y,z) → world (x, z, -y)
+      //   Consequently:
+      //     local -Z → world +Y  (upwards, particle direction) ← Arrows
+      //     local -Y → world +Z  (towards camera)              ← Preview Quad
       const group = new THREE.Group();
 
-      // Farbe aus colorStart, Fallback-Orange falls zu dunkel
+      // Color from colorStart, fallback orange if too dark
       const cs = node.colorStart || [1, 0.6, 0.1];
       const lum = cs[0] * 0.299 + cs[1] * 0.587 + cs[2] * 0.114;
       const emitColor = lum < 0.05
         ? new THREE.Color(0xf0a030)
         : new THREE.Color(cs[0], cs[1], cs[2]);
 
-      // Marker-Deckkraft: 50 % wenn der Emitter aktiv ist (Partikel übernehmen die Darstellung),
-      // sonst volle Opazität als Platzhalter-Indikator.
-      // Ein Emitter gilt als aktiv wenn entweder statische birthrate > 0 ODER
-      // birthratekey in einer Animation vorhanden ist.
+      // Marker opacity: 50% if the emitter is active (particles take over the display),
+      // otherwise full opacity as a placeholder indicator.
+      // An emitter is considered active if either static birthrate > 0 OR
+      // birthratekey is present in an animation.
       const hasAnimBirthrate = (model.animations || []).some(
         anim => (anim.nodes[node.name]?.emitterKeys?.birthrate?.length ?? 0) > 0
       );
       const markerActive = (node.birthrate > 0 || hasAnimBirthrate) && node.emitterTexture;
       const markerOpacity = markerActive ? 0.5 : 1.0;
 
-      // Zentrum: Kugel
+      // Center: Sphere
       const sGeo = new THREE.SphereGeometry(0.06, 8, 6);
       const sMat = new THREE.MeshBasicMaterial({ color: emitColor, transparent: markerActive, opacity: markerOpacity });
       group.add(new THREE.Mesh(sGeo, sMat));
 
-      // Ring in XZ-Ebene (nach Rotation horizontal = Emitteröffnung)
+      // Ring in XZ plane (horizontal after rotation = emitter opening)
       const rGeo = new THREE.TorusGeometry(0.15, 0.012, 6, 20);
       const rMat = new THREE.MeshBasicMaterial({ color: emitColor, transparent: true, opacity: 0.75 * markerOpacity });
       const ring = new THREE.Mesh(rGeo, rMat);
       ring.rotation.x = Math.PI / 2;
       group.add(ring);
 
-      // Richtungspfeile: lokal -Z → nach modelGroup-Rotation welt +Y (oben)
+      // Direction arrows: local -Z → world +Y (up) after modelGroup rotation
       const arrowPts = new Float32Array([
-        // Mittelstrahl
+        // Center ray
          0,    0,  0,       0,    0,  -0.22,
-        // Pfeilspitzen-Schenkel
+        // Arrowhead legs
         -0.06, 0, -0.14,    0,    0,  -0.22,
          0.06, 0, -0.14,    0,    0,  -0.22,
-        // Seitenstrahlen (Spread andeuten)
+        // Side rays (indicate spread)
         -0.12, 0,  0,      -0.08, 0,  -0.16,
          0.12, 0,  0,       0.08, 0,  -0.16,
       ]);
@@ -365,13 +480,13 @@ function buildScene(model) {
       const aMat = new THREE.LineBasicMaterial({ color: emitColor, transparent: true, opacity: 0.85 * markerOpacity });
       group.add(new THREE.LineSegments(aGeo, aMat));
 
-      // ── Textur-Preview-Quad ───────────────────────────────────────────
-      // PlaneGeometry hat Normal = lokal +Z.
-      // rotation.x = +π/2 dreht die Normale auf lokal -Y.
-      // Nach modelGroup-Rotation: lokal -Y → welt +Z (zur Kamera) → sichtbar.
+      // ── Texture Preview Quad ───────────────────────────────────────────
+      // PlaneGeometry has normal = local +Z.
+      // rotation.x = +π/2 rotates the normal to local -Y.
+      // After modelGroup rotation: local -Y → world +Z (towards camera) → visible.
       const emTexName = node.emitterTexture || null;
       const emTex     = emTexName ? textureCache[emTexName] : null;
-      // Größe aus sizeStart, Mindestgröße 0.15
+      // Size from sizeStart, minimum size 0.15
       const qSize = Math.max(node.sizeStart || 0.5, 0.15);
       const qGeo  = new THREE.PlaneGeometry(qSize, qSize);
       const qMat  = new THREE.MeshBasicMaterial({
@@ -381,33 +496,33 @@ function buildScene(model) {
         alphaTest:   0.05,
         color:       emTex ? 0xffffff : emitColor,
         map:         emTex || null,
-        opacity:     emTex ? 1.0 : 0.0,   // unsichtbar bis Textur da
+        opacity:     emTex ? 1.0 : 0.0,   // invisible until texture arrives
       });
       if ((node.blend || '').toLowerCase() === 'additive') {
         qMat.blending = THREE.AdditiveBlending;
         qMat.alphaTest = 0;
       }
       const quad = new THREE.Mesh(qGeo, qMat);
-      quad.rotation.x = Math.PI / 2;   // Normal → lokal -Y → welt +Z (zur Kamera)
+      quad.rotation.x = Math.PI / 2;   // Normal → local -Y → world +Z (towards camera)
       quad.userData.isEmitterPreview  = true;
       quad.userData.emitterTexName    = emTexName;
       quad.userData.emitterBlend      = (node.blend || '').toLowerCase();
-      // Preview-Quad ausblenden wenn der Partikel-Emitter aktiv ist —
-      // dann übernimmt emitter.js die Darstellung.
+      // Hide preview quad when the particle emitter is active —
+      // emitter.js will take over the display then.
       quad.visible = !markerActive;
       group.add(quad);
 
-      // userData am Gruppen-Objekt für applyTexturesToScene
+      // userData on the group object for applyTexturesToScene
       group.userData.hasEmitterPreview = true;
       group.userData.emitterTexName    = emTexName;
 
       obj = group;
 
     } else if (node.type === 'light') {
-      // ── Light-Node ────────────────────────────────────────────────────────
+      // ── Light Node ────────────────────────────────────────────────────────
       const group = new THREE.Group();
 
-      // Marker: kleine Kugel in Lichtfarbe (aufgehellt damit sichtbar)
+      // Marker: small sphere in light color (brightened to be visible)
       const lc = node.lightColor;
       const markerColor = new THREE.Color(
         Math.max(lc[0], 0.45),
@@ -418,7 +533,7 @@ function buildScene(model) {
       const sMat = new THREE.MeshBasicMaterial({ color: markerColor });
       group.add(new THREE.Mesh(sGeo, sMat));
 
-      // Linienkreuz: zeigt Lichtposition im Raum an
+      // Line cross: shows light position in space
       const linePts = new Float32Array([
         -0.13,0,0,  0.13,0,0,
          0,-0.13,0,  0,0.13,0,
@@ -429,27 +544,27 @@ function buildScene(model) {
       const lMat = new THREE.LineBasicMaterial({ color: markerColor, transparent: true, opacity: 0.55 });
       group.add(new THREE.LineSegments(lGeo, lMat));
 
-      // Three.js-Licht anlegen
+      // Create Three.js light
       const lightColor = new THREE.Color(lc[0], lc[1], lc[2]);
       let mdlLight;
       if (node.lightAmbientOnly) {
-        // ambientonly → AmbientLight mit reduzierter Intensität (würde sonst Szene überfluten)
+        // ambientonly → AmbientLight with reduced intensity (would flood scene otherwise)
         mdlLight = new THREE.AmbientLight(lightColor, node.lightMultiplier * 0.25);
       } else {
-        // PointLight: decay=1 (linearer Abfall, näher an NWN-Verhalten als physikalisch korrekt)
+        // PointLight: decay=1 (linear falloff, closer to NWN behavior than physically correct)
         mdlLight = new THREE.PointLight(lightColor, node.lightMultiplier, node.lightRadius, 1);
-        mdlLight.castShadow = false;   // Shadow von Modell-Lichtern zu teuer für Viewer
+        mdlLight.castShadow = false;   // Shadows from model lights too expensive for viewer
       }
       group.add(mdlLight);
 
-      // Referenz für animation.js (colorkey / radiuskey / multiplierkey)
+      // Reference for animation.js (colorkey / radiuskey / multiplierkey)
       group.userData.mdlLight      = mdlLight;
       group.userData.isLightNode   = true;
 
       obj = group;
 
     } else {
-      // Dummy / reference / unbekannte Typen → kleine Kugel
+      // Dummy / reference / unknown types → small sphere
       const geo = new THREE.SphereGeometry(0.04, 6, 6);
       const mat = new THREE.MeshBasicMaterial({ color: nodeColor(node.type) });
       obj = new THREE.Mesh(geo, mat);
@@ -457,13 +572,13 @@ function buildScene(model) {
 
     // Apply local transform.
     // Priority: animation time=0 keyframe (rest pose) > geometry orientation.
-    // NWN-Format: orientation = (axis_x, axis_y, axis_z, winkel_radiant) — Achse-Winkel, KEIN Quaternion!
+    // NWN format: orientation = (axis_x, axis_y, axis_z, angle_radians) — Axis-Angle, NOT a Quaternion!
     //
-    // skin-Nodes: Die Three.js-Mesh-Position bleibt bei (0,0,0), da die MDL-Vertices
-    // im lokalen Raum des Skin-Nodes gespeichert sind und erst durch CPU-Skinning in
-    // den Model-Space transformiert werden.
-    // Die node.position des Skin-Nodes ist der Pivot-Offset, der beim Skinning zu
-    // jedem Vertex addiert werden muss (vertex_model = vertex_local + skin_node_pos).
+    // skin nodes: The Three.js mesh position remains at (0,0,0), because the MDL vertices
+    // are stored in the local space of the skin node and are only transformed into
+    // model space via CPU skinning.
+    // The node.position of the skin node is the pivot offset, which must be added to
+    // every vertex during skinning (vertex_model = vertex_local + skin_node_pos).
     const isSkinNode = node.type === 'skin';
     if (!isSkinNode) {
       const restPose = model.restPose && model.restPose[node.name];
@@ -476,7 +591,7 @@ function buildScene(model) {
 
     obj.name = node.name;
     obj.userData.nodeData = node;
-    obj.isBone = true; // NEU: Zwingend erforderlich, damit der SkeletonHelper die Hierarchie erkennt
+    obj.isBone = true; // NEW: Strictly required for the SkeletonHelper to recognize the hierarchy
 
     objects[node.name] = obj;
     nodeObjects[node.name] = obj;
@@ -505,30 +620,30 @@ function buildScene(model) {
     orbit.theta  = 0.5; orbit.phi = 1.1;
     updateCamera();
 
-    // Initial-Kamera für Reset speichern
+    // Store initial camera for reset
     orbit.initTarget = center.clone();
     orbit.initRadius = orbit.radius;
     orbit.initTheta  = orbit.theta;
     orbit.initPhi    = orbit.phi;
 
     // BBox helper
-/*  bboxHelper = new THREE.Box3Helper(box, new THREE.Color(0xc8a44a));
+/* bboxHelper = new THREE.Box3Helper(box, new THREE.Color(0xc8a44a));
     bboxHelper.visible = document.getElementById('btn-bbox').classList.contains('active');
     scene.add(bboxHelper);*/
     
     refreshBBox();
     
-    // NEU: SkeletonHelper initialisieren
+    // NEW: Initialize SkeletonHelper
     skeletonHelper = new THREE.SkeletonHelper(modelGroup);
-    // Wenn du die Farbe anpassen willst, kannst du das hier tun (Standard ist Blau/Grün-Verlauf)
+    // If you want to adjust the color, you can do it here (default is a blue/green gradient)
     // skeletonHelper.material.color.set(0xffcc00); 
   
-    // Standardmäßig an den Button-State in der HTML koppeln, falls er existiert
+    // Bind to the button state in the HTML by default, if it exists
     const btnSkeleton = document.getElementById('btn-skeleton');
     skeletonHelper.visible = btnSkeleton ? btnSkeleton.classList.contains('active') : false;
     scene.add(skeletonHelper);
   } else {
-    // Leere Box: Emitter-only Modell ohne messbare Ausdehnung (z.B. nur Emitter-Marker)
+    // Empty box: Emitter-only model with no measurable dimensions (e.g., only emitter marker)
     orbit.target.set(0, 0, 0);
     orbit.radius = 3;
     orbit.theta  = 0.5; orbit.phi = 1.1;
@@ -550,27 +665,27 @@ function buildScene(model) {
   buildNodeList(model);
   showModelInfo(model, totalVerts, totalFaces);
 
-  // ── CPU-Skinning vorbereiten ─────────────────────────────────────────────
-  // Koordinaten-Konvention: Alle Skinning-Berechnungen laufen in NWN-Z-Up-Space,
-  // also VOR der -90°-X-Rotation des modelGroup. Das vermeidet Koordinaten-
-  // System-Konflikte, da Skin-Vertices und Bone-Matrizen beide in NWN-Space sind.
+  // ── Prepare CPU Skinning ─────────────────────────────────────────────
+  // Coordinate convention: All skinning calculations run in NWN Z-Up space,
+  // meaning BEFORE the -90° X-rotation of the modelGroup. This avoids coordinate
+  // system conflicts, since skin vertices and bone matrices are both in NWN space.
   //
-  // Die modelGroup-Rotation (-90° um X) konvertiert NWN-Z-Up nach Three.js-Y-Up
-  // und wird von Three.js automatisch auf alle Child-Meshes (inkl. Skin-Meshes) angewendet.
-  // Die CPU-geskinten Vertices werden in NWN-Space in den Geometry-Buffer geschrieben;
-  // Three.js rendert sie korrekt, weil das Skin-Mesh Kind von modelGroup ist.
+  // The modelGroup rotation (-90° around X) converts NWN Z-up to Three.js Y-up
+  // and is automatically applied by Three.js to all child meshes (incl. skin meshes).
+  // The CPU-skinned vertices are written into the geometry buffer in NWN space;
+  // Three.js renders them correctly because the skin mesh is a child of modelGroup.
 
-  // ── Schritt 1: Alle Bones in MDL-Geometrie-Pose setzen ─────────────────────
-  // Die Bind-Matrizen MÜSSEN auf Basis der reinen Geometrie-Pose berechnet werden,
-  // NICHT auf Basis der Animations-Rest-Pose (model.restPose).
-  // Hintergrund: Bei Modellen mit eigenen Animationen (z.B. c_drggreen) wurde
-  // model.restPose bereits aus dem t=0-Key der ersten Animation befüllt und beim
-  // Erstellen der Objekte angewendet. Das führt zu falschen Bind-Matrizen, weil
-  // die Bones dann in animierter Pose stehen, nicht in der neutralen Geometrie-Pose.
-  // Modelle ohne eigene Animationen (z.B. c_drgred) waren nicht betroffen, da
-  // model.restPose leer blieb und die Geometrie-Pose direkt genutzt wurde.
+  // ── Step 1: Set all bones to MDL geometry pose ─────────────────────
+  // The bind matrices MUST be calculated based on the pure geometry pose,
+  // NOT based on the animation rest pose (model.restPose).
+  // Background: For models with custom animations (e.g., c_drggreen),
+  // model.restPose was already populated from the t=0 key of the first animation
+  // and applied during object creation. This leads to incorrect bind matrices because
+  // the bones are then in an animated pose, not in the neutral geometry pose.
+  // Models without custom animations (e.g., c_drgred) were not affected, as
+  // model.restPose remained empty and the geometry pose was used directly.
   for (const node of model.nodes) {
-    if (node.type === 'skin') continue;   // Skin-Nodes haben keine eigene Pose
+    if (node.type === 'skin') continue;   // Skin nodes have no pose of their own
     const obj = objects[node.name];
     if (!obj) continue;
     const [ax, ay, az, angle] = node.orientation;
@@ -581,30 +696,30 @@ function buildScene(model) {
 
   modelGroup.updateMatrixWorld(true);
 
-  // NWN-Space-Matrix eines Bone: mg_inv * bone.matrixWorld
-  // mg_inv: invertiert die modelGroup-Welt-Matrix (enthält -90°-X-Rotation + Position)
+  // NWN space matrix of a bone: mg_inv * bone.matrixWorld
+  // mg_inv: inverts the modelGroup world matrix (contains -90° X-rotation + position)
   const _mgInv = new THREE.Matrix4().copy(modelGroup.matrixWorld).invert();
 
-  // Inverse Bind-Matrizen in NWN-Space für alle Bones
+  // Inverse bind matrices in NWN space for all bones
   const bindInverseMatrices = {};
   for (const [name, obj] of Object.entries(objects)) {
     const boneNWN = new THREE.Matrix4().multiplyMatrices(_mgInv, obj.matrixWorld);
     bindInverseMatrices[name] = boneNWN.invert();
   }
 
-  // Pro skin-Node: Bind-Positionen in NWN-Model-Space und Gewichte pro explodiertem Vertex
+  // Per skin node: Bind positions in NWN model space and weights per exploded vertex
   for (const node of model.nodes) {
     if (node.type !== 'skin' || !node.vertexWeights) continue;
     const obj = objects[node.name];
     if (!obj || !(obj instanceof THREE.Mesh)) continue;
     const geo = obj.geometry;
 
-    // Vertex-Model-Space = vertex_local + skin_node_position
-    // skin_node_position ist der MDL-Pivot-Offset (NWN-Space).
+    // Vertex model space = vertex_local + skin_node_position
+    // skin_node_position is the MDL pivot offset (NWN space).
     const [spx, spy, spz] = node.position;   // skin node pivot in NWN model space
     const [oax, oay, oaz, oangle] = node.orientation;
     
-    // Skin-Node-Rotation auf Bind-Positionen anwenden
+    // Apply skin node rotation to bind positions
     const skinQuat = axisAngleToQuat(oax, oay, oaz, oangle);
     const hasRot = Math.abs(1.0 - Math.abs(skinQuat.w)) > 1e-4;
     const rotMat = hasRot
@@ -615,7 +730,7 @@ function buildScene(model) {
     const bindPos = new Float32Array(rawPos.length);
     const _vtmp = new THREE.Vector3();
     
-/*  for (let k = 0; k < rawPos.length; k += 3) {
+/* for (let k = 0; k < rawPos.length; k += 3) {
       bindPos[k]     = rawPos[k]     + spx;
       bindPos[k + 1] = rawPos[k + 1] + spy;
       bindPos[k + 2] = rawPos[k + 2] + spz;
@@ -630,8 +745,8 @@ function buildScene(model) {
     }
     geo.userData.bindPositions = bindPos;
 
-    // Gewichte pro explodiertem Vertex: Explode-Schritt erzeugt 3 Verts pro Face.
-    // Explodierter Vertex fi*3+k stammt von Original-Vertex node.faces[fi].v[k].
+    // Weights per exploded vertex: The explode step generates 3 verts per face.
+    // Exploded vertex fi*3+k comes from the original vertex node.faces[fi].v[k].
     const perVertWeights = [];
     for (let fi = 0; fi < node.faces.length; fi++) {
       for (let k = 0; k < 3; k++) {
@@ -644,36 +759,36 @@ function buildScene(model) {
     geo.attributes.position.usage = THREE.DynamicDrawUsage;
   }
 
-  // Skinning-Daten global für animation.js bereitstellen
+  // Provide skinning data globally for animation.js
   window._nwnBindInvMatrices = bindInverseMatrices;
   window._nwnModelGroup      = modelGroup;
 
-  // ── Schritt 2: Rest-Pose aus Animationen anwenden ───────────────────────────
-  // Erst NACH der Bind-Matrix-Berechnung die Animations-Rest-Pose setzen,
-  // damit die Szene in der erwarteten Ausgangsstellung erscheint.
+  // ── Step 2: Apply rest pose from animations ───────────────────────────
+  // Only set the animation rest pose AFTER the bind matrix calculation,
+  // so the scene appears in the expected starting position.
   applyRestPose(model);
   modelGroup.updateMatrixWorld(true);
 
   saveGeometryPose();
   buildAnimUI(model);
   
-  // ── Schritt 3: Skin-Meshes initial in Rest-Pose bringen ──────────────────────
-  // applySkinning() muss auch ohne Animationen einmal aufgerufen werden,
-  // damit die Skin-Vertices vom lokalen Skin-Node-Space (nur vertex_local)
-  // in den Model-Space transformiert werden (vertex_local + skin_node_pivot).
-  // Bei Modellen mit Animationen geschieht das erst durch selectAnim() →
-  // applyAnimFrame() → applySkinning() – hier stellt der direkte Aufruf
-  // sicher, dass auch reine Geometrie-Modelle (z.B. Umhang ohne Animationen)
-  // korrekt positioniert sind.
-  // Da die Bones jetzt in der Geometry-Pose stehen (= Bind-Pose), ergibt sich
-  // skinMat = currentBone × inverseBind = identity, d.h. jeder Vertex landet
-  // exakt an seiner Bind-Position (vertex_local + skin_node_pivot).
+  // ── Step 3: Bring skin meshes into initial rest pose ──────────────────────
+  // applySkinning() must be called once even without animations,
+  // so the skin vertices are transformed from the local skin node space (only vertex_local)
+  // into model space (vertex_local + skin_node_pivot).
+  // For models with animations, this only happens through selectAnim() →
+  // applyAnimFrame() → applySkinning() – calling it directly here
+  // ensures that pure geometry models (e.g., cloaks without animations)
+  // are also positioned correctly.
+  // Since the bones are now in the geometry pose (= bind pose), the result is
+  // skinMat = currentBone × inverseBind = identity, meaning each vertex lands
+  // exactly at its bind position (vertex_local + skin_node_pivot).
   applySkinning();
 
-  // ── Schritt 4: Partikel-Emitter starten ────────────────────────────────────
-  // initAllEmitters() erzeugt für jeden aktiven Emitter-Node einen Partikel-Pool.
-  // Texturen aus textureCache werden direkt genutzt — wenn sie noch nicht geladen
-  // sind, sorgt refreshEmitterTextures() in applyTexturesToScene() für den Start.
+  // ── Step 4: Start particle emitters ────────────────────────────────────
+  // initAllEmitters() creates a particle pool for each active emitter node.
+  // Textures from textureCache are used directly — if they are not loaded yet,
+  // refreshEmitterTextures() in applyTexturesToScene() will ensure they start.
   if (typeof initAllEmitters === 'function') initAllEmitters(model);
 }
 
