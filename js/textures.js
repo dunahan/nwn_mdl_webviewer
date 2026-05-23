@@ -135,6 +135,7 @@ function parseNWNDDS(buffer) {
   if (!tex.userData) tex.userData = {};
   tex.userData.hasAlpha = (fmt === 'DXT5');
   tex.needsUpdate=true;
+  tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
 
@@ -332,6 +333,8 @@ function parseStandardDDS(buffer) {
   tex.userData.hasAlpha    = hasAlpha;
   tex.userData.isNormalMap = isNormalMap;
   tex.needsUpdate = true;
+  // Normal Maps (ATI2/BC5) sind linear, alles andere ist sRGB
+  tex.colorSpace = isNormalMap ? THREE.LinearSRGBColorSpace : THREE.SRGBColorSpace;
   return tex;
 }
 
@@ -454,6 +457,8 @@ function parseTGA(buffer) {
   if (!tex.userData) tex.userData = {};
   tex.userData.hasAlpha = (bpp === 32);
   tex.needsUpdate = true;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  
   return tex;
 }
 
@@ -538,6 +543,7 @@ function parseNWNPLT(buffer) {
   pltTex.userData.usedLayers = usedLayers;  // bool[10]: welche Layer vorkommen
   pltTex.userData.pltBuffer  = buffer;      // Rohdaten für späteres Paletten-Mapping
   pltTex.needsUpdate = true;
+  pltTex.colorSpace = THREE.SRGBColorSpace;
   return pltTex;
 }
 
@@ -636,6 +642,7 @@ function invertSpecToRoughnessMap(sourceTex, cacheKey) {
   ctx.putImageData(imgData, 0, 0);
 
   const tex = new THREE.CanvasTexture(cvs);
+  tex.colorSpace = THREE.LinearSRGBColorSpace;  // Roughness-Maps sind linear
   tex.flipY  = false;
   tex.wrapS  = THREE.RepeatWrapping;
   tex.wrapT  = THREE.RepeatWrapping;

@@ -601,6 +601,7 @@ function loadAllMDLFiles(mdlFiles) {
         applyRestPose(currentModel);
         saveGeometryPose();
         buildAnimUI(currentModel);
+        refreshBBox();
         setStatus(fmt('super_anims_loaded', { name: superModel.name, n: currentModel.animations.length }));
       } else {
         logWarnI18n('super_not_found');
@@ -909,6 +910,7 @@ function loadAllMDLFiles(mdlFiles) {
       saveGeometryPose();
       buildAnimUI(mainModel);
       pendingSupermodel = null;
+      refreshBBox();
 
     } else if (mainModel.supermodel &&
                mainModel.supermodel.toLowerCase() !== 'null' &&
