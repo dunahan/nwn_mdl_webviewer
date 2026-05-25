@@ -327,6 +327,10 @@ function buildScene(model) {
       const metalness = mtrSpecParam !== null
         ? Math.min(mtrSpecParam * 0.4, 0.6)
         : Math.min(specMax * 1.5, 0.6);
+        
+      // NWN uses back-face culling; DoubleSide only for alpha-blended materials
+      // (magic effects, glass) that may legitimately show both faces.
+      const needsDoubleSide = useMeshAlpha || useMtrTrans;
 
       const mat = new THREE.MeshStandardMaterial({
         color:        tex ? new THREE.Color(1, 1, 1) : new THREE.Color(d[0] || 0.8, d[1] || 0.8, d[2] || 0.8),
@@ -335,7 +339,7 @@ function buildScene(model) {
         roughnessMap: roughTex  || null,
         roughness,
         metalness,
-        side:        THREE.DoubleSide,
+        side:        needsDoubleSide ? THREE.DoubleSide : THREE.FrontSide,  // ← geändert
         transparent: useMeshAlpha || useTexAlpha || useMtrTrans,
         opacity:     node.alpha,
         alphaTest:   useTexAlpha ? 0.1 : 0,
@@ -378,6 +382,22 @@ function buildScene(model) {
       wireMesh.userData.isWireframe = true;
       obj.add(wireMesh);   // ← Child of obj, not of wireGroup
 
+      // Back-face indicator: flat dark colour visible when looking inside a mesh.
+      // Only needed when the main material uses FrontSide (i.e. not needsDoubleSide).
+      // Change 0x111133 to any colour – e.g. 0x000000 for pure black.
+      if (!needsDoubleSide) {
+        const backMat = new THREE.MeshBasicMaterial({
+          color:      0x111133,   // ← Farbe hier anpassen
+          side:       THREE.BackSide,
+          depthWrite: true,
+        });
+        const backMesh = new THREE.Mesh(geo, backMat);
+        backMesh.userData.isBackface = true;
+        obj.add(backMesh);
+      }
+
+      totalVerts += node.verts.length;   // ← schon vorhanden      
+      
       totalVerts += node.verts.length;
       totalFaces += node.faces.length;
     } else if (node.type === 'aabb' && node.faces.length > 0 && node.verts.length > 0) {
