@@ -102,6 +102,8 @@
   "status_lang_fallback": "Sprache nicht gefunden — Englisch als Fallback.",
   "status_mtr_loaded":    "MTR geladen: {name}",
   "status_mtr_error":     "MTR-Fehler: {name} — {msg}",
+  "status_txi_loaded":    "TXI geladen: {name}",
+  "err_txi_load":         "TXI-Ladefehler: {name} — {msg}",
 
   "super_no_anims":       "Supermodel \"{name}\" hat keine Animationen.",
   "super_anims_merged":   "Supermodel \"{name}\": {n} Animationen übernommen.",

@@ -310,7 +310,11 @@ function buildScene(model) {
       // Only apply if the texture actually has an alpha channel (DXT5/32-bit TGA/PNG).
       // DXT1 textures have no alpha channel — transparencyhint would be a modeling error.
       const texHasAlpha  = tex ? (tex.userData.hasAlpha === true) : false;
-      const useTexAlpha  = node.transparencyhint === 1 && texHasAlpha;
+      //const useTexAlpha  = node.transparencyhint === 1 && texHasAlpha;
+      // FIX: If an MTR overrides the texture, trust the texture's actual alpha channel
+      // directly — the MDL node's transparencyhint was written for the original texture
+      // and may be 0 even when the MTR-supplied texture has alpha.
+      const useTexAlpha  = texHasAlpha && (node.transparencyhint === 1 || mtr !== null);
       const useMeshAlpha = node.alpha < 0.99;
       const useMtrTrans  = mtr ? mtr.transparency : false;
 
@@ -330,7 +334,8 @@ function buildScene(model) {
         
       // NWN uses back-face culling; DoubleSide only for alpha-blended materials
       // (magic effects, glass) that may legitimately show both faces.
-      const needsDoubleSide = useMeshAlpha || useMtrTrans;
+      //const needsDoubleSide = useMeshAlpha || useMtrTrans || useTexAlpha;
+      const needsDoubleSide = useMeshAlpha || useMtrTrans || useTexAlpha || (mtr ? mtr.twosided : false);
 
       const mat = new THREE.MeshStandardMaterial({
         color:        tex ? new THREE.Color(1, 1, 1) : new THREE.Color(d[0] || 0.8, d[1] || 0.8, d[2] || 0.8),
@@ -345,6 +350,12 @@ function buildScene(model) {
         alphaTest:   useTexAlpha ? 0.1 : 0,
         depthWrite:  !useTexAlpha,
       });
+
+      // Apply TXI properties (decal, blending, clamp, register cycle animation)
+      const txiData = txiCache ? (txiCache[diffuseKey] || null) : null;
+      if (txiData) {
+        applyTXIToMaterial(mat, txiData, tex);
+      }
 
       // Fallback color if no bitmap and diffuse is black
       if (!tex && d[0] === 0 && d[1] === 0 && d[2] === 0) mat.color.set(0x888888);

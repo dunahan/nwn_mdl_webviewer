@@ -56,6 +56,8 @@ const I18N_BUNDLE = {
     status_lang_fallback:'Language file not found — using English.',
     status_mtr_loaded: 'MTR loaded: {name}',
     status_mtr_error:  'MTR error: {name} — {msg}',
+    status_txi_loaded: 'TXI loaded: {name}',
+    err_txi_load:      'TXI load error: {name} — {msg}',
     // error msg
     err_no_nodes:'No nodes found. Is this a decompiled ASCII file?',
     err_parse_title:'Parse error:',
@@ -242,6 +244,8 @@ const I18N_BUNDLE = {
     status_lang_fallback:'Sprache nicht gefunden — Englisch als Fallback.',
     status_mtr_loaded: 'MTR geladen: {name}',
     status_mtr_error:  'MTR-Fehler: {name} — {msg}',
+    status_txi_loaded: 'TXI geladen: {name}',
+    err_txi_load:      'TXI-Ladefehler: {name} — {msg}',
     // Error msg
     err_no_nodes:'Keine Nodes gefunden. Ist die Datei im ASCII-Format?',
     err_parse_title:'Fehler beim Parsen:',

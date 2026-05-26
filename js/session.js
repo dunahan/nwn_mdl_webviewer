@@ -111,6 +111,9 @@ function clearSession(keepTextures = false) {
   // Partikel-Emitter bereinigen (vor nodeObjects-Reset, da Emitter nodeObjects nutzen)
   if (typeof clearAllEmitters === 'function') clearAllEmitters();
 
+  // TXI Sprite-Animation zurücksetzen
+  if (typeof clearUVAnimRegistry === 'function') clearUVAnimRegistry();
+
   // 3. Interne Zustände zurücksetzen
   nodeObjects        = {};
   selectedNodeName   = null;
@@ -339,9 +342,17 @@ function applyTexturesToScene() {
           if ((txi.proceduretype || '').toLowerCase() === 'cycle') {
             const numx = txi.numx || 1;
             const numy = txi.numy || 1;
-            if (mat.map) {
+            const fps  = txi.fps  || 0;
+            if (mat.map && (numx > 1 || numy > 1)) {
               mat.map.repeat.set(1 / numx, 1 / numy);
               mat.map.offset.set(0, (numy - 1) / numy);
+              mat.map.wrapS = THREE.RepeatWrapping;
+              mat.map.wrapT = THREE.RepeatWrapping;
+              mat.map.needsUpdate = true;
+              // Per-Frame-Ticker registrieren (updateUVAnims in txi.js)
+              if (fps > 0 && typeof uvAnimRegistry !== 'undefined') {
+                uvAnimRegistry.push({ tex: mat.map, numx, numy, fps, elapsed: 0 });
+              }
             }
           }
         }

@@ -10,13 +10,15 @@ function loadFiles(fileList) {
   const files    = Array.from(fileList);
   const mdlFiles = files.filter(f => f.name.toLowerCase().endsWith('.mdl') || f.name.toLowerCase().endsWith('.txt'));
   const texFiles = files.filter(f => /\.(tga|png|jpg|jpeg|dds|plt)$/i.test(f.name));
+  const txiFiles = files.filter(f => /\.txi$/i.test(f.name));
   const mtrFiles = files.filter(f => /\.mtr$/i.test(f.name));
   const wokFiles = files.filter(f => /\.wok$/i.test(f.name));
   const pwkFiles = files.filter(f => /\.pwk$/i.test(f.name));
   const dwkFiles = files.filter(f => /\.dwk$/i.test(f.name));
 
-  if (mdlFiles.length === 0 && texFiles.length === 0 && mtrFiles.length === 0
-      && wokFiles.length === 0 && pwkFiles.length === 0 && dwkFiles.length === 0) {
+  if (mdlFiles.length === 0 && texFiles.length === 0 && txiFiles.length === 0 
+      && mtrFiles.length === 0 && wokFiles.length === 0 && pwkFiles.length === 0
+      && dwkFiles.length === 0) {
     setStatus(L('status_no_files'));
     return;
   }
@@ -34,6 +36,7 @@ function loadFiles(fileList) {
 
   // Gesamtzähler: Texturen + MTR müssen beide fertig sein vor onAllTexReady
   let texPending = texFiles.length;
+  let txiPending = txiFiles.length;
   let mtrPending = mtrFiles.length;
   let texLoaded  = 0;
 
@@ -51,7 +54,29 @@ function loadFiles(fileList) {
   }
 
   function checkAllReady() {
-    if (texPending === 0 && mtrPending === 0) onAllTexReady();
+    if (texPending === 0 && txiPending === 0 && mtrPending === 0) onAllTexReady();
+  }
+
+  // TXI-Dateien als Text einlesen
+  for (const file of txiFiles) {
+    const key = basename(file.name);
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        txiCache[key] = parseTXI(ev.target.result);
+        logInfoI18n('status_txi_loaded', { name: file.name });
+      } catch(err) {
+        logErrorI18n('err_txi_load', { name: file.name, msg: err.message });
+      }
+      txiPending--;
+      checkAllReady();
+    };
+    reader.onerror = () => {
+      logError(file.name + ' — ' + L('status_read_error'));
+      txiPending--;
+      checkAllReady();
+    };
+    reader.readAsText(file);
   }
 
   // MTR-Dateien als Text einlesen
