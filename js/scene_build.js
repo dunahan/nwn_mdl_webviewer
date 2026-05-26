@@ -190,12 +190,24 @@ function buildScene(model) {
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
       geo.setAttribute('uv',       new THREE.BufferAttribute(uvs, 2));
-
+/*
       if (hasNormals) {
         geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
       } else {
         geo.setAttribute('normal', new THREE.BufferAttribute(computeSGNormals(node), 3));
       }
+*/      
+      // Priorität: SG-Normals > MDL-Normals > computeVertexNormals (Fallback)
+      // NWN MDL Dateien haben fast immer hasNormals=true, daher darf computeSGNormals
+      // nicht im else-Zweig hängen, sonst wird es nie aufgerufen.
+      const hasSmoothGroups = node.faces.some(f => typeof f.sg === 'number');
+      if (hasSmoothGroups) {
+        geo.setAttribute('normal', new THREE.BufferAttribute(computeSGNormals(node), 3));
+      } else if (hasNormals) {
+        geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+      } else {
+        geo.computeVertexNormals();
+      }      
 
       // Save base UVs — needed when changing animations (resetToPose),
       // so animmesh nodes can return to their base state.
