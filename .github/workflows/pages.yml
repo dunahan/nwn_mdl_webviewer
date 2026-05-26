@@ -36,7 +36,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # Alle Tags für git describe benötigt
+          fetch-depth: 0
+          fetch-tags: true   # Explizit anfordern, dass alle Tags geladen werden
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -49,7 +50,8 @@ jobs:
           # Priorität: workflow_call/dispatch-Input → neuester Git-Tag → leer
           VERSION="${{ inputs.version }}"
           if [ -z "$VERSION" ]; then
-            VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+            # Sucht alle Tags, sortiert sie absteigend nach semantischer Versionierung und nimmt den ersten
+            VERSION=$(git tag --sort=-v:refname | head -n 1 || echo "")
           fi
           echo "name=$VERSION" >> $GITHUB_OUTPUT
           echo "Version: $VERSION"
