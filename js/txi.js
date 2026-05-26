@@ -11,6 +11,14 @@
 // TXI-Cache: basename (lowercase, ohne Extension) → geparste TXI-Daten
 const txiCache = {};
 
+// Materialien mit aktiver Sprite-Sheet-Animation (proceduretype cycle)
+const uvAnimRegistry = [];   // { tex, numx, numy, fps, elapsed }
+
+// Wird beim Modell-Reset aufgerufen
+function clearUVAnimRegistry() {
+  uvAnimRegistry.length = 0;
+}
+
 // ─────────────────────────────────────────────
 //  parseTXI  — liest eine TXI-Textdatei
 // ─────────────────────────────────────────────
@@ -237,16 +245,26 @@ function applyTXIToMaterial(mat, txi, tex) {
     tex.needsUpdate = true;
   }
 
-  // ── Prozedurale Effekte als Marker ──────────
-  // arturo / water / cycle können im Viewer nicht
-  // animiert werden. Wir speichern den Typ in userData
-  // (für zukünftige Shader-Erweiterungen oder UI-Badges).
+  // ── Prozedurale Effekte ─────────────────────
   if (txi.proceduretype) {
     mat.userData = mat.userData || {};
-    mat.userData.txi_proceduretype   = txi.proceduretype;
-    mat.userData.txi_speed           = txi.speed;
-    mat.userData.txi_distort         = txi.distort;
-    mat.userData.txi_distortamp      = txi.distortionamplitude;
+    mat.userData.txi_proceduretype  = txi.proceduretype;
+    mat.userData.txi_speed          = txi.speed;
+    mat.userData.txi_distort        = txi.distort;
+    mat.userData.txi_distortamp     = txi.distortionamplitude;
+
+    // ── Sprite-Sheet-Animation (proceduretype cycle) ──
+    if (txi.proceduretype === 'cycle' && tex && (txi.numx > 1 || txi.numy > 1) && txi.fps > 0) {
+      // Textur auf eine Zelle einschränken
+      tex.repeat.set(1 / txi.numx, 1 / txi.numy);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      // Startframe: erste Zelle oben links
+      // flipY=false → Zeile 0 (Bildschirmoben) liegt bei hohem V-Wert
+      tex.offset.set(0, (txi.numy - 1) / txi.numy);
+      tex.needsUpdate = true;
+      uvAnimRegistry.push({ tex, numx: txi.numx, numy: txi.numy, fps: txi.fps, elapsed: 0 });
+    }
   }
 
   mat.needsUpdate = true;
@@ -270,4 +288,22 @@ function buildTXISummary(txi) {
   if (txi.distort)         parts.push('distort(amp=' + txi.distortionamplitude + ')');
   if (txi.numx > 1 || txi.numy > 1) parts.push('sprite ' + txi.numx + 'x' + txi.numy);
   return parts.join(' | ') || '—';
+}
+
+// ─────────────────────────────────────────────
+//  updateUVAnims  — pro Frame aufrufen (delta in Sekunden)
+// ─────────────────────────────────────────────
+function updateUVAnims(delta) {
+  for (const e of uvAnimRegistry) {
+    e.elapsed += delta;
+    const frameCount = e.numx * e.numy;
+    const frameIndex = Math.floor(e.elapsed * e.fps) % frameCount;
+    const col = frameIndex % e.numx;
+    const row = Math.floor(frameIndex / e.numx);
+    // Zeile 0 = oben im Bild; mit flipY=false liegt V=1 oben
+    e.tex.offset.set(
+      col / e.numx,
+      (e.numy - 1 - row) / e.numy
+    );
+  }
 }

@@ -102,6 +102,9 @@
   "status_lang_fallback": "Language file not found — using English.",
   "status_mtr_loaded":    "MTR loaded: {name}",
   "status_mtr_error":     "MTR error: {name} — {msg}",
+  "status_txi_loaded":    "TXI loaded: {name}",
+  "err_txi_load":         "TXI load error: {name} — {msg}",
+
 
   "super_no_anims":       "Supermodel \"{name}\" has no animations.",
   "super_anims_merged":   "Supermodel \"{name}\": {n} animations applied.",
