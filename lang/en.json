@@ -30,7 +30,7 @@
   "ctrl_wireframe":       "Wireframe",
   "ctrl_lighting":        "Lighting",
   "ctrl_mesh_opacity":    "Mesh",
-  "btn_normals":          "Normals",
+  "btn_normals":          "Smoothing",
   "btn_grid":             "Grid",
   "btn_bbox":             "BBox",
   "btn_axes":             "Axes",
