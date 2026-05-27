@@ -114,6 +114,34 @@ function computeSGNormals(node) {
   return out;
 }
 
+/**
+  * Detects flat meshes based on the bounding box.
+  * If the smallest dimension is less than the FLAT_RATIO of the largest,
+  * the mesh is considered a 2D surface → DoubleSide is appropriate.
+*/
+const FLAT_RATIO = 0.05; // 5 % — anpassbar
+
+function isFlatMesh(node) {
+  const verts = node.verts;
+  if (!verts || verts.length < 3) return false;
+
+  let minX = Infinity, maxX = -Infinity;
+  let minY = Infinity, maxY = -Infinity;
+  let minZ = Infinity, maxZ = -Infinity;
+
+  for (const v of verts) {
+    if (v[0] < minX) minX = v[0];  if (v[0] > maxX) maxX = v[0];
+    if (v[1] < minY) minY = v[1];  if (v[1] > maxY) maxY = v[1];
+    if (v[2] < minZ) minZ = v[2];  if (v[2] > maxZ) maxZ = v[2];
+  }
+
+  const maxExt = Math.max(maxX - minX, maxY - minY, maxZ - minZ);
+  const minExt = Math.min(maxX - minX, maxY - minY, maxZ - minZ);
+
+  if (maxExt < 0.001) return false; // degeneriertes Mesh
+  return minExt / maxExt < FLAT_RATIO;
+}
+
 const NODE_COLORS = {
   trimesh: 0x4a90c0, skin: 0xc070c0, dummy: 0x70b870,
   animmesh: 0x6ab84a,
@@ -190,12 +218,18 @@ function buildScene(model) {
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
       geo.setAttribute('uv',       new THREE.BufferAttribute(uvs, 2));
-
-      if (hasNormals) {
+      
+      // Priorität: SG-Normals > MDL-Normals > computeVertexNormals (Fallback)
+      // NWN MDL Dateien haben fast immer hasNormals=true, daher darf computeSGNormals
+      // nicht im else-Zweig hängen, sonst wird es nie aufgerufen.
+      const hasSmoothGroups = node.faces.some(f => typeof f.sg === 'number');
+      if (hasSmoothGroups) {
+        geo.setAttribute('normal', new THREE.BufferAttribute(computeSGNormals(node), 3));
+      } else if (hasNormals) {
         geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
       } else {
-        geo.setAttribute('normal', new THREE.BufferAttribute(computeSGNormals(node), 3));
-      }
+        geo.computeVertexNormals();
+      }      
 
       // Save base UVs — needed when changing animations (resetToPose),
       // so animmesh nodes can return to their base state.
@@ -334,8 +368,7 @@ function buildScene(model) {
         
       // NWN uses back-face culling; DoubleSide only for alpha-blended materials
       // (magic effects, glass) that may legitimately show both faces.
-      const needsDoubleSide = useMeshAlpha || useMtrTrans || useTexAlpha
-          || (mtr ? mtr.twosided : false)  || node.transparencyhint === 1;
+      const needsDoubleSide = useMeshAlpha || useMtrTrans || useTexAlpha || (mtr ? mtr.twosided : false) || isFlatMesh(node);
 
       const mat = new THREE.MeshStandardMaterial({
         color:        tex ? new THREE.Color(1, 1, 1) : new THREE.Color(d[0] || 0.8, d[1] || 0.8, d[2] || 0.8),
@@ -377,10 +410,10 @@ function buildScene(model) {
       const mesh = new THREE.Mesh(geo, mat);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
-
+      
       // Store original values — used by updateMeshOpacity to reset
       mesh.userData.baseOpacity     = node.alpha;
-      mesh.userData.baseTransparent = useMeshAlpha || useTexAlpha; // || useMtrTrans;
+      mesh.userData.baseTransparent = useMeshAlpha || useTexAlpha || useMtrTrans;
       mesh.userData.baseDepthWrite  = !useTexAlpha;
       obj = mesh;
 
@@ -659,6 +692,10 @@ function buildScene(model) {
     orbit.initPhi    = orbit.phi;
 
     // BBox helper
+/* bboxHelper = new THREE.Box3Helper(box, new THREE.Color(0xc8a44a));
+    bboxHelper.visible = document.getElementById('btn-bbox').classList.contains('active');
+    scene.add(bboxHelper);*/
+    
     refreshBBox();
     
     // NEW: Initialize SkeletonHelper
@@ -757,7 +794,13 @@ function buildScene(model) {
     const rawPos = geo.attributes.position.array;
     const bindPos = new Float32Array(rawPos.length);
     const _vtmp = new THREE.Vector3();
-        
+    
+/* for (let k = 0; k < rawPos.length; k += 3) {
+      bindPos[k]     = rawPos[k]     + spx;
+      bindPos[k + 1] = rawPos[k + 1] + spy;
+      bindPos[k + 2] = rawPos[k + 2] + spz;
+    }*/
+    
     for (let k = 0; k < rawPos.length; k += 3) {
       _vtmp.set(rawPos[k], rawPos[k + 1], rawPos[k + 2]);
       if (rotMat) _vtmp.applyMatrix4(rotMat);
