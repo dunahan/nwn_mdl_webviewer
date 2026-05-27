@@ -190,7 +190,7 @@ function applyTexturesToScene() {
         mat.map = diffuseTex;
         mat.color.set(0xffffff);
         applied++;
-        if (diffuseTex.userData.hasAlpha === true) {
+        if (diffuseTex.userData.hasAlpha === true && (node.transparencyhint === 1 || mtr.transparency)) {
           mat.transparent = true;
           mat.alphaTest   = 0.1;
           mat.depthWrite  = true;
@@ -271,7 +271,7 @@ function applyTexturesToScene() {
       mat.color.set(0xffffff);
       applied++;
 
-      if (tex.userData.hasAlpha === true || node.transparencyhint === 1) {
+      if (tex.userData.hasAlpha === true && node.transparencyhint === 1) {
         mat.transparent = true;
         mat.alphaTest   = 0.1;
         mat.depthWrite  = true;

@@ -30,7 +30,7 @@
   "ctrl_wireframe":       "Gitterlinien",
   "ctrl_lighting":        "Beleuchtung",
   "ctrl_mesh_opacity":    "Mesh",
-  "btn_normals":          "Normalen",
+  "btn_normals":          "Glätten",
   "btn_grid":             "Raster",
   "btn_bbox":             "BBox",
   "btn_axes":             "Achsen",
