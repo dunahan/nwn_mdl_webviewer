@@ -54,6 +54,7 @@ Add `?lang=XX` to the URL, where `XX` is the filename without `.json`:
 | `log_multi_part` | Log message for generic Multi-Part assembly (e.g. weapon parts `_b_` / `_m_` / `_t_`). |
 | `log_char_*` | Log messages for Multi-Part character assembly (part merging, skeleton attachment, bounding-box stacking). |
 | `hr_*` | Texture Hot-Reload feature (watch folder button, status messages, node indicator tooltip). |
+| `sb_*` | Set Browser panel strings, tile loading statuses, and group messages. |
 
 ### Placeholder Dictionary
 These variables are replaced dynamically at runtime and must not be translated.
@@ -79,6 +80,8 @@ These variables are replaced dynamically at runtime and must not be translated.
 | `{dp}` | Number of door positions in a DWK mesh | "DWK loaded: {nodes} mesh(es), {faces} face(s), {dp} door position(s)." |
 | `{pct}` | WASM download progress in percent | "Downloading WASM… {pct}%" |
 | `{names}` | Comma-separated list of watched texture filenames | "Watching: cube_diff.tga, cube_norm.tga" |
+| `{nr}` | The ID/Number of a tileset tile (e.g. "Tile #42 loaded") |
+| `{model}` | The model name of a specific tile (e.g. "ttr01_b05") |
 
 ---
 
@@ -148,6 +151,9 @@ If a model references a Supermodel for animations, these strings guide the user 
 
 ### Particle Emitters (`nd_em_*`, `log_em_*`)
 NWN uses emitter nodes for particle effects. These keys cover the various physics, timing, and rendering properties (like birthrate, life expectancy, drag, gravity, etc.) displayed in the node details panel when an emitter is selected.
+
+### Set Browser (`sb_*`)
+A description of the Set Browser will follow shortly.
 
 ---
 

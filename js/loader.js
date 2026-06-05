@@ -2,7 +2,7 @@
    NWN MDL Viewer — File Loader & Supermodel Merge
    ═══════════════════════════════════════════════ */
 
-//  Multi-File Loader  (MDL + Texturen gleichzeitig)
+//  Multi-File Loader  (MDL + textures simultaneously)
 // ─────────────────────────────────────────────
 function loadFiles(fileList) {
   if (!fileList || fileList.length === 0) return;
@@ -29,12 +29,16 @@ function loadFiles(fileList) {
     if (!isSupermodelLoad) {
       clearSession();
       clearLog();
+      // Model name hint for collapsed sidebar
+      const baseName = mdlFiles[0].name.replace(/\.[^.]+$/, '');
+      const hint = document.getElementById('model-name-hint');
+      if (hint) { hint.textContent = baseName; hint.classList.add('has-model'); }
     }
   }
 
   setStatus(fmt('status_loading', { n: files.length }));
 
-  // Gesamtzähler: Texturen + MTR müssen beide fertig sein vor onAllTexReady
+  // Global counter: textures + MTR must both be done before onAllTexReady
   let texPending = texFiles.length;
   let txiPending = txiFiles.length;
   let mtrPending = mtrFiles.length;
@@ -57,7 +61,7 @@ function loadFiles(fileList) {
     if (texPending === 0 && txiPending === 0 && mtrPending === 0) onAllTexReady();
   }
 
-  // TXI-Dateien als Text einlesen
+  // Read TXI files as text
   for (const file of txiFiles) {
     const key = basename(file.name);
     const reader = new FileReader();
@@ -79,7 +83,7 @@ function loadFiles(fileList) {
     reader.readAsText(file);
   }
 
-  // MTR-Dateien als Text einlesen
+  // Read MTR files as text
   for (const file of mtrFiles) {
     const key = basename(file.name);
     const reader = new FileReader();
@@ -101,14 +105,14 @@ function loadFiles(fileList) {
     reader.readAsText(file);
   }
 
-  // WOK-Dateien direkt als Text einlesen (unabhängig von MDL/Texturen)
+  // Read WOK files directly as text (independent of MDL/textures)
   for (const file of wokFiles) {
     const reader = new FileReader();
     reader.onload = ev => {
       try {
         const wok = parseWOK(ev.target.result);
         buildWalkMesh(wok);
-        // Walkmesh-Button im UI aktivieren
+        // Enable walkmesh button in UI
         const btn = document.getElementById('btn-walkmesh');
         if (btn) btn.disabled = false;
       } catch (err) {
@@ -118,7 +122,7 @@ function loadFiles(fileList) {
     reader.readAsText(file);
   }
 
-  // PWK-Dateien direkt als Text einlesen
+  // Read PWK files directly as text
   for (const file of pwkFiles) {
     const reader = new FileReader();
     reader.onload = ev => {
@@ -134,7 +138,7 @@ function loadFiles(fileList) {
     reader.readAsText(file);
   }
 
-  // DWK-Dateien direkt als Text einlesen
+  // Read DWK files directly as text
   for (const file of dwkFiles) {
     const reader = new FileReader();
     reader.onload = ev => {
@@ -181,7 +185,7 @@ function loadFiles(fileList) {
       };
       reader.readAsArrayBuffer(file);
     } else if (ext === 'dds') {
-      // NWN/Bioware custom DDS (kein Standard-DDS-Header)
+      // NWN/Bioware custom DDS (non-standard DDS header)
       const reader = new FileReader();
       reader.onload = ev => {
         try {
@@ -203,12 +207,12 @@ function loadFiles(fileList) {
       };
       reader.readAsArrayBuffer(file);
     } else if (ext === 'plt') {
-      // NWN/Bioware PLT (Palette Texture)
+      // NWN/Bioware PLT (palette texture)
       const reader = new FileReader();
       reader.onload = ev => {
         try {
           textureCache[key] = parseNWNPLT(ev.target.result);
-          textureCache[key].userData.pltTexKey = key;  // für per-Part Paletten-Lookup
+          textureCache[key].userData.pltTexKey = key;  // for per-part palette lookup
           texLoaded++;
           setStatus(fmt('status_tex_loaded', { name: file.name, n: texLoaded, total: texFiles.length }));
         } catch(err) {
@@ -226,7 +230,7 @@ function loadFiles(fileList) {
       };
       reader.readAsArrayBuffer(file);
     } else {
-      // PNG/JPG: Browser kann das nativ
+      // PNG/JPG: browser handles this natively
       const url = URL.createObjectURL(file);
       const loader = new THREE.TextureLoader();
       loader.load(url, tex => {
@@ -248,7 +252,168 @@ function loadFiles(fileList) {
 }
 
 // ─────────────────────────────────────────────
-//  Supermodel-Animations-Merge
+//  loadMDLFromHandle  (SetBrowser — phase 4)
+// ─────────────────────────────────────────────
+//
+// Loads an MDL from a FileSystemFileHandle — entry point for the
+// Set Browser when a tile is loaded by click.
+//
+// The full loadFiles() path is traversed:
+//   clearSession · binary detection · decompile overlay · buildScene
+//   applyTexturesToScene · HotReload.onModelLoaded (→ _fillMissingTextures)
+//
+// Textures come from the existing textureCache — the watcher has already
+// pre-loaded them during folder pick (clearSession does not clear the cache).
+//
+// @param  {FileSystemFileHandle} handle
+// @return {Promise<void>}
+//
+async function loadMDLFromHandle(handle) {
+  let file;
+  try {
+    file = await handle.getFile();
+  } catch (e) {
+    logMsg(fmt('sb_load_error', { model: handle.name ?? '?', msg: e.message }), 'error');
+    return;
+  }
+
+  // Keep handle as picker hint so showDirectoryPicker() lands in
+  // the correct directory on the next watcher start.
+  if (typeof HotReload !== 'undefined') {
+    HotReload.setModelFileHandle(handle);
+  }
+
+  // Update model name hint in viewport (for collapsed sidebar)
+  const baseName = handle.name.replace(/\.[^.]+$/, '');
+  const hint = document.getElementById('model-name-hint');
+  if (hint) { hint.textContent = baseName; hint.classList.add('has-model'); }
+
+  loadFiles([file]);
+}
+
+// ─────────────────────────────────────────────
+//  _readMDLHandle  (internal — Set Browser group helper)
+// ─────────────────────────────────────────────
+//
+// Reads an MDL from a FileSystemFileHandle and returns the ASCII text.
+// Handles both ASCII and binary MDLs (WASM decompile).
+// Returns null if reading or decompiling fails.
+//
+async function _readMDLHandle(handle) {
+  let file;
+  try { file = await handle.getFile(); }
+  catch (e) { logMsg(`[Group] File not readable: ${handle.name}`, 'warn'); return null; }
+
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = async e => {
+      const buffer = e.target.result;
+      try {
+        if (isBinaryMDL(buffer)) {
+          if (!cm.isReady()) await cm.ready();
+          resolve(await cm.decompile(buffer));
+        } else {
+          resolve(new TextDecoder('utf-8').decode(buffer));
+        }
+      } catch (err) {
+        logMsg(`[Group] Decompile error: ${handle.name} — ${err.message}`, 'warn');
+        resolve(null);
+      }
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// ─────────────────────────────────────────────
+//  loadGroupFromHandles  (Set Browser — group view)
+// ─────────────────────────────────────────────
+//
+// Loads multiple MDL tiles side by side in a grid into the scene.
+// Each entry in `entries` is a FileSystemFileHandle (or null for
+// empty slots). Order matches the grid: index i → col i%cols, row i/cols.
+//
+// Tile size: NWN standard 10m × 10m. The group is centred around the origin.
+//
+// @param {(FileSystemFileHandle|null)[]} entries  grid entries (null = empty slot)
+// @param {number}                        cols     column count
+// @param {number}                        rows     row count (for centring only)
+//
+async function loadGroupFromHandles(entries, cols, rows) {
+  const TILE_SIZE  = 10.0;
+  const TILE_PAUSE = 20;    // ms — short pause between tiles for browser rendering
+
+  clearSession();
+  clearLog();
+
+  // Root group holds all tile groups → clearSession() cleans up everything in one call
+  const rootGroup = new THREE.Group();
+  scene.add(rootGroup);
+  modelGroup = rootGroup;   // set immediately so clearSession works correctly
+
+  let loadedCount = 0;
+
+  for (let i = 0; i < entries.length; i++) {
+    const handle = entries[i];
+    if (!handle) continue;   // skip empty slot
+
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+
+    // Centring: grid midpoint is at (0, 0, 0)
+    // NWN X→ Three.js X,  NWN Y→ Three.js −Z  (after −PI/2 rotation)
+    const offsetX =  (col - (cols - 1) / 2) * TILE_SIZE;
+    const offsetZ = -(row - (rows - 1) / 2) * TILE_SIZE;
+
+    const text = await _readMDLHandle(handle);
+    if (!text) continue;
+
+    let parsed;
+    try { parsed = parseMDL(text); }
+    catch (e) {
+      logMsg(`[Group] Parse error: ${handle.name} — ${e.message}`, 'warn');
+      continue;
+    }
+    if (!parsed) continue;
+
+    setBuildOffset(offsetX, offsetZ);
+    buildScene(parsed);
+    // currentModel + nodeObjects now point to this tile
+
+    // Apply textures from existing cache immediately
+    applyTexturesToScene();
+
+    // Load and apply missing textures from watch folder for THIS tile.
+    // Correct because currentModel still points to this tile →
+    // getNeededTextures(currentModel) filters only its textures.
+    if (typeof HotReload !== 'undefined') await HotReload.onModelLoaded();
+
+    // Detach tile group from scene and attach to rootGroup
+    scene.remove(modelGroup);
+    rootGroup.add(modelGroup);
+    loadedCount++;
+
+    // Short pause: browser renders the finished tile before loading the next
+    await new Promise(r => setTimeout(r, TILE_PAUSE));
+
+    // Reset modelGroup to rootGroup after pause
+    modelGroup = rootGroup;
+  }
+
+  // Ensure modelGroup points to rootGroup (even if the last slot was empty)
+  modelGroup = rootGroup;
+
+  if (loadedCount > 0) {
+    logInfoI18n('sb_group_loaded', { n: loadedCount });
+    setStatus(fmt('sb_group_loaded', { n: loadedCount }));
+  } else {
+    logMsg(L('sb_group_empty'), 'warn');
+    setStatus(L('sb_group_empty'));
+  }
+}
+
+// ─────────────────────────────────────────────
+//  Supermodel Animation Merge
 // ─────────────────────────────────────────────
 function mergeAnimationsFromSupermodel(mainModel, superModel) {
   if (superModel.animations.length === 0) {
@@ -262,10 +427,10 @@ function mergeAnimationsFromSupermodel(mainModel, superModel) {
   for (const anim of superModel.animations) {
     const remapped = { name: anim.name, length: anim.length, transtime: anim.transtime, nodes: {} };
     for (const [nodeName, data] of Object.entries(anim.nodes)) {
-      // Root-Node-Name remappen: supermodel.name → mainmodel.name
+      // Remap root node name: supermodel.name → mainmodel.name
       const mapped = (nodeName === superModel.name) ? mainModel.name : nodeName;
       if (mainNodeNames.has(mapped) || mapped === mainModel.name) {
-        // posKeys ggf. skalieren — data-Objekt nicht mutieren (shared mit superModel)
+        // Scale posKeys if needed — do not mutate data object (shared with superModel)
         if (animScale !== 1.0 && data.posKeys.length > 0) {
           remapped.nodes[mapped] = {
             ...data,
@@ -282,7 +447,7 @@ function mergeAnimationsFromSupermodel(mainModel, superModel) {
   }
   mainModel.animCount = mainModel.animations.length;
 
-  // Rest-Pose aus erster Animation wenn noch keine vorhanden
+  // Rest pose from first animation if none present yet
   if (Object.keys(mainModel.restPose).length === 0 && mainModel.animations.length > 0) {
     for (const [nodeName, data] of Object.entries(mainModel.animations[0].nodes)) {
       const firstOri = data.oriKeys[0];
@@ -291,7 +456,7 @@ function mergeAnimationsFromSupermodel(mainModel, superModel) {
         mainModel.restPose[nodeName] = {
           orientation: firstOri ? [firstOri.ax, firstOri.ay, firstOri.az, firstOri.angle] : null,
           position:    firstPos ? [firstPos.x, firstPos.y, firstPos.z] : null,
-          // posKeys wurden beim Merge bereits skaliert — firstPos ist schon skaliert
+          // posKeys were already scaled during merge — firstPos is already scaled
         };
       }
     }
@@ -301,15 +466,15 @@ function mergeAnimationsFromSupermodel(mainModel, superModel) {
 }
 
 // ─────────────────────────────────────────────
-//  Fehlende-Texturen-Report
+//  Missing Texture Report
 // ─────────────────────────────────────────────
 
-// DOM-Referenzen der Log-Einträge: texname → <div.log-entry>
-// '__header__' ist der Zähler-Eintrag oben.
+// DOM references of log entries: texname → <div.log-entry>
+// '__header__' is the counter entry at the top.
 const _missingTexEntries = {};
 
-// Gibt die Textur-Keys (lowercase, ohne Extension) eines einzelnen Nodes zurück.
-// Wird von hot_reload.js für die Node-Watch-Indikatoren im Szene-Graph genutzt.
+// Returns the texture keys (lowercase, without extension) of a single node.
+// Used by hot_reload.js for the node watch indicators in the scene graph.
 function getNodeTexKeys(node) {
   const keys   = new Set();
   const mtrKey = node.materialname
@@ -335,8 +500,8 @@ function getNodeTexKeys(node) {
   return keys;
 }
 
-// Gibt alle vom Modell benötigten Textur-Keys (lowercase, ohne Extension) zurück.
-// Gemeinsame Basis für logMissingTextures() und HotReload._fillMissingTextures().
+// Returns all texture keys (lowercase, without extension) needed by the model.
+// Shared base for logMissingTextures() and HotReload._fillMissingTextures().
 function getNeededTextures(model) {
   const needed = new Set();
   if (!model) return needed;
@@ -370,7 +535,7 @@ function getNeededTextures(model) {
 function logMissingTextures(model) {
   if (!model) return;
 
-  // Alte Referenzen beim Neu-Laden verwerfen
+  // Discard old references on reload
   for (const key of Object.keys(_missingTexEntries)) delete _missingTexEntries[key];
 
   const needed  = getNeededTextures(model);
@@ -392,8 +557,8 @@ function logMissingTextures(model) {
   }
 }
 
-// Wird aufgerufen wenn Texturen nachgeladen werden (ohne neues MDL).
-// Entfernt aufgelöste Einträge aus dem Log und aktualisiert den Header-Zähler.
+// Called when textures are reloaded (without a new MDL).
+// Removes resolved entries from the log and updates the header counter.
 function resolveMissingTextures() {
   if (Object.keys(_missingTexEntries).length === 0) return;
 
@@ -413,31 +578,31 @@ function resolveMissingTextures() {
   if (!headerEl) return;
 
   if (remaining === 0) {
-    // Alle aufgelöst: Header entfernen, ✓-Meldung loggen
+    // All resolved: remove header, log ✓ message
     headerEl.parentNode?.removeChild(headerEl);
     delete _missingTexEntries['__header__'];
     logInfoI18n('tex_missing_none');
   } else {
-    // Zähler im Header aktualisieren
+    // Update counter in header
     const msgSpan = headerEl.querySelector('.log-msg');
     if (msgSpan) msgSpan.textContent = fmt('tex_missing_header', { n: remaining });
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Character-Part Positionierung  (Fall D)
+//  Character Part Positioning  (case D)
 //
-//  Modus A – Mit Basis-Skelett (z.B. pmh0.mdl):
-//    Traversiert die Node-Hierarchie des Skeletts, berechnet Weltpositionen
-//    aller Attachment-Nodes (_g-Suffixe) und platziert jedes Part exakt dort.
+//  Mode A – With base skeleton (e.g. pmh0.mdl):
+//    Traverses the node hierarchy of the skeleton, computes world positions
+//    of all attachment nodes (_g suffixes) and places each part exactly there.
 //
-//  Modus B – Ohne Skelett (Fallback):
-//    Bounding-Box-Stacking entlang der NWN-Z-Achse (Z = hoch).
+//  Mode B – Without skeleton (fallback):
+//    Bounding-box stacking along the NWN Z axis (Z = up).
 // ─────────────────────────────────────────────────────────────────────────────
 function positionCharacterParts(charParts, skeletonModel) {
   if (typeof scene === 'undefined' || typeof THREE === 'undefined') return;
 
-  // ── Hilfsfunktionen ──────────────────────────────────────────────────────
+  // ── Helper functions ─────────────────────────────────────────────────────
 
   // "pmh0_chest001" → "chest"
   function partKey(name) {
@@ -451,8 +616,8 @@ function positionCharacterParts(charParts, skeletonModel) {
     return scene.getObjectByName(partName) || null;
   }
 
-  // ── Phase 0: Alle Parts auf Ursprung zurücksetzen ─────────────────────────
-  // (Binary-MDL-Attachment-Offsets aus buildScene eliminieren)
+  // ── Phase 0: Reset all parts to origin ──────────────────────────────────
+  // (eliminate binary MDL attachment offsets from buildScene)
   for (const part of charParts) {
     const root = findRoot(part.name);
     if (root) root.position.set(0, 0, 0);
@@ -460,35 +625,35 @@ function positionCharacterParts(charParts, skeletonModel) {
   scene.updateMatrixWorld(true);
 
   // ══════════════════════════════════════════════════════════════════════════
-  //  Modus A: Skelett-basierte Positionierung
+  //  Mode A: Skeleton-based positioning
   // ══════════════════════════════════════════════════════════════════════════
   if (skeletonModel) {
 
-    // NWN Part-Kürzel → Attachment-Node-Name im Skelett
-    // Quelle: pmh0.mdl-Analyse (gilt für alle pm[mf][0-9].mdl Basisskelette)
+    // NWN part abbreviation → attachment node name in skeleton
+    // Source: pmh0.mdl analysis (applies to all pm[mf][0-9].mdl base skeletons)
     const BONE_MAP = {
       'chest':  'torso_g',
       'pelvis': 'pelvis_g',
       'belt':   'belt_g1',
       'neck':   'neck_g',
       'head':   'head_g',
-      'shol':   'lbicep_g',    // Schulterplatte: Schultergelenk links
-      'shor':   'rbicep_g',    //                 Schultergelenk rechts
-      'bicepl': 'lbicep_g',    // Oberarm links
-      'bicepr': 'rbicep_g',    // Oberarm rechts
-      'forel':  'lforearm_g',  // Unterarm links
-      'forer':  'rforearm_g',  // Unterarm rechts
-      'handl':  'lhand_g',     // Hand links
-      'handr':  'rhand_g',     // Hand rechts
-      'legl':   'lthigh_g',    // Oberschenkel links
-      'legr':   'rthigh_g',    // Oberschenkel rechts
-      'shinl':  'lshin_g',     // Schienbein links
-      'shinr':  'rshin_g',     // Schienbein rechts
-      'footl':  'lfoot_g',     // Fuß links
-      'footr':  'rfoot_g',     // Fuß rechts
+      'shol':   'lbicep_g',    // shoulder plate: left shoulder joint
+      'shor':   'rbicep_g',    //                  right shoulder joint
+      'bicepl': 'lbicep_g',    // upper arm left
+      'bicepr': 'rbicep_g',    // upper arm right
+      'forel':  'lforearm_g',  // forearm left
+      'forer':  'rforearm_g',  // forearm right
+      'handl':  'lhand_g',     // hand left
+      'handr':  'rhand_g',     // hand right
+      'legl':   'lthigh_g',    // thigh left
+      'legr':   'rthigh_g',    // thigh right
+      'shinl':  'lshin_g',     // shin left
+      'shinr':  'rshin_g',     // shin right
+      'footl':  'lfoot_g',     // foot left
+      'footr':  'rfoot_g',     // foot right
     };
 
-    // Weltpositionen aller Skelett-Nodes durch Traversierung der Hierarchie
+    // World positions of all skeleton nodes via hierarchy traversal
     const nodeMap = {};
     for (const n of skeletonModel.nodes) nodeMap[n.name.toLowerCase()] = n;
 
@@ -515,7 +680,7 @@ function positionCharacterParts(charParts, skeletonModel) {
     }
     for (const n of skeletonModel.nodes) computeWorld(n.name);
 
-    // Jedes Part an seinem Attachment-Node platzieren
+    // Place each part at its attachment node
     for (const part of charParts) {
       const bone = BONE_MAP[partKey(part.name.toLowerCase())];
       if (!bone) continue;
@@ -531,10 +696,10 @@ function positionCharacterParts(charParts, skeletonModel) {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  //  Modus B: Bounding-Box-Stacking (Fallback ohne Skelett)
+  //  Mode B: Bounding-box stacking (fallback without skeleton)
   // ══════════════════════════════════════════════════════════════════════════
 
-  // Phase 1: Bounding-Boxes nach Phase-0-Reset
+  // Phase 1: bounding boxes after phase-0 reset
   const origBox = {};
   for (const part of charParts) {
     const root = findRoot(part.name);
@@ -543,7 +708,7 @@ function positionCharacterParts(charParts, skeletonModel) {
     if (!box.isEmpty()) origBox[part.name] = box;
   }
 
-  // Phase 2a: Wirbelsäule + Beine entlang Z-Achse (NWN: Z = hoch)
+  // Phase 2a: spine + legs along Z axis (NWN: Z = up)
   const SPINE_GROUPS = [
     ['footl', 'footr'], ['shinl', 'shinr'], ['legl', 'legr'],
     ['pelvis'], ['belt'], ['chest'], ['neck'], ['head'],
@@ -572,7 +737,7 @@ function positionCharacterParts(charParts, skeletonModel) {
   }
   if (chestTopZ === 0) chestTopZ = floorZ;
 
-  // Phase 2b: Arme hängen abwärts von der Brust-Oberkante
+  // Phase 2b: arms hang downward from the chest top edge
   const ARM_CHAINS = [
     ['shol', 'bicepl', 'forel', 'handl'],
     ['shor', 'bicepr', 'forer', 'handr'],
@@ -594,14 +759,14 @@ function positionCharacterParts(charParts, skeletonModel) {
 }
 
 // ─────────────────────────────────────────────
-//  MDL-Loader  (Einzel- oder Mehrfach-Dateien)
+//  MDL Loader  (single or multiple files)
 // ─────────────────────────────────────────────
 function loadAllMDLFiles(mdlFiles) {
   const texts = {};
   let pending = mdlFiles.length;
 
   function onAllRead() {
-    // Alle Dateien parsen
+    // Parse all files
     const parsed = {};
     for (const [baseName, text] of Object.entries(texts)) {
       try {
@@ -612,8 +777,8 @@ function loadAllMDLFiles(mdlFiles) {
     }
     if (Object.keys(parsed).length === 0) return;
 
-    // ── Fall A: Supermodel nachladen ──────────────────────────────────
-    // Ein Modell wartet bereits auf sein Supermodel.
+    // ── Case A: load supermodel ──────────────────────────────────────
+    // A model is already waiting for its supermodel.
     if (pendingSupermodel && currentModel) {
       const superName = pendingSupermodel.toLowerCase();
       const superModel =
@@ -634,10 +799,10 @@ function loadAllMDLFiles(mdlFiles) {
       return;
     }
 
-    // ── Fall D: Character Part Assembly (pmX#_PART### – Körperteile dynamischer Charaktere) ──
-    // Erkennt optional das Basis-Skelett (pmh0, pmf0, …) unter den geladenen Dateien.
-    // Mit Skelett → exakte Attachment-Positionen aus der Node-Hierarchie.
-    // Ohne Skelett → BB-Stacking als Fallback.
+    // ── Case D: Character Part Assembly (pmX#_PART### – body parts of dynamic characters) ──
+    // Optionally detects the base skeleton (pmh0, pmf0, …) among the loaded files.
+    // With skeleton → exact attachment positions from the node hierarchy.
+    // Without skeleton → BB stacking as fallback.
     {
       const allParsed = Object.values(parsed);
       if (allParsed.length > 1) {
@@ -647,10 +812,10 @@ function loadAllMDLFiles(mdlFiles) {
         const charParts     = allParsed.filter(m => charPartRx.test(m.name));
         const skeletonModel = allParsed.find(m => baseSkeletonRx.test(m.name)) || null;
 
-        // Fall D greift wenn: nur Parts geladen  ODER  Skelett + Parts  ODER
-        // Skelett + Parts + Supermodel des Skeletts (z.B. a_fa.mdl).
-        // Das Supermodel-MDL wird beim nonPartNonSkeleton-Check ausgeschlossen,
-        // damit es Fall D nicht verhindert (es wird später als Animation-Quelle genutzt).
+        // Case D applies when: only parts loaded  OR  skeleton + parts  OR
+        // skeleton + parts + supermodel of skeleton (e.g. a_fa.mdl).
+        // The supermodel MDL is excluded from the nonPartNonSkeleton check
+        // so it does not block case D (it is used later as animation source).
         const skelSuperName = skeletonModel
           ? (skeletonModel.supermodel || '').toLowerCase()
           : '';
@@ -673,23 +838,23 @@ function loadAllMDLFiles(mdlFiles) {
             logInfoI18n('log_char_part', { part: part.name, base: base.name });
           }
 
-          // ── Skelett-Bone-Nodes in base integrieren ───────────────────────────
-          // Die Bone-Nodes (rootdummy, torso_g, rbicep_g …) aus dem Skelett
-          // (pfa0.mdl) müssen in der Szene vorhanden sein, damit:
-          //   a) mergeAnimationsFromSupermodel sie als gültige Ziele akzeptiert
+          // ── Integrate skeleton bone nodes into base ─────────────────────────
+          // The bone nodes (rootdummy, torso_g, rbicep_g …) from the skeleton
+          // (pfa0.mdl) must be present in the scene so that:
+          //   a) mergeAnimationsFromSupermodel accepts them as valid targets
           //      (mainNodeNames.has(boneName) → true)
-          //   b) applyAnimFrame ihre Three.js-Objekte in nodeObjects findet
-          //   c) applySkinning die animierten Bone-Transforms lesen kann
-          // Der Root-Node des Skeletts wird übersprungen; seine direkten Kinder
-          // werden stattdessen unter base.name eingehängt (Parent-Remapping).
+          //   b) applyAnimFrame finds their Three.js objects in nodeObjects
+          //   c) applySkinning can read the animated bone transforms
+          // The root node of the skeleton is skipped; its direct children
+          // are attached under base.name instead (parent remapping).
           if (skeletonModel) {
             const skelRootName = skeletonModel.name.toLowerCase();
             for (const node of skeletonModel.nodes) {
-              if (node.name.toLowerCase() === skelRootName) continue;       // Root überspringen
-              if (base.nodes.find(n => n.name === node.name)) continue;     // kein Duplikat
+              if (node.name.toLowerCase() === skelRootName) continue;       // skip root
+              if (base.nodes.find(n => n.name === node.name)) continue;     // no duplicate
               const patched = Object.assign({}, node);
               if ((patched.parent || '').toLowerCase() === skelRootName) {
-                patched.parent = base.name;   // direkte Skelett-Kinder an base-Root hängen
+                patched.parent = base.name;   // attach direct skeleton children to base root
               }
               base.nodes.push(patched);
             }
@@ -698,12 +863,12 @@ function loadAllMDLFiles(mdlFiles) {
           // ─────────────────────────────────────────────────────────────────────
 
           buildScene(base);
-          // ── Charpart-Roots an Bones reparenten & Bone-Debug ausblenden ───────
-          // positionCharacterParts() überspringen wenn Skelett vorhanden:
-          // Dessen computeWorld() ignoriert Bone-Rotationen (nur additive Positionen),
-          // was zu Fehlpositionierungen führt. Die Bone-Object3Ds sind bereits durch
-          // Three.js korrekt im Raum platziert (inkl. Rotationen der Eltern).
-          // → boneObj.add(partRoot) + position (0,0,0): Part landet exakt am Bone-Ursprung.
+          // ── Reparent charpart roots to bones & hide bone debug meshes ────────
+          // Skip positionCharacterParts() when skeleton is present:
+          // Its computeWorld() ignores bone rotations (additive positions only),
+          // causing misplacements. The bone Object3Ds are already correctly placed
+          // in space by Three.js (including parent rotations).
+          // → boneObj.add(partRoot) + position (0,0,0): part lands exactly at bone origin.
           if (skeletonModel) {
             const BONE_MAP = {
               'chest':  'torso_g',    'pelvis': 'pelvis_g',   'belt':   'belt_g1',
@@ -717,15 +882,15 @@ function loadAllMDLFiles(mdlFiles) {
               'footl':  'lfoot_g',    'footr':  'rfoot_g',
             };
 
-            // Case-insensitive Bone-Lookup: Skelette verschiedener Modelle
-            // nutzen unterschiedliche Schreibweisen (z.B. Lbicep_g vs lbicep_g).
-            // BONE_MAP-Werte sind immer Kleinbuchstaben → einmalig LC-Map aufbauen.
+            // Case-insensitive bone lookup: skeletons of different models
+            // use different capitalisations (e.g. Lbicep_g vs lbicep_g).
+            // BONE_MAP values are always lowercase → build LC map once.
             const nodeObjLC = {};
             for (const [k, v] of Object.entries(nodeObjects)) {
               if (k) nodeObjLC[k.toLowerCase()] = v;
             }
 
-            // Schritt 1: Part-Roots an ihre Bones hängen, lokale Position auf (0,0,0)
+            // Step 1: attach part roots to their bones, set local position to (0,0,0)
             for (const part of charParts) {
               if (part === base) continue;
               const m = part.name.match(/^p[mf][a-z]\d_([a-z]+)\d+$/i);
@@ -739,10 +904,10 @@ function loadAllMDLFiles(mdlFiles) {
               partRoot.quaternion.identity();
             }
 
-            // Pelvis-Geometrie-Kinder des Base-Roots an pelvis_g reparenten.
-            // Der Base-Root selbst kann nicht verschoben werden (alle Bones hängen daran).
-            // Seine Geometrie-Meshes (kein Skelett-Node) werden wie alle anderen Parts
-            // direkt unter ihren Bone-Attachment-Node gehängt.
+            // Reparent pelvis geometry children of base root to pelvis_g.
+            // The base root itself cannot be moved (all bones hang from it).
+            // Its geometry meshes (non-skeleton nodes) are attached directly
+            // under their bone attachment node, like all other parts.
             const pelvisGObj   = nodeObjLC[BONE_MAP['pelvis']];
             const baseRootObj  = nodeObjects[base.name];
             if (pelvisGObj && baseRootObj) {
@@ -758,10 +923,10 @@ function loadAllMDLFiles(mdlFiles) {
               }
             }
 
-            // Schritt 2: Bone-Debug-Meshes ausblenden.
-            // Identitätsvergleich (!== child) statt Namensvergleich, weil Debug-Spheres
-            // denselben Namen wie ihr Parent-Bone tragen können → nodeObjects[name] wäre
-            // truthy aber zeigt auf den Bone, nicht auf das Debug-Mesh.
+            // Step 2: hide bone debug meshes.
+            // Use identity comparison (!== child) instead of name comparison, because
+            // debug spheres can carry the same name as their parent bone →
+            // nodeObjects[name] would be truthy but point to the bone, not the debug mesh.
             const skelRootName = skeletonModel.name.toLowerCase();
             for (const node of skeletonModel.nodes) {
               if (node.name.toLowerCase() === skelRootName) continue;
@@ -772,7 +937,7 @@ function loadAllMDLFiles(mdlFiles) {
               }
             }
           } else {
-            positionCharacterParts(charParts, skeletonModel);  // Fallback Modus B (BB-Stacking)
+            positionCharacterParts(charParts, skeletonModel);  // fallback mode B (BB stacking)
           }
           // ─────────────────────────────────────────────────────────────────────
 
@@ -781,11 +946,11 @@ function loadAllMDLFiles(mdlFiles) {
           logMissingTextures(base);
           if (n > 0) setStatus(fmt('status_model_tex', { name: base.name, n }));
 
-          // ── Supermodel-Animationen aus Skelett übernehmen ─────────────────
-          // Der Supermodel-Verweis steckt im Skelett (z.B. pfa0 → a_fa),
-          // nicht in den einzelnen Parts. Nach dem Assembly auf base übertragen
-          // und entweder sofort mergen (wenn mitgeladen) oder pendingSupermodel
-          // setzen (für den Nachlade-Workflow über Fall A).
+          // ── Adopt supermodel animations from skeleton ────────────────────
+          // The supermodel reference is in the skeleton (e.g. pfa0 → a_fa),
+          // not in the individual parts. Transfer to base after assembly and
+          // either merge immediately (if already loaded) or set pendingSupermodel
+          // (for the deferred-load workflow via case A).
           const superSource = skeletonModel || base;
           const smName = (superSource.supermodel || '').toLowerCase();
           if (smName && smName !== 'null' && smName !== superSource.name.toLowerCase()) {
@@ -796,7 +961,7 @@ function loadAllMDLFiles(mdlFiles) {
               Object.values(parsed).find(m => m.name.toLowerCase() === smName);
 
             if (superModel) {
-              // Supermodel war unter den geladenen Dateien → sofort mergen
+              // Supermodel was among the loaded files → merge immediately
               mergeAnimationsFromSupermodel(base, superModel);
               applyRestPose(base);
               saveGeometryPose();
@@ -804,7 +969,7 @@ function loadAllMDLFiles(mdlFiles) {
               pendingSupermodel = null;
               setStatus(fmt('super_anims_loaded', { name: superModel.name, n: base.animations.length }));
             } else {
-              // Noch nicht geladen → Hinweis, Nutzer kann Supermodel nachreichen
+              // Not yet loaded → hint, user can supply supermodel later
               pendingSupermodel = base.supermodel;
               logWarnI18n('super_pending_warn', { name: base.name, super: base.supermodel });
               logInfoI18n('super_pending_info', { super: base.supermodel });
@@ -817,37 +982,37 @@ function loadAllMDLFiles(mdlFiles) {
         }
       }
     }
-    // ── Ende Fall D ────────────────────────────────────────────────────────────
+    // ── End case D ───────────────────────────────────────────────────────────
 
-    // ── Fall C: Multi-Part Assembly (z.B. Waffenteile _b_ / _m_ / _t_) ──────
-    // Mehrere MDLs geladen, alle mit Geometrie, keines referenziert ein anderes
-    // als Supermodel → als mehrteiliges Modell zusammensetzen.
+    // ── Case C: Multi-Part Assembly (e.g. weapon parts _b_ / _m_ / _t_) ──────
+    // Multiple MDLs loaded, all with geometry, none references another
+    // as supermodel → assemble as a multi-part model.
     {
       const allParsed = Object.values(parsed);
       if (allParsed.length > 1) {
 
-        // Supermodel-Namen aus allen geladenen Modellen sammeln
+        // Collect supermodel names from all loaded models
         const superNames = new Set(
           allParsed
             .map(m => (m.supermodel || '').toLowerCase())
             .filter(sm => sm && sm !== 'null' && sm !== '')
         );
 
-        // Kandidaten: haben Geometrie + sind nicht das Supermodel eines anderen + haben ggfs Effekte
+        // Candidates: have geometry + are not the supermodel of another + may have effects
         const parts = allParsed.filter(m =>
           !superNames.has(m.name.toLowerCase()) &&
           m.nodes.some(n => n.type !== 'dummy')
         );
 
 
-        // Nur wenn ALLE Kandidaten komplett unabhängig sind (kein setsupermodel)
+        // Only if ALL candidates are completely independent (no setsupermodel)
         const allIndependent = parts.every(m => {
           const sm = (m.supermodel || '').toLowerCase();
           return !sm || sm === 'null' || sm === '';
         });
 
         if (parts.length > 1 && allIndependent) {
-          // Alphabetisch sortieren → deterministisch (_b_ → _m_ → _t_)
+          // Sort alphabetically → deterministic (_b_ → _m_ → _t_)
           parts.sort((a, b) => a.name.localeCompare(b.name));
           const base = parts[0];
 
@@ -867,17 +1032,17 @@ function loadAllMDLFiles(mdlFiles) {
         }
       }
     }
-    // ── Ende Fall C ────────────────────────────────────────────────────────
+    // ── End case C ───────────────────────────────────────────────────────
 
-    // ── Fall B: Hauptmodell bestimmen ─────────────────────────────────
-    // Regel: Das Hauptmodell hat einen setsupermodel-Verweis auf ein ANDERES Modell
-    //        (also NICHT NULL und NICHT sich selbst).
-    // Das Supermodel wird NUR für Animationen genutzt, nicht für Geometrie.
+    // ── Case B: determine main model ──────────────────────────────────
+    // Rule: the main model has a setsupermodel reference to a DIFFERENT model
+    //       (i.e. NOT NULL and NOT itself).
+    // The supermodel is used ONLY for animations, not for geometry.
 
     let mainModel = null;
     let superModelCandidate = null;
 
-    // Schritt 1: Finde Modell mit nicht-trivialem Supermodel-Verweis
+    // Step 1: find model with non-trivial supermodel reference
     for (const model of Object.values(parsed)) {
       const sm = (model.supermodel || '').toLowerCase();
       if (sm && sm !== 'null' && sm !== '' && sm !== model.name.toLowerCase()) {
@@ -886,8 +1051,8 @@ function loadAllMDLFiles(mdlFiles) {
       }
     }
 
-    // Schritt 2: Kein Supermodel-Verweis → erstes Modell mit Geometrie bevorzugen,
-    // dann Fallback auf jedes Modell mit Nodes (emitter-only, EFFECT-Klasse usw.)
+    // Step 2: no supermodel reference → prefer first model with geometry,
+    // then fall back to any model with nodes (emitter-only, EFFECT class etc.)
     if (!mainModel) {
       for (const model of Object.values(parsed)) {
         const hasMesh = model.nodes.some(n =>
@@ -896,7 +1061,7 @@ function loadAllMDLFiles(mdlFiles) {
       }
     }
 
-    // Fallback: Modell ohne Mesh aber mit Nodes (z.B. fx_clouds: nur dummy + emitter)
+    // Fallback: model without mesh but with nodes (e.g. fx_clouds: dummy + emitter only)
     if (!mainModel) {
       for (const model of Object.values(parsed)) {
         if (model.nodes.length > 0) { mainModel = model; break; }
@@ -909,7 +1074,7 @@ function loadAllMDLFiles(mdlFiles) {
       return;
     }
 
-    // Schritt 3: Supermodel suchen (NICHT als Geometrie-Basis verwenden)
+    // Step 3: find supermodel (NOT to be used as geometry base)
     if (mainModel.supermodel) {
       const smName = mainModel.supermodel.toLowerCase();
       if (smName && smName !== 'null') {
@@ -921,14 +1086,14 @@ function loadAllMDLFiles(mdlFiles) {
       }
     }
 
-    // Szene mit der Geometrie des Hauptmodells aufbauen
+    // Build scene with the geometry of the main model
     buildScene(mainModel);
     const n = applyTexturesToScene();
     if (typeof HotReload !== 'undefined') HotReload.onModelLoaded();
     logMissingTextures(mainModel);
     if (n > 0) setStatus(fmt('status_model_tex', { name: mainModel.name, n }));
 
-    // Supermodel-Animationen direkt anwenden
+    // Apply supermodel animations directly
     if (superModelCandidate) {
       mergeAnimationsFromSupermodel(mainModel, superModelCandidate);
       applyRestPose(mainModel);
@@ -940,7 +1105,7 @@ function loadAllMDLFiles(mdlFiles) {
     } else if (mainModel.supermodel &&
                mainModel.supermodel.toLowerCase() !== 'null' &&
                mainModel.supermodel !== '') {
-      // Supermodel wurde referenziert aber nicht mitgeladen → Hinweis
+      // Supermodel was referenced but not loaded → hint
       pendingSupermodel = mainModel.supermodel;
       logWarnI18n('super_pending_warn', { name: mainModel.name, super: mainModel.supermodel });
       logInfoI18n('super_pending_info', { super: mainModel.supermodel });
@@ -956,9 +1121,9 @@ function loadAllMDLFiles(mdlFiles) {
       const buffer = e.target.result;  // ArrayBuffer
 
       try {
-        // Binäres MDL erkennen und ggf. decompilieren
+        // Detect binary MDL and decompile if needed
         if (isBinaryMDL(buffer)) {
-          // Overlay sofort zeigen — auch wenn WASM noch lädt
+          // Show overlay immediately — even if WASM is still loading
           showDecompileOverlay(file.name);
 
           if (!cm.isReady()) {
@@ -977,8 +1142,8 @@ function loadAllMDLFiles(mdlFiles) {
             cm.onProgress(null);
           }
 
-          // WASM bereit → Decompile-Phase anzeigen und einen Frame warten
-          // damit der Browser das Overlay rendert bevor der sync WASM-Call blockiert.
+          // WASM ready → show decompile phase and wait one frame
+          // so the browser renders the overlay before the sync WASM call blocks.
           _setDecompilePhase({ phase: 'decompile' });
           await new Promise(r => setTimeout(r, 16));
 
@@ -996,14 +1161,14 @@ function loadAllMDLFiles(mdlFiles) {
             if (!_decompileCancelled) hideDecompileOverlay();
           }
         } else {
-          // ASCII-MDL: direkt als Text dekodieren
+          // ASCII MDL: decode directly as text
           texts[baseName] = new TextDecoder('utf-8').decode(buffer);
         }
       } catch (err) {
         if (!_decompileCancelled) logError(file.name + ' — ' + err.message);
       }
 
-      // Bei Abbruch: Ladevorgang komplett abbrechen, kein onAllRead()
+      // On cancel: abort loading completely, no onAllRead()
       if (_decompileCancelled) return;
 
       pending--;
@@ -1016,13 +1181,13 @@ function loadAllMDLFiles(mdlFiles) {
       if (pending === 0) onAllRead();
     };
 
-    // Immer als ArrayBuffer lesen — wir entscheiden danach ASCII vs. Binär
+    // Always read as ArrayBuffer — we decide ASCII vs. binary afterwards
     reader.readAsArrayBuffer(file);
   }
 }
 
 // ─────────────────────────────────────────────
-//  Drag & Drop  (Multi-File)
+//  Drag & Drop  (multi-file)
 // ─────────────────────────────────────────────
 const dropZone = document.getElementById('drop-zone');
 const viewport = document.getElementById('viewport');
@@ -1037,9 +1202,9 @@ function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
   viewport.addEventListener(ev, () => dropZone.classList.remove('drag-over'));
   dropZone.addEventListener(ev, () => dropZone.classList.remove('drag-over'));
 });
-// Versucht den FileSystemFileHandle der MDL-Datei aus einem Drop-Event zu lesen
-// und übergibt ihn an HotReload als Startordner-Hint für showDirectoryPicker().
-// Nur in Chrome/Edge verfügbar (getAsFileSystemHandle); in anderen Browsern no-op.
+// Tries to read the FileSystemFileHandle of the MDL file from a drop event
+// and passes it to HotReload as the start-folder hint for showDirectoryPicker().
+// Only available in Chrome/Edge (getAsFileSystemHandle); no-op in other browsers.
 async function _captureModelHandle(items) {
   if (typeof HotReload === 'undefined' || !items) return;
   for (const item of items) {
@@ -1050,13 +1215,13 @@ async function _captureModelHandle(items) {
         HotReload.setModelFileHandle(handle);
         break;
       }
-    } catch (_) { /* API nicht verfügbar oder Zugriff verweigert */ }
+    } catch (_) { /* API not available or access denied */ }
   }
 }
 
 viewport.addEventListener('drop', e => {
-  const files = e.dataTransfer.files;          // synchron sichern, bevor DataTransfer gelöscht wird
-  _captureModelHandle(e.dataTransfer.items);   // fire-and-forget – Handle wird erst beim Picker gebraucht
+  const files = e.dataTransfer.files;          // save synchronously before DataTransfer is cleared
+  _captureModelHandle(e.dataTransfer.items);   // fire-and-forget – handle is only needed at picker time
   loadFiles(files);
 });
 dropZone.addEventListener('drop', e => {
@@ -1066,9 +1231,9 @@ dropZone.addEventListener('drop', e => {
 });
 document.getElementById('file-input').addEventListener('change', e => { loadFiles(e.target.files); e.target.value=''; });
 
-// ── Viewport Drag-Highlight (nur wenn Sidebar ausgeblendet) ──────────────
-// Zeigt einen goldenen Border-Ring + Label wenn Dateien über den Viewport
-// gezogen werden und die Sidebar collapsed ist.
+// ── Viewport drag highlight (only when sidebar is hidden) ───────────────
+// Shows a golden border ring + label when files are dragged over the viewport
+// and the sidebar is collapsed.
 const _vpOverlay = document.getElementById('viewport-drag-overlay');
 
 viewport.addEventListener('dragover', () => {
@@ -1078,7 +1243,7 @@ viewport.addEventListener('dragover', () => {
 });
 
 viewport.addEventListener('dragleave', e => {
-  // Nur deaktivieren wenn der Cursor den Viewport wirklich verlässt
+  // Only deactivate when the cursor truly leaves the viewport
   if (!e.relatedTarget || !viewport.contains(e.relatedTarget)) {
     _vpOverlay.classList.remove('drag-active');
   }
@@ -1088,21 +1253,21 @@ viewport.addEventListener('drop', () => _vpOverlay.classList.remove('drag-active
 
 // ─────────────────────────────────────────────
 // ─────────────────────────────────────────────
-//  Decompile-Overlay
+//  Decompile Overlay
 // ─────────────────────────────────────────────
 
-// Flag: true = Nutzer hat Abbrechen geklickt,
-//        WASM läuft noch im Hintergrund aber das Ergebnis wird verworfen.
+// Flag: true = user clicked cancel,
+//        WASM is still running in the background but the result is discarded.
 let _decompileCancelled = false;
 
-// Aktualisiert Progressbar und Phase-Label im Overlay.
-// Wird sowohl als cm.onProgress()-Callback als auch direkt aufgerufen.
+// Updates the progress bar and phase label in the overlay.
+// Called both as a cm.onProgress() callback and directly.
 function _setDecompilePhase({ phase, pct = 0 }) {
   const bar   = document.getElementById('dcmp-progress-bar');
   const label = document.getElementById('dcmp-phase-label');
   if (!bar || !label) return;
 
-  // Indeterminate-Phasen (kein exakter %)
+  // Indeterminate phases (no exact %)
   const indeterminate = ['fetch_indeterminate', 'decode', 'compile', 'instantiate', 'wait', 'decompile'];
 
   if (phase === 'fetch') {
@@ -1121,19 +1286,19 @@ function _setDecompilePhase({ phase, pct = 0 }) {
 }
 
 function showDecompileOverlay(filename) {
-  _decompileCancelled = false;    // Jedes neue Decompile startet sauber
+  _decompileCancelled = false;    // every new decompile starts clean
   const overlay   = document.getElementById('decompile-overlay');
   const fileLabel = document.getElementById('dcmp-filename');
   const bar       = document.getElementById('dcmp-progress-bar');
   const label     = document.getElementById('dcmp-phase-label');
   if (!overlay) return;
   if (fileLabel) fileLabel.textContent = filename;
-  // Progressbar zurücksetzen
+  // Reset progress bar
   if (bar)   { bar.classList.add('indeterminate'); bar.style.width = ''; }
   if (label) label.textContent = L('dcmp_hint') || '';
-  // i18n auf die statischen Texte anwenden
+  // Apply i18n to static texts
   overlay.querySelectorAll('[data-i18n]').forEach(el => {
-    if (el.id === 'dcmp-phase-label') return;   // wird dynamisch gesetzt
+    if (el.id === 'dcmp-phase-label') return;   // set dynamically
     const val = L(el.getAttribute('data-i18n'));
     if (val) el.textContent = val;
   });
@@ -1145,8 +1310,8 @@ function hideDecompileOverlay() {
   if (overlay) overlay.classList.remove('active');
 }
 
-// Wird vom Abbrechen-Button im Overlay aufgerufen.
-// Bricht den WASM-Fetch ab (falls noch laufend) und verwirft das Ergebnis.
+// Called by the cancel button in the overlay.
+// Aborts the WASM fetch (if still running) and discards the result.
 function cancelDecompile() {
   _decompileCancelled = true;
   if (typeof cm !== 'undefined' && typeof cm.cancelLoad === 'function') cm.cancelLoad();

@@ -6,6 +6,22 @@
 // ─────────────────────────────────────────────
 
 // ─────────────────────────────────────────────
+//  Tile Position Offset  (Set Browser — Group View)
+//
+//  Set by SetBrowser/loader.js before each buildScene() call
+//  when multiple tiles are positioned next to each other in Three.js space.
+//  Automatically reset after the call to buildScene().
+//
+//  Coordinates are in Three.js world coordinates (X=East, Y=Up, Z=South).
+// ─────────────────────────────────────────────
+
+let _buildOffset = null;   // [x, z] | null
+
+function setBuildOffset(x, z) {
+  _buildOffset = [x, z];
+}
+
+// ─────────────────────────────────────────────
 //  Smoothing-Group-aware normal calculation
 //  (NWN / 3dsMax compatible)
 //
@@ -119,7 +135,7 @@ function computeSGNormals(node) {
   * If the smallest dimension is less than the FLAT_RATIO of the largest,
   * the mesh is considered a 2D surface → DoubleSide is appropriate.
 */
-const FLAT_RATIO = 0.05; // 5 % — anpassbar
+const FLAT_RATIO = 0.05; // 5% — adjustable
 
 function isFlatMesh(node) {
   const verts = node.verts;
@@ -138,8 +154,68 @@ function isFlatMesh(node) {
   const maxExt = Math.max(maxX - minX, maxY - minY, maxZ - minZ);
   const minExt = Math.min(maxX - minX, maxY - minY, maxZ - minZ);
 
-  if (maxExt < 0.001) return false; // degeneriertes Mesh
+  if (maxExt < 0.001) return false; // degenerate mesh
   return minExt / maxExt < FLAT_RATIO;
+}
+
+/**
+ * Detects NWN-style "handbuilt DoubleSide" meshes.
+ *
+ * NWN modellers often duplicate every face with inverted winding/normals to fake
+ * two-sidedness instead of relying on the renderer.  The tell-tale sign is that
+ * roughly half the vertex normals point in the opposite direction of the other half
+ * along at least one axis.
+ *
+ * Detection heuristic:
+ *   - For each normal component (x, y, z) count how many normals are strictly
+ *     positive and how many are strictly negative.
+ *   - If the positive/negative split is close to 50 % on any axis the geometry is
+ *     considered "mirrored" → use alphaTest instead of transparent blending.
+ *
+ * The 40/60 tolerance handles slight numerical asymmetry without false positives on
+ * organic meshes where normals point in many directions.
+ */
+function hasMirroredNormals(node) {
+  const norms = node.normals;
+  if (!norms || norms.length < 4) return false;
+
+  let posX = 0, negX = 0;
+  let posY = 0, negY = 0;
+  let posZ = 0, negZ = 0;
+  const total = norms.length;
+
+  for (const n of norms) {
+    if (n[0] >  0.01) posX++; else if (n[0] < -0.01) negX++;
+    if (n[1] >  0.01) posY++; else if (n[1] < -0.01) negY++;
+    if (n[2] >  0.01) posZ++; else if (n[2] < -0.01) negZ++;
+  }
+
+  const isMirrored = (p, n) => {
+    const used = p + n;
+    if (used < total * 0.5) return false; // axis barely used → skip
+    const ratio = Math.min(p, n) / used;
+    return ratio >= 0.40; // 40–60 % split → mirrored
+  };
+
+  return isMirrored(posX, negX) || isMirrored(posY, negY) || isMirrored(posZ, negZ);
+}
+
+/**
+ * Returns true when tex.userData.isBimodal was set by the texture parser
+ * (parseTGA / parseNWNDDS / parseStandardDDS in textures.js).
+ *
+ * Bimodal = alpha is almost entirely 0 or 255, < 5 % soft pixels.
+ * These textures are safe for alphaTest (hard cutout).
+ * Gradient textures (cobwebs, smoke) need transparent=true blending instead.
+ *
+ * Falls back to true for textures loaded before this flag existed or via
+ * THREE.TextureLoader (PNG/JPG), which rarely carry gradient alpha in NWN.
+ */
+function isTextureBimodal(tex) {
+  if (!tex) return false;
+  // isBimodal is computed at parse time in textures.js while the pixel buffer
+  // is still available. If missing (old cache entry / PNG), default to true.
+  return tex.userData?.isBimodal !== false;
 }
 
 const NODE_COLORS = {
@@ -175,6 +251,12 @@ function buildScene(model) {
   // Rotation by -90° on the X-axis: NWN-Z becomes Three.js-Y (up).
   const NWN_TO_THREEJS = -Math.PI / 2;
   modelGroup.rotation.x = NWN_TO_THREEJS;
+
+  // Optional tile offset for group view (set by setBuildOffset)
+  if (_buildOffset) {
+    modelGroup.position.set(_buildOffset[0], 0, _buildOffset[1]);
+    _buildOffset = null;
+  }
 
   scene.add(modelGroup);
 
@@ -219,10 +301,9 @@ function buildScene(model) {
       geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
       geo.setAttribute('uv',       new THREE.BufferAttribute(uvs, 2));
       
-      // Priorität: SG-Normals > MDL-Normals > computeVertexNormals (Fallback)
-      // NWN MDL Dateien haben fast immer hasNormals=true, daher darf computeSGNormals
-      // nicht im else-Zweig hängen, sonst wird es nie aufgerufen.
-      const hasSmoothGroups = node.faces.some(f => typeof f.sg === 'number');
+      // Priority: SG-Normals > MDL-Normals > computeVertexNormals (Fallback)
+      // NWN MDL files almost always have hasNormals=true, so computeSGNormals
+      // must not hang in the else branch, otherwise it will never be called.      const hasSmoothGroups = node.faces.some(f => typeof f.sg === 'number');
       if (hasSmoothGroups) {
         geo.setAttribute('normal', new THREE.BufferAttribute(computeSGNormals(node), 3));
       } else if (hasNormals) {
@@ -352,6 +433,26 @@ function buildScene(model) {
       const useMeshAlpha = node.alpha < 0.99;
       const useMtrTrans  = mtr ? mtr.transparency : false;
 
+      // FIX: NWN "handbuilt DoubleSide" meshes (fences, cobwebs, foliage).
+      // NWN modellers duplicate faces with inverted normals/winding to fake two-sidedness
+      // instead of using a renderer flag.  The geometry contains both the front-facing
+      // and back-facing quads in the same mesh, which is why these meshes have roughly
+      // 50 % positive and 50 % negative normals on at least one axis.
+      //
+      // With transparent = true + depthWrite = false (our standard alpha-blend path),
+      // Three.js sorts the whole mesh as one unit by camera distance.  The back-face
+      // quads may then render on top of the front-face quads, showing the clear colour
+      // (dark-blue) through the transparent pixels → the "blue background" artefact.
+      //
+      // Fix: use alphaTest instead of alpha-blend for these meshes.
+      //   • alphaTest punches through alpha < threshold (hard cutout, no blending).
+      //   • depthWrite = true prevents the z-fighting between the two quad sets.
+      //   • DoubleSide is technically redundant (both faces are already in geometry)
+      //     but kept as a safety net so culling never hides a face.
+      //   • transparent = false keeps the mesh in the opaque render queue → correct
+      //     depth sorting relative to other opaque geometry.
+      const useAlphaTest = useTexAlpha && hasMirroredNormals(node) && isTextureBimodal(tex);
+
       // Roughness + Metalness:
       // If roughnessMap is present → scalar = multiplier (1.0 = map has full effect).
       // If no roughnessMap → convert from MDL Phong values.
@@ -368,6 +469,8 @@ function buildScene(model) {
         
       // NWN uses back-face culling; DoubleSide only for alpha-blended materials
       // (magic effects, glass) that may legitimately show both faces.
+      // Also force DoubleSide for handbuilt-DoubleSide meshes (useAlphaTest path) so
+      // culling never accidentally removes a face that the duplicate geometry relies on.
       const needsDoubleSide = useMeshAlpha || useMtrTrans || useTexAlpha || (mtr ? mtr.twosided : false) || isFlatMesh(node);
 
       const mat = new THREE.MeshStandardMaterial({
@@ -377,11 +480,13 @@ function buildScene(model) {
         roughnessMap: roughTex  || null,
         roughness,
         metalness,
-        side:        needsDoubleSide ? THREE.DoubleSide : THREE.FrontSide,  // ← geändert
-        transparent: useMeshAlpha || useTexAlpha || useMtrTrans,
+        side:        needsDoubleSide ? THREE.DoubleSide : THREE.FrontSide,
+        // FIX: useAlphaTest path → hard cutout, stays in opaque queue, correct depth.
+        //      normal alpha-blend path → transparent blend, depthWrite off.
+        transparent: useAlphaTest ? false : (useMeshAlpha || useTexAlpha || useMtrTrans),
         opacity:     node.alpha,
-        alphaTest:   useTexAlpha ? 0.1 : 0,
-        depthWrite:  !useTexAlpha,
+        alphaTest:   useAlphaTest ? 0.5 : (useTexAlpha ? 0.1 : 0),
+        depthWrite:  useAlphaTest ? true : !useTexAlpha,
       });
 
       // Apply TXI properties (decal, blending, clamp, register cycle animation)
@@ -413,8 +518,8 @@ function buildScene(model) {
       
       // Store original values — used by updateMeshOpacity to reset
       mesh.userData.baseOpacity     = node.alpha;
-      mesh.userData.baseTransparent = useMeshAlpha || useTexAlpha || useMtrTrans;
-      mesh.userData.baseDepthWrite  = !useTexAlpha;
+      mesh.userData.baseTransparent = useAlphaTest ? false : (useMeshAlpha || useTexAlpha || useMtrTrans);
+      mesh.userData.baseDepthWrite  = useAlphaTest ? true : !useTexAlpha;
       obj = mesh;
 
       // Wireframe overlay: attach as child of the main mesh,
@@ -429,10 +534,12 @@ function buildScene(model) {
 
       // Back-face indicator: flat dark colour visible when looking inside a mesh.
       // Only needed when the main material uses FrontSide (i.e. not needsDoubleSide).
-      // Change 0x111133 to any colour – e.g. 0x000000 for pure black.
-      if (!needsDoubleSide) {
+      // Skip for hasMirroredNormals meshes: they will get DoubleSide from applyTexturesToScene
+      // once the texture arrives, and the indicator would bleed through the alpha regions
+      // (the "dark blue background" artefact) until then.
+      if (!needsDoubleSide && !hasMirroredNormals(node)) {
         const backMat = new THREE.MeshBasicMaterial({
-          color:      0x111133,   // ← Farbe hier anpassen
+          color:      0x111133,   // ← adjust color here
           side:       THREE.BackSide,
           depthWrite: true,
         });
@@ -441,7 +548,7 @@ function buildScene(model) {
         obj.add(backMesh);
       }
 
-      totalVerts += node.verts.length;   // ← schon vorhanden      
+      totalVerts += node.verts.length;   // ← already present 
       
       totalVerts += node.verts.length;
       totalFaces += node.faces.length;

@@ -1,64 +1,64 @@
 /* ═══════════════════════════════════════════════
    NWN MDL Viewer — Particle Emitter Engine
-   (Sprite-Sheet-Animation + Partikel-Pool)
+   (Sprite-Sheet Animation + Particle Pool)
 
-   Unterstützt NWN Aurora Emitter-Nodes:
-     update Fountain  – Partikel entlang der lokalen +X-Achse des Emitter-Nodes
-                         (Aurora-Konvention: der Toolset orientiert Emitter so,
-                          dass local +X in die gewünschte Emissionsrichtung zeigt)
-     blend  Lighten   – AdditiveBlending (beste Annäherung in WebGL)
-     xgrid/ygrid      – Sprite-Sheet-Raster (z.B. 4×4 = 16 Frames)
-     fps/frameStart/frameEnd – Animations-Rate und Frame-Bereich
-     birthrate/lifeExp       – Spawn-Rate und Lebensdauer
-     sizeStart/Mid/End       – Größenverlauf
-     alphaStart/Mid/End      – Transparenzverlauf
-     colorStart/End          – Farbverlauf
-     spread                  – Kegelstreuung (half-angle) um Emitter-Richtung
-     grav                    – nur für Point-to-Point-Emitter (Orbital-Bahn)
-     mass                    – Partikelgewicht × NWN_G (9.81): erzeugt Bogenbahn.
-                               mass=0.32 → Scheitelpunkt ~0.23s, Boden ~1.7s
-     drag                    – Luftwiderstand (exponentielles Abbremsen)
-     particleRot             – Sprite-Rotation in rad/s
+   Supports NWN Aurora emitter nodes:
+     update Fountain  – Particles along the local +X axis of the emitter node
+                         (Aurora convention: the toolset orients emitters so that
+                          local +X points in the desired emission direction)
+     blend  Lighten   – AdditiveBlending (best approximation in WebGL)
+     xgrid/ygrid      – Sprite-sheet grid (e.g. 4×4 = 16 frames)
+     fps/frameStart/frameEnd – Animation rate and frame range
+     birthrate/lifeExp       – Spawn rate and lifetime
+     sizeStart/Mid/End       – Size curve
+     alphaStart/Mid/End      – Transparency curve
+     colorStart/End          – Color curve
+     spread                  – Cone spread (half-angle) around emission direction
+     grav                    – Only for point-to-point emitters (orbital path)
+     mass                    – Particle weight × NWN_G (9.81): produces arc trajectory.
+                               mass=0.32 → apex ~0.23s, ground ~1.7s
+     drag                    – Air resistance (exponential deceleration)
+     particleRot             – Sprite rotation in rad/s
    ═══════════════════════════════════════════════ */
 
-// Globale Registry aller aktiven Emitter-Instanzen
+// Global registry of all active emitter instances
 // nodeName → NWNEmitter
 const emitterInstances = {};
 
 // ─────────────────────────────────────────────
-//  NWNParticle  —  ein einzelner Partikel
+//  NWNParticle  —  a single particle
 // ─────────────────────────────────────────────
 class NWNParticle {
   /**
-   * @param {THREE.Texture} baseTex    – Shared Canvas-Texture (textureCache-Eintrag)
-   * @param {number}        xgrid      – Sprite-Sheet Spalten
-   * @param {number}        ygrid      – Sprite-Sheet Zeilen
-   * @param {string}        renderMode – NWN render-Modus des Emitters (z.B. 'Billboard_to_World_Z')
+   * @param {THREE.Texture} baseTex    – Shared canvas texture (textureCache entry)
+   * @param {number}        xgrid      – Sprite-sheet columns
+   * @param {number}        ygrid      – Sprite-sheet rows
+   * @param {string}        renderMode – NWN render mode of the emitter (e.g. 'Billboard_to_World_Z')
    */
   constructor(baseTex, xgrid, ygrid, renderMode) {
     this.xgrid = xgrid;
     this.ygrid = ygrid;
 
-    // Billboard_to_World_Z: Sprite liegt flach auf dem Boden (XZ-Ebene),
-    // nicht kamerazugewandt. Für alle anderen Modi: normales THREE.Sprite.
+    // Billboard_to_World_Z: sprite lies flat on the ground (XZ plane),
+    // not camera-facing. For all other modes: standard THREE.Sprite.
     this.isFlatBillboard =
       (renderMode || '').toLowerCase() === 'billboard_to_world_z';
 
-    // Texture klonen: teilt Canvas-Pixeldaten, hat aber eigene offset/repeat-Vektoren.
-    // THREE.Texture.clone() → new THREE.CanvasTexture mit gleicher .image (Canvas).
-    // THREE.ColorManagement verarbeitet die texture.matrix automatisch jedes Frame —
-    // kein needsUpdate() nötig für offset-Änderungen.
+    // Clone texture: shares canvas pixel data but has its own offset/repeat vectors.
+    // THREE.Texture.clone() → new THREE.CanvasTexture with the same .image (canvas).
+    // THREE.ColorManagement processes texture.matrix automatically every frame —
+    // no needsUpdate() required for offset changes.
     this.tex = baseTex.clone();
     this.tex.repeat.set(1 / xgrid, -1 / ygrid);
-    // Negatives repeat.y: dreht den Frame-Inhalt richtig herum.
-    // Grund: mit flipY=false + UNPACK_FLIP_Y=false landet canvas row 0
-    // (visuell oben) bei WebGL v=0 (Sprite-Unten) — ohne Korrektur wäre
-    // jeder Frame auf dem Kopf. repeat.y < 0 invertiert die v-Richtung.
+    // Negative repeat.y: flips the frame content the right way up.
+    // Reason: with flipY=false + UNPACK_FLIP_Y=false, canvas row 0
+    // (visually top) lands at WebGL v=0 (sprite bottom) — without correction
+    // every frame would be upside down. repeat.y < 0 inverts the v direction.
 
     if (this.isFlatBillboard) {
-      // ── Billboard_to_World_Z: flaches Quad horizontal in der XZ-Ebene ──
-      // PlaneGeometry liegt standardmäßig in der XY-Ebene (Normale = +Z).
-      // Rotation −90° um X dreht sie in die XZ-Ebene (Normale = +Y = nach oben).
+      // ── Billboard_to_World_Z: flat quad horizontal in the XZ plane ──
+      // PlaneGeometry is by default in the XY plane (normal = +Z).
+      // Rotation −90° around X rotates it into the XZ plane (normal = +Y = upward).
       this.mat = new THREE.MeshBasicMaterial({
         map:         this.tex,
         blending:    THREE.AdditiveBlending,
@@ -69,9 +69,9 @@ class NWNParticle {
       });
       const geo = new THREE.PlaneGeometry(1, 1);
       this.obj = new THREE.Mesh(geo, this.mat);
-      this.obj.rotation.x = -Math.PI / 2;   // in XZ-Ebene legen
+      this.obj.rotation.x = -Math.PI / 2;   // lay flat in XZ plane
     } else {
-      // ── Alle anderen Modi: kamerazugewandtes Sprite ──────────────────
+      // ── All other modes: camera-facing sprite ───────────────────────
       this.mat = new THREE.SpriteMaterial({
         map:         this.tex,
         blending:    THREE.AdditiveBlending,
@@ -82,7 +82,7 @@ class NWNParticle {
       this.obj = new THREE.Sprite(this.mat);
     }
 
-    // Rückwärtskompatibilität: this.sprite bleibt als Alias erhalten
+    // Backwards compatibility: this.sprite is kept as an alias
     this.sprite = this.obj;
 
     this.obj.visible = false;
@@ -90,23 +90,23 @@ class NWNParticle {
     this.node   = null;
     this.age    = 0;
 
-    // Bewegungsvektoren (Welt-Space)
+    // Movement vectors (world space)
     this.vx = 0; this.vy = 0; this.vz = 0;
 
-    // Sprite-Rotation (kumulativ, rad) — für particleRot
+    // Sprite rotation (cumulative, rad) — for particleRot
     this.rotation = 0;
 
-    // Zufälliger Start-Frame für "random 1"-Emitter
+    // Random start frame for "random 1" emitters
     this.startFrame = 0;
   }
 
   /**
-   * Partikel aktivieren (aus Pool nehmen).
-   * @param {THREE.Vector3} worldPos  – Spawn-Position in Welt-Space
-   * @param {object}        node      – Geparstes Emitter-Node-Objekt aus parser.js
-   * @param {THREE.Vector3} emitDir   – Lokale +Z-Achse in Welt-Space (Emissionsrichtung)
-   * @param {THREE.Vector3} localX    – Lokale +X-Achse in Welt-Space (für xsize-Streuung)
-   * @param {THREE.Vector3} localY    – Lokale +Y-Achse in Welt-Space (für ysize-Streuung)
+   * Activate a particle (take from pool).
+   * @param {THREE.Vector3} worldPos  – Spawn position in world space
+   * @param {object}        node      – Parsed emitter node object from parser.js
+   * @param {THREE.Vector3} emitDir   – Local +Z axis in world space (emission direction)
+   * @param {THREE.Vector3} localX    – Local +X axis in world space (for xsize spread)
+   * @param {THREE.Vector3} localY    – Local +Y axis in world space (for ysize spread)
    */
   spawn(worldPos, node, emitDir, localX, localY) {
     this.node       = node;
@@ -115,12 +115,12 @@ class NWNParticle {
     this.rotation   = 0;
     this.obj.visible = true;
 
-    // ── Emitter-Richtung ─────────────────────────────────────────────
+    // ── Emitter direction ────────────────────────────────────────────
     const dir = (emitDir && emitDir.lengthSq() > 0.01)
       ? emitDir.clone().normalize()
       : new THREE.Vector3(0, 0, 1);
 
-    // Lokale Achsen für Spawn-Fläche (Fallback: senkrecht zu dir ableiten)
+    // Local axes for spawn area (fallback: derive perpendicular to dir)
     let lx = localX, ly = localY;
     if (!lx || !ly) {
       lx = new THREE.Vector3();
@@ -129,9 +129,9 @@ class NWNParticle {
       ly = new THREE.Vector3().crossVectors(dir, lx).normalize();
     }
 
-    // ── Spawn-Position: xsize/ysize definieren die Emitter-Fläche in cm ─
-    // NWN-Wiki: "particles are emitted randomly within the x/y boundaries (in cm)"
-    // Umrechnung: cm → NWN-Einheiten (÷100), Half-Extent (÷2) → Divisor 200
+    // ── Spawn position: xsize/ysize define the emitter area in cm ──────
+    // NWN wiki: "particles are emitted randomly within the x/y boundaries (in cm)"
+    // Conversion: cm → NWN units (÷100), half-extent (÷2) → divisor 200
     const halfX = (node.xsize || 0) / 200;
     const halfY = (node.ysize || 0) / 200;
     const ox = (Math.random() - 0.5) * 2 * halfX;
@@ -142,13 +142,13 @@ class NWNParticle {
       worldPos.z + lx.z * ox + ly.z * oy
     );
 
-    // ── Geschwindigkeit: Kegel-Spread um die Emissionsrichtung ────────
+    // ── Velocity: cone spread around the emission direction ───────────
     const sp  = Math.max(node.spread || 0, 0);
     const rv  = node.randvel || 0;
     const vel = (node.velocity || 0) + (Math.random() - 0.5) * rv;
 
     if (sp > 0 && vel !== 0) {
-      // Gleichmäßige Verteilung auf Kegeloberfläche (half-angle = spread/2)
+      // Uniform distribution over cone surface (half-angle = spread/2)
       const halfAngle = sp * 0.5;
       const coneAngle = Math.random() * halfAngle;
       const phi       = Math.random() * Math.PI * 2;
@@ -158,21 +158,21 @@ class NWNParticle {
       this.vy = (dir.y * cosC + lx.y * sinC * Math.cos(phi) + ly.y * sinC * Math.sin(phi)) * vel;
       this.vz = (dir.z * cosC + lx.z * sinC * Math.cos(phi) + ly.z * sinC * Math.sin(phi)) * vel;
     } else {
-      // Kein Spread: direkt entlang Emitter-Achse + randvel-Rauschen
+      // No spread: directly along emitter axis + randvel noise
       this.vx = dir.x * vel + (Math.random() - 0.5) * rv;
       this.vy = dir.y * vel + (Math.random() - 0.5) * rv;
       this.vz = dir.z * vel + (Math.random() - 0.5) * rv;
     }
 
-    // Zufälliger Start-Frame (random 1 in NWN-Format → jeder Partikel beginnt anders)
+    // Random start frame (random 1 in NWN format → each particle starts at a different frame)
     const totalFrames = node.frameEnd - node.frameStart + 1;
     this.startFrame   = node.frameStart + Math.floor(Math.random() * totalFrames);
   }
 
   /**
-   * Partikel für einen Frame aktualisieren.
-   * @param  {number}  dt   – Delta-Zeit in Sekunden
-   * @returns {boolean}     – false wenn der Partikel gestorben ist
+   * Update particle for one frame.
+   * @param  {number}  dt   – Delta time in seconds
+   * @returns {boolean}     – false when the particle has died
    */
   update(dt) {
     if (!this.alive || !this.node) return false;
@@ -186,24 +186,24 @@ class NWNParticle {
       return false;
     }
 
-    const t = this.age / node.lifeExp;   // normierte Lebenszeit 0..1
+    const t = this.age / node.lifeExp;   // normalised lifetime 0..1
 
-    // ── Position (Euler-Integration) ──────────────────────────────
+    // ── Position (Euler integration) ──────────────────────────────
     this.obj.position.x += this.vx * dt;
     this.obj.position.y += this.vy * dt;
     this.obj.position.z += this.vz * dt;
 
-    // NWN-Gravitation: Das Aurora Engine skaliert 'mass' mit der Erdbeschleunigung.
-    // mass=1.0 → Partikel fällt mit ca. 9.81 NWN-Einheiten/s² (Erdschwerkraft).
-    // mass=0.32 → eff. 3.14/s² → Scheitelpunkt bei t≈0.23s, Partikel erreicht
-    // den Boden (Δy≈−3.9) nach t≈1.7s — erzeugt den sichtbaren Bogen. ✓
+    // NWN gravity: the Aurora engine scales 'mass' by gravitational acceleration.
+    // mass=1.0 → particle falls at ~9.81 NWN units/s² (Earth gravity).
+    // mass=0.32 → eff. 3.14/s² → apex at t≈0.23s, particle reaches
+    // ground (Δy≈−3.9) after t≈1.7s — produces the visible arc. ✓
     const NWN_G = 9.81;
     if (node.mass) {
       this.vy -= node.mass * NWN_G * dt;
     }
 
-    // Drag: exponentielles Abbremsen — simuliert Luftwiderstand
-    // Formel: v *= (1 - drag)^dt  ≈  v * e^(-drag * dt)
+    // Drag: exponential deceleration — simulates air resistance
+    // Formula: v *= (1 - drag)^dt  ≈  v * e^(-drag * dt)
     const drag = node.drag || 0;
     if (drag > 0) {
       const damping = Math.pow(Math.max(1 - drag, 0), dt);
@@ -212,9 +212,9 @@ class NWNParticle {
       this.vz *= damping;
     }
 
-    // Sprite-Rotation: particleRot = Winkelgeschwindigkeit in rad/s
-    // Für Billboard_to_World_Z: Rotation um Welt-Y-Achse (Spin auf dem Boden).
-    // Für normale Sprites: Rotation im Screen-Space (SpriteMaterial.rotation).
+    // Sprite rotation: particleRot = angular velocity in rad/s
+    // For Billboard_to_World_Z: rotation around world Y axis (spin on the ground).
+    // For normal sprites: rotation in screen space (SpriteMaterial.rotation).
     if (node.particleRot) {
       this.rotation += node.particleRot * dt;
       if (this.isFlatBillboard) {
@@ -224,15 +224,15 @@ class NWNParticle {
       }
     }
 
-    // ── Größe: sizeStart → [sizeMid] → sizeEnd ────────────────────
-    // NWN: sizeMid = 0 bedeutet "nicht verwendet" → lineares Lerp Start→End
+    // ── Size: sizeStart → [sizeMid] → sizeEnd ─────────────────────
+    // NWN: sizeMid = 0 means "not used" → linear lerp Start→End
     const sS = node.sizeStart, sM = node.sizeMid, sE = node.sizeEnd;
     let size;
     if (Math.abs(sM) < 1e-4) {
-      // Lineares Lerp
+      // Linear lerp
       size = sS + (sE - sS) * t;
     } else {
-      // Drei-Punkt-Lerp mit Midpoint bei t=0.5
+      // Three-point lerp with midpoint at t=0.5
       size = t < 0.5
         ? sS + (sM - sS) * (t * 2)
         : sM + (sE - sM) * ((t - 0.5) * 2);
@@ -246,7 +246,7 @@ class NWNParticle {
     else         alpha = aM + (aE - aM) * ((t - 0.5) * 2);
     this.mat.opacity = Math.max(0, Math.min(1, alpha));
 
-    // ── Farbe: colorStart → colorEnd (lineares Lerp) ──────────────
+    // ── Color: colorStart → colorEnd (linear lerp) ───────────────
     const cS = node.colorStart, cE = node.colorEnd;
     this.mat.color.setRGB(
       cS[0] + (cE[0] - cS[0]) * t,
@@ -254,13 +254,13 @@ class NWNParticle {
       cS[2] + (cE[2] - cS[2]) * t
     );
 
-    // ── Sprite-Sheet-Frame ─────────────────────────────────────────
-    // fps steuert die Animations-Rate unabhängig von der Lebensdauer.
-    // startFrame ermöglicht randomisierten Einstieg (random=1).
+    // ── Sprite-sheet frame ─────────────────────────────────────────
+    // fps controls the animation rate independently of lifetime.
+    // startFrame enables a randomised entry point (random=1).
     //
-    // UV-Koordinaten-Berechnung (flipY=false + TGA-vertikaler Flip):
-    //   canvas.row[0] = visuell unten (nach TGA-Flip im Parser)
-    //   → canvasRow = (ygrid-1) - visualRow  (Umkehrung)
+    // UV coordinate calculation (flipY=false + TGA vertical flip):
+    //   canvas.row[0] = visually bottom (after TGA flip in parser)
+    //   → canvasRow = (ygrid-1) - visualRow  (inversion)
     const fps         = node.fps > 0 ? node.fps : 25;
     const totalFrames = node.frameEnd - node.frameStart + 1;
     const elapsed     = this.startFrame - node.frameStart + this.age * fps;
@@ -268,18 +268,18 @@ class NWNParticle {
 
     const col       = frameIdx % this.xgrid;
     const canvasRow = Math.floor(frameIdx / this.xgrid);
-    // Kein Y-Flip nötig: der TGA-Parser + Three.js flipY=false + UV-Matrix
-    // (v → 1-v) heben sich gegenseitig auf — canvasRow = visualRow.
-    // offset.y = (canvasRow+1)/ygrid weil repeat.y negativ: die untere Kante
-    // des Frames liegt bei offset.y, die obere bei offset.y - |repeat.y|.
+    // No Y-flip needed: the TGA parser + Three.js flipY=false + UV matrix
+    // (v → 1-v) cancel each other out — canvasRow = visualRow.
+    // offset.y = (canvasRow+1)/ygrid because repeat.y is negative: the bottom edge
+    // of the frame is at offset.y, the top edge at offset.y - |repeat.y|.
     this.tex.offset.set(col / this.xgrid, (canvasRow + 1) / this.ygrid);
-    // Kein needsUpdate() nötig: texture.matrix (enthält offset) wird vom
-    // Renderer automatisch jedes Frame als Uniform hochgeladen.
+    // No needsUpdate() needed: texture.matrix (containing offset) is uploaded
+    // by the renderer automatically as a uniform every frame.
 
     return true;
   }
 
-  /** GPU-Ressourcen freigeben */
+  /** Release GPU resources */
   dispose() {
     this.tex.dispose();
     this.mat.dispose();
@@ -289,9 +289,9 @@ class NWNParticle {
 
 
 // ─────────────────────────────────────────────
-//  Hilfsfunktion: lineares Interpolieren eines 1D-Controller-Keys
-//  keys: [{t, vals:[v]}, ...]   (aus parser.js emitterKeys)
-//  t:    aktuelle Animationszeit in Sekunden
+//  Helper function: linear interpolation of a 1D controller key
+//  keys: [{t, vals:[v]}, ...]   (from parser.js emitterKeys)
+//  t:    current animation time in seconds
 // ─────────────────────────────────────────────
 function evalKey1D(keys, t) {
   if (!keys || keys.length === 0) return 0;
@@ -308,15 +308,15 @@ function evalKey1D(keys, t) {
 
 
 // ─────────────────────────────────────────────
-//  NWNEmitter  —  Partikel-Pool und Spawn-Logik
+//  NWNEmitter  —  particle pool and spawn logic
 // ─────────────────────────────────────────────
 class NWNEmitter {
-  /** @param {object} node – Geparstes Emitter-Node-Objekt */
+  /** @param {object} node – Parsed emitter node object */
   constructor(node) {
     this.node        = node;
-    this.pool        = [];    // inaktive Partikel (bereit zum Recycling)
-    this.active      = [];    // gerade lebende Partikel
-    this.accumulator = 0;     // Spawn-Zeitzähler
+    this.pool        = [];    // inactive particles (ready for recycling)
+    this.active      = [];    // currently living particles
+    this.accumulator = 0;     // spawn time accumulator
     this.baseTex     = textureCache[node.emitterTexture] || null;
     this._buildPool();
   }
@@ -324,13 +324,13 @@ class NWNEmitter {
   _buildPool() {
     if (!this.baseTex) return;
     const node = this.node;
-    // Maximale Birthrate ermitteln: animierter Key hat Vorrang vor statischem Wert.
-    // _birthrateKeys wird von initAllEmitters() am Node hinterlegt.
+    // Determine maximum birthrate: animated key takes precedence over static value.
+    // _birthrateKeys is attached to the node by initAllEmitters().
     let maxBirthrate = node.birthrate;
     if (node._birthrateKeys?.length > 0) {
       maxBirthrate = Math.max(...node._birthrateKeys.map(k => k.vals[0]));
     }
-    // Partikelanzahl = birthrate × lifeExp + Puffer
+    // Particle count = birthrate × lifeExp + buffer
     const maxAlive = Math.ceil(maxBirthrate * node.lifeExp) + 6;
     for (let i = 0; i < maxAlive; i++) {
       const p = new NWNParticle(this.baseTex, node.xgrid, node.ygrid, node.renderMode);
@@ -340,20 +340,20 @@ class NWNEmitter {
   }
 
   /**
-   * Wird aus applyTexturesToScene() aufgerufen wenn die Textur
-   * nachträglich geladen wurde (Texturen nach dem Modell gedroppt).
+   * Called from applyTexturesToScene() when the texture was loaded
+   * after the fact (textures dropped after the model).
    */
   refreshTexture() {
     const tex = textureCache[this.node.emitterTexture] || null;
     if (tex && tex !== this.baseTex) {
-      // Pool komplett neu aufbauen mit der jetzt verfügbaren Textur
+      // Rebuild pool completely with the now-available texture
       this._disposeParticles();
       this.baseTex = tex;
       this._buildPool();
     }
   }
 
-  /** Welt-Position des Emitter-Nodes abfragen */
+  /** Query world position of the emitter node */
   _getWorldPos() {
     const obj = nodeObjects[this.node.name];
     if (!obj) return new THREE.Vector3();
@@ -366,17 +366,17 @@ class NWNEmitter {
     const obj = nodeObjects[this.node.name];
     if (!obj) return new THREE.Vector3(0, 0, 1);
     obj.updateMatrixWorld(true);
-    // NWN-Aurora-Konvention für Fountain: Partikel strömen entlang der lokalen +Z-Achse
-    // des Emitter-Nodes (= NWN-lokales „Oben"). Der Toolset orientiert Emitter so, dass
-    // local +Z in die gewünschte Emissionsrichtung zeigt; bei den Wasserfall-Emittern
-    // (≈177° Rotation) zeigt +Z → Welt (−X, +Y) → erzeugt mit mass-Gravitation einen Bogen.
+    // NWN Aurora convention for Fountain: particles flow along the local +Z axis
+    // of the emitter node (= NWN local "up"). The toolset orients emitters so that
+    // local +Z points in the desired emission direction; for waterfall emitters
+    // (≈177° rotation) +Z → world (−X, +Y) → produces an arc with mass gravity.
     return new THREE.Vector3(0, 0, 1).transformDirection(obj.matrixWorld).normalize();
   }
 
   /**
-   * Alle drei lokalen Achsen des Emitter-Nodes in Welt-Space.
-   * localX / localY spannen die Spawn-Fläche auf (für xsize/ysize).
-   * emitDir (localZ) ist die Emissionsrichtung.
+   * All three local axes of the emitter node in world space.
+   * localX / localY span the spawn area (for xsize/ysize).
+   * emitDir (localZ) is the emission direction.
    */
   _getWorldAxes() {
     const obj = nodeObjects[this.node.name];
@@ -393,35 +393,35 @@ class NWNEmitter {
     };
   }
 
-  /** Pro Frame aufrufen */
+  /** Call once per frame */
   update(dt) {
     if (!this.baseTex) return;
 
-    // ── Effektive Birthrate ermitteln ────────────────────────────────────
-    // Animierter birthratekey hat Vorrang. animState ist global aus animation.js.
-    // evalKey1D interpoliert linear zwischen den Keyframes.
+    // ── Determine effective birthrate ────────────────────────────────────
+    // Animated birthratekey takes precedence. animState is global from animation.js.
+    // evalKey1D interpolates linearly between keyframes.
     let birthrate = this.node.birthrate;
     if (this.node._birthrateKeys?.length > 0) {
       birthrate = evalKey1D(this.node._birthrateKeys, animState.time);
     }
 
-    // Aktive Partikel immer updaten (sie dürfen noch auslaufen)
+    // Always update active particles (they may still run out)
     this.active = this.active.filter(p => {
       const alive = p.update(dt);
       if (!alive) this.pool.push(p);
       return alive;
     });
 
-    // Keine neuen Partikel wenn Birthrate gerade 0 ist
+    // No new particles when birthrate is currently 0
     if (birthrate <= 0) return;
 
-    // Sichtbarkeit: Node ausgeblendet → keine neuen Partikel,
-    // aber bestehende Partikel dürfen noch sterben
+    // Visibility: node hidden → no new particles,
+    // but existing particles may still die
     const obj = nodeObjects[this.node.name];
     const nodeVisible = !obj || obj.visible;
 
     if (nodeVisible) {
-      // Neue Partikel spawnen
+      // Spawn new particles
       this.accumulator += dt;
       const interval = 1.0 / birthrate;
       while (this.accumulator >= interval) {
@@ -433,7 +433,7 @@ class NWNEmitter {
 
   _spawn() {
     if (!this.baseTex) return;
-    // Aus Pool nehmen oder neuen Partikel erstellen
+    // Take from pool or create a new particle
     let p = this.pool.pop();
     if (!p) {
       p = new NWNParticle(this.baseTex, this.node.xgrid, this.node.ygrid, this.node.renderMode);
@@ -453,7 +453,7 @@ class NWNEmitter {
     this.pool   = [];
   }
 
-  /** Alle GPU-Ressourcen freigeben und Sprites aus der Szene entfernen */
+  /** Release all GPU resources and remove sprites from the scene */
   dispose() {
     this._disposeParticles();
     this.baseTex = null;
@@ -462,13 +462,13 @@ class NWNEmitter {
 
 
 // ─────────────────────────────────────────────
-//  Globale API  —  wird von anderen Modulen genutzt
+//  Global API  —  used by other modules
 // ─────────────────────────────────────────────
 
 /**
- * Alle Emitter eines geladenen Modells initialisieren.
- * Wird am Ende von buildScene() aufgerufen (scene_build.js).
- * @param {object} model – Geparstes MDL-Modell
+ * Initialise all emitters of a loaded model.
+ * Called at the end of buildScene() (scene_build.js).
+ * @param {object} model – Parsed MDL model
  */
 function initAllEmitters(model) {
   clearAllEmitters();
@@ -477,10 +477,10 @@ function initAllEmitters(model) {
     if (node.type !== 'emitter') continue;
     if (!node.emitterTexture)    continue;
 
-    // ── Birthratekey aus Animations-Daten suchen ────────────────────────
-    // NWN-Effektmodelle haben oft birthrate=0 im Geometrieblock und steuern
-    // den Spawn-Verlauf ausschließlich über birthratekey in der Animation.
-    // Wir suchen die erste Animation mit birthratekey-Daten für diesen Node.
+    // ── Search for birthratekey in animation data ────────────────────────
+    // NWN effect models often have birthrate=0 in the geometry block and control
+    // the spawn curve exclusively via birthratekey in the animation.
+    // We look for the first animation with birthratekey data for this node.
     node._birthrateKeys = null;
     for (const anim of (model.animations || [])) {
       const keys = anim.nodes[node.name]?.emitterKeys?.birthrate;
@@ -491,7 +491,7 @@ function initAllEmitters(model) {
     }
 
     const hasBirthrate = node.birthrate > 0 || node._birthrateKeys !== null;
-    if (!hasBirthrate) continue;   // Emitter ohne jegliche Birthrate-Definition
+    if (!hasBirthrate) continue;   // emitter with no birthrate definition at all
 
     try {
       emitterInstances[node.name] = new NWNEmitter(node);
@@ -508,9 +508,9 @@ function initAllEmitters(model) {
 }
 
 /**
- * Alle aktiven Emitter für einen Frame updaten.
- * Wird im Render-Loop von animation.js aufgerufen.
- * @param {number} dt – Delta-Zeit in Sekunden
+ * Update all active emitters for one frame.
+ * Called in the render loop from animation.js.
+ * @param {number} dt – Delta time in seconds
  */
 function tickAllEmitters(dt) {
   for (const inst of Object.values(emitterInstances)) {
@@ -519,8 +519,8 @@ function tickAllEmitters(dt) {
 }
 
 /**
- * Alle Emitter und ihre Sprites aus der Szene entfernen.
- * Wird in clearSession() (session.js) aufgerufen.
+ * Remove all emitters and their sprites from the scene.
+ * Called in clearSession() (session.js).
  */
 function clearAllEmitters() {
   for (const inst of Object.values(emitterInstances)) {
@@ -532,8 +532,8 @@ function clearAllEmitters() {
 }
 
 /**
- * Emitter-Texturen aktualisieren wenn Texturen nachträglich geladen wurden.
- * Wird in applyTexturesToScene() (session.js) aufgerufen.
+ * Update emitter textures when textures were loaded after the fact.
+ * Called in applyTexturesToScene() (session.js).
  */
 function refreshEmitterTextures() {
   for (const inst of Object.values(emitterInstances)) {

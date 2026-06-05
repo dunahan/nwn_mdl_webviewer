@@ -8,11 +8,11 @@ function buildNodeList(model) {
   const list = document.getElementById('node-list');
   list.innerHTML = '';
 
-  // Toolbar einblenden und Typ-Buttons anpassen
+  // Show toolbar and adjust type buttons
   const toolbar = document.getElementById('node-toolbar');
   if (toolbar) {
     toolbar.style.display = 'flex';
-    // Typ-Buttons ausgrauen wenn kein Node dieses Typs vorhanden
+    // Gray out type buttons if no node of this type is present
     const presentTypes = new Set(model.nodes.map(n => n.type));
     toolbar.querySelectorAll('.ntb-type').forEach(btn => {
       const t = btn.dataset.type;
@@ -20,7 +20,7 @@ function buildNodeList(model) {
       btn.style.opacity = presentTypes.has(t) ? '1' : '0.25';
       btn.classList.remove('ntb-active');
     });
-    // Typ-Button-Zustand initialisieren (alle sichtbar → alle aktiv)
+    // Initialize type button state (all visible → all active)
     nodeVisUpdateTypeButtons();
   }
   for (const node of model.nodes) {
@@ -51,7 +51,7 @@ function buildNodeList(model) {
       vis.onclick = (e) => { e.stopPropagation(); toggleNodeVisibility(node.name, item, vis); };
       item.appendChild(vis);
     } else if (nodeObjects[node.name]) {
-      // Alle anderen sichtbaren Nodes (dummy, emitter, light …) ebenfalls umschaltbar
+      // All other visible nodes (dummy, emitter, light …) are also toggleable
       const vis = document.createElement('span');
       vis.className = 'vis-toggle';
       vis.textContent = '●';
@@ -73,14 +73,14 @@ function toggleNodeVisibility(name, item, btn, visibleIcon) {
   const onIcon  = visibleIcon || '⬡';
   const offIcon = '○';
   btn.textContent = obj.visible ? onIcon : offIcon;
-  nodeVisUpdateTypeButtons();   // Typ-Button-Zustand nachführen
+  nodeVisUpdateTypeButtons();   // Update type button state
 }
 
 // ─────────────────────────────────────────────
-//  Node-Toolbar-Aktionen
+//  Node-Toolbar-Actions
 // ─────────────────────────────────────────────
 
-// Alle Nodes ein- oder ausblenden
+// Show or hide all nodes
 function nodeVisAll(show) {
   document.querySelectorAll('.node-item').forEach(item => {
     const name = item.dataset.name;
@@ -97,13 +97,13 @@ function nodeVisAll(show) {
   nodeVisUpdateTypeButtons();
 }
 
-// Alle Nodes eines Typs gemeinsam umschalten:
-// Sind alle sichtbar → alle ausblenden; sonst → alle einblenden
+// Toggle all nodes of a specific type together:
+// If all are visible → hide all; otherwise → show all
 function nodeVisToggleType(type) {
   const items = [...document.querySelectorAll(`.node-item`)].filter(el => {
     const name = el.dataset.name;
     const obj  = nodeObjects[name];
-    // Typ über userData.nodeData.type, Fallback über Badge-Text
+    // Type via userData.nodeData.type, fallback via badge text
     if (!obj) return false;
     const nodeType = (obj.userData.nodeData?.type || '').toLowerCase();
     return nodeType === type;
@@ -114,7 +114,7 @@ function nodeVisToggleType(type) {
     const obj = nodeObjects[el.dataset.name];
     return obj && obj.visible;
   });
-  const show = !allVisible;   // wenn alle sichtbar → ausblenden, sonst → einblenden
+  const show = !allVisible;   // if all visible → hide, otherwise → show
 
   items.forEach(item => {
     const name = item.dataset.name;
@@ -131,8 +131,8 @@ function nodeVisToggleType(type) {
   nodeVisUpdateTypeButtons();
 }
 
-// Typ-Button-Zustand nachführen:
-// aktiv = mindestens ein Node dieses Typs ist sichtbar
+// Update type button state:
+// active = at least one node of this type is visible
 function nodeVisUpdateTypeButtons() {
   const toolbar = document.getElementById('node-toolbar');
   if (!toolbar) return;
@@ -186,7 +186,7 @@ function selectNode(name) {
     const swS = '<span style="' + _sw + _rgb(n.colorStart) + '"></span>';
     const swM = '<span style="' + _sw + _rgb(n.colorMid)   + '"></span>';
     const swE = '<span style="' + _sw + _rgb(n.colorEnd)   + '"></span>';
-    // Birthrate: animierter Key hat Vorrang über statischen Wert
+    // Birthrate: animated key takes precedence over static value
     const birthrateVal = (n._birthrateKeys && n._birthrateKeys.length > 0)
       ? L('nd_em_birthrate_key')
       : (n.birthrate + L('nd_em_birthrate_unit'));
@@ -211,7 +211,7 @@ function selectNode(name) {
         : '');
   }
 
-  // ── MTR-Abschnitt ──────────────────────────────────────────────────
+  // ── MTR-Section ──────────────────────────────────────────────────
   const mtrKey = n.materialname
     ? n.materialname.toLowerCase()
     : (n.bitmap ? n.bitmap.toLowerCase() : null);
@@ -219,7 +219,7 @@ function selectNode(name) {
 
   let mtrSection = '';
   if (mtr) {
-    // Texture-Slots mit Lade-Status
+    // Texture slots with loading status
     const mapSlots = [
       { idx: 0, label: 'Diffuse'   },
       { idx: 1, label: 'Normal'    },
@@ -254,14 +254,14 @@ function selectNode(name) {
         '<span class="nd-val nd-mtr-hint">' + rhVal + '</span></div>'
       : '';
 
-    // Parameter
+    // Parameters
     const paramEntries = Object.entries(mtr.params);
     const paramRows = paramEntries.map(([pname, p]) =>
       '<div class="nd-row nd-mtr-row"><span>' + pname + '</span>' +
       '<span class="nd-val">' + p.values.map(v => v.toFixed(3)).join(', ') + '</span></div>'
     ).join('');
 
-    // Tangenten-Status
+    // Tangent status
     const geo = obj.geometry;
     const hasTangents = geo && geo.userData && geo.userData.hasTangents;
     const tanRow = '<div class="nd-row nd-mtr-row"><span>Tangents</span>' +
@@ -305,7 +305,7 @@ function selectNode(name) {
     extraRows +
     mtrSection +
     '</div>';
-  // Drag-Logik an den neuen Handle binden (innerHTML ersetzt DOM → neu registrieren)
+  // Bind drag logic to the new handle (innerHTML replaces DOM → re-register)
   initNodeDetailDrag();
 }
 
@@ -362,7 +362,7 @@ function updateMeshOpacity(val) {
       mat.opacity     = meshOpacity;
       mat.depthWrite  = false;
     } else {
-      // Auf Originalzustand zurücksetzen
+      // Reset to original state
       mat.transparent = child.userData.baseTransparent || false;
       mat.opacity     = child.userData.baseOpacity     ?? 1.0;
       mat.depthWrite  = child.userData.baseDepthWrite  ?? true;
@@ -371,7 +371,7 @@ function updateMeshOpacity(val) {
   });
 }
 
-// Hilfsfunktionen für bidirektionale Slider↔Textbox-Synchronisation
+// Helper functions for bidirectional slider↔textbox synchronization
 function syncSlider(sliderId, input, updateFn) {
   const slider = document.getElementById(sliderId);
   const min = parseFloat(slider.min), max = parseFloat(slider.max);
@@ -456,7 +456,7 @@ function setStatus(msg) { document.getElementById('status-msg').textContent = ms
 //  PLT Layer Panel
 // ─────────────────────────────────────────────
 
-// Repräsentative Farben pro Layer (Platzhalter bis zum echten Paletten-Mapping)
+// Representative colors per layer (placeholder until real palette mapping)
 // const PLT_LAYER_NAMES  = ['Skin','Hair','Metal 1','Metal 2','Cloth 1','Cloth 2','Leather 1','Leather 2','Tattoo 1','Tattoo 2'];
 // const PLT_LAYER_COLORS = ['#e8a880','#7a5030','#b8c0cc','#c8a44a','#5878b8','#b85878','#8a6040','#504030','#4888b8','#b87048'];
 
@@ -479,7 +479,7 @@ function buildPLTPanel() {
   for (const [texName, tex] of pltEntries) {
     const isMulti = pltEntries.length > 1;
 
-    // Bei mehreren Parts: aufklappbarer Abschnitt pro Part
+    // For multiple parts: collapsible section per part
     let appendTarget = listEl;
     if (isMulti) {
       const label = document.createElement('div');
@@ -487,7 +487,7 @@ function buildPLTPanel() {
 
       const arrow = document.createElement('span');
       arrow.className = 'plt-part-arrow';
-      arrow.textContent = '▼';   // aufgeklappt = nach unten
+      arrow.textContent = '▼';   // expanded = downwards
 
       const nameSpan = document.createElement('span');
       nameSpan.textContent = texName;
@@ -511,14 +511,14 @@ function buildPLTPanel() {
 
     for (let i = 0; i < 10; i++) {
       const used = usedLayers[i];
-      // Layer-Header-Zeile
+      // Layer header row
       const item = document.createElement('div');
       item.className = 'plt-layer-item' + (used ? ' used' : '');
 
       const dot = document.createElement('div');
       dot.className = 'plt-layer-dot';
-      dot.dataset.layerDot = i;   // für globale Skin/Hair-Synchronisation
-      // Layer 0+1 (Skin/Hair) → globale Rows; Rest → per Part
+      dot.dataset.layerDot = i;   // for global Skin/Hair synchronization
+      // Layer 0+1 (Skin/Hair) → global rows; rest → per part
       const rowForDot = (i <= 1) ? pltLayerRows[i] : getPltRows(texName)[i];
       dot.style.background = getPaletteSwatchHex(i, rowForDot);
       item.appendChild(dot);
@@ -533,7 +533,7 @@ function buildPLTPanel() {
       tag.textContent = used ? '●' : '○';
       item.appendChild(tag);
 
-      // Aufklapp-Pfeil für Color-Picker nur wenn Palette vorhanden und Layer benutzt
+      // Expand arrow for color picker only if palette exists and layer is used
       if (used && hasPalette(i)) {
         const pickArrow = document.createElement('span');
         pickArrow.className = 'plt-pick-arrow';
@@ -559,18 +559,18 @@ function buildPLTPanel() {
     }
   }
 
-  // Beim ersten Aufbau direkt mit Paletten rendern
+  // Render with palettes directly on initial creation
   reapplyAllPLTPalettes();
 }
 
-// hier Scrollbalken eingefügt
+// Scrollbar inserted here
 function _buildLayerPicker(layerIdx, dotEl, texKey) {
   const wrap = document.createElement('div');
   wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:2px;padding:4px 0 6px 18px;max-height:120px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--scrollbar) transparent;';
   wrap.dataset.layerPicker = layerIdx;
 
-  // Layer 0 (Skin) + 1 (Hair) sind global – gleiche Farbe auf alle Parts.
-  // Layer 2–9 (Metal, Cloth, Leather, Tattoo) sind per Part/Textur.
+  // Layer 0 (Skin) + 1 (Hair) are global – same color applied to all parts.
+  // Layer 2–9 (Metal, Cloth, Leather, Tattoo) are per part/texture.
   const isGlobal = (layerIdx <= 1);
   const partRows  = isGlobal ? null : getPltRows(texKey);
   const currentRow = isGlobal ? pltLayerRows[layerIdx] : partRows[layerIdx];
@@ -587,10 +587,10 @@ function _buildLayerPicker(layerIdx, dotEl, texKey) {
     }
     sw.addEventListener('click', () => {
       if (isGlobal) {
-        // Skin / Hair → global auf alle PLT-Texturen anwenden
+        // Apply Skin / Hair globally to all PLT textures
         pltLayerRows[layerIdx] = row;
         reapplyAllPLTPalettes();
-        // Alle Picker-Wraps dieses Layers (in allen Part-Sektionen) synchronisieren
+        // Synchronize all picker wraps for this layer (across all part sections)
         const newHex = getPaletteSwatchHex(layerIdx, row);
         document.querySelectorAll(`[data-layer-picker="${layerIdx}"]`).forEach(otherWrap => {
           otherWrap.querySelectorAll('div').forEach((s, idx) => {
@@ -598,15 +598,15 @@ function _buildLayerPicker(layerIdx, dotEl, texKey) {
             s.style.outlineOffset= (idx === row) ? '1px' : '';
           });
         });
-        // Alle Dots dieses Layers (in allen Part-Sektionen) synchronisieren
+        // Synchronize all dots for this layer (across all part sections)
         document.querySelectorAll(`[data-layer-dot="${layerIdx}"]`).forEach(d => {
           d.style.background = newHex;
         });
       } else {
-        // Metal / Cloth / Leather / Tattoo → nur diesen Part neu rendern
+        // Re-render only this part for Metal / Cloth / Leather / Tattoo
         partRows[layerIdx] = row;
         applyPLTPalette(textureCache[texKey]);
-        // Auswahl-Highlight und Dot nur im eigenen Picker aktualisieren
+        // Update selection highlight and dot only inside its own picker
         wrap.querySelectorAll('div').forEach((s, idx) => {
           s.style.outline      = (idx === row) ? '1.5px solid var(--gold)' : '';
           s.style.outlineOffset= (idx === row) ? '1px' : '';
@@ -636,14 +636,14 @@ function toggleSceneGraph() {
 }
 
 // ─────────────────────────────────────────────
-//  Mesh-Farben Dropdown (Viewport top-center)
+//  Mesh-Colors Dropdown (Viewport top-center)
 // ─────────────────────────────────────────────
 function toggleColorDropdown() {
   const dd = document.getElementById('color-dropdown');
   if (dd) dd.classList.toggle('open');
 }
 
-// Dropdown bei Session-Reset schließen und Sektionen ausblenden
+// Close dropdown on session reset and hide sections
 function resetColorDropdown() {
   const dd      = document.getElementById('color-dropdown');
   const wokSec  = document.getElementById('cdrop-wok-section');
@@ -656,11 +656,10 @@ function resetColorDropdown() {
 }
 
 // ─────────────────────────────────────────────
-// ─────────────────────────────────────────────
 //  Theme System
-//  Eingebaute Themes sind als JS-Objekte eingebettet,
-//  damit der Viewer auch über file:// funktioniert
-//  (fetch() ist auf file:// vom Browser blockiert).
+//  Built-in themes are embedded as JS objects
+//  so the viewer also works via file://
+//  (fetch() is blocked on file:// by browsers).
 // ─────────────────────────────────────────────
 
 const BUILTIN_THEMES = {
@@ -730,10 +729,10 @@ const BUILTIN_THEMES = {
 
 let _currentThemeVars = {};
 
-/**
- * Wendet ein Theme-Objekt auf :root an.
- * @param {object} theme - Objekt mit { name, variables }
- */
+// ─────────────────────────────────────────────
+// Applies a theme object to :root.
+// @param {object} theme - Object with { name, variables }
+// ─────────────────────────────────────────────
 function applyTheme(theme) {
   const root = document.documentElement;
   for (const key of Object.keys(_currentThemeVars)) {
@@ -747,10 +746,10 @@ function applyTheme(theme) {
   }
 }
 
-/**
- * Aktiviert ein eingebautes Theme anhand seines Schlüssels.
- * @param {string} name - 'default' oder 'high-contrast'
- */
+// ─────────────────────────────────────────────
+// Activates a built-in theme based on its key.
+// @param {string} name - 'default' or 'high-contrast'
+// ─────────────────────────────────────────────
 function loadBuiltinTheme(name) {
   const theme = BUILTIN_THEMES[name] || BUILTIN_THEMES['default'];
   applyTheme(theme);
@@ -758,7 +757,7 @@ function loadBuiltinTheme(name) {
 }
 
 /**
- * Lädt eine vom Nutzer gewählte JSON-Datei als Custom-Theme.
+ * Loads a user-selected JSON file as a custom theme.
  * @param {File} file
  */
 function loadCustomThemeFile(file) {
@@ -780,8 +779,8 @@ function loadCustomThemeFile(file) {
 }
 
 /**
- * Handler für das Theme-Dropdown.
- * @param {string} value - Gewählter Wert im <select>
+ * Handler for the theme dropdown.
+ * @param {string} value - Selected value in the <select>
  */
 function onThemeSelect(value) {
   if (value === '__custom__') {
@@ -792,9 +791,9 @@ function onThemeSelect(value) {
 }
 
 /**
- * Initialisiert das Theme-System beim Start.
- * Custom-Themes können bei file:// nicht wiederhergestellt werden
- * (kein Dateisystem-Zugriff ohne Nutzer-Geste) — Fallback auf Default.
+ * Initializes the theme system on startup.
+ * Custom themes cannot be restored via file://
+ * (no filesystem access without user gesture) — fallback to default.
  */
 function initTheme() {
   const saved = localStorage.getItem('nwn-theme') || 'default';
@@ -804,7 +803,7 @@ function initTheme() {
   loadBuiltinTheme(name);
 }
 
-// Initialisierung beim DOM-Ready
+// Initialization on DOM Ready
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initTheme);
 } else {
@@ -815,22 +814,22 @@ if (document.readyState === 'loading') {
 //  Node-Detail-Panel — Drag to move + Close
 // ─────────────────────────────────────────────
 (function () {
-  // Gespeicherte Position {x, y} in Viewport-Koordinaten.
-  // null = noch nicht initialisiert → Default unten-rechts beim ersten Öffnen.
+  // Saved position {x, y} in viewport coordinates.
+  // null = not initialized yet → Default bottom-right on first open.
   let _pos = null;
   let dragging = false;
   let startX, startY, startL, startT;
 
-  // Hilfsfunktion: liefert clientX/Y unabhängig von Mouse- oder Touch-Event
+  // Helper function: returns clientX/Y independently of mouse or touch events
   function _evXY(e) {
     const src = e.touches ? e.touches[0] : e;
     return { x: src.clientX, y: src.clientY };
   }
 
-  // Gemeinsamer Move-Handler für Mouse und Touch
+  // Shared move handler for mouse and touch
   function _onMove(e) {
     if (!dragging) return;
-    if (e.cancelable) e.preventDefault();   // Scroll auf Touch verhindern
+    if (e.cancelable) e.preventDefault();   // Prevent scrolling on touch
     const { x, y } = _evXY(e);
     const panel = document.getElementById('node-detail');
     const vp    = document.getElementById('viewport');
@@ -844,7 +843,7 @@ if (document.readyState === 'loading') {
     _pos = { x: newL, y: newT };
   }
 
-  // Gemeinsamer End-Handler für Mouse und Touch
+  // Shared end handler for mouse and touch
   function _onEnd() {
     if (!dragging) return;
     dragging = false;
@@ -852,7 +851,7 @@ if (document.readyState === 'loading') {
     if (strip) strip.style.cursor = 'grab';
   }
 
-  // Globale Listener nur einmal registrieren
+  // Register global listeners only once
   window.addEventListener('mousemove',   _onMove);
   window.addEventListener('mouseup',     _onEnd);
   window.addEventListener('touchmove',   _onMove,  { passive: false });
@@ -864,13 +863,13 @@ if (document.readyState === 'loading') {
     const strip = document.getElementById('node-detail-drag-strip');
     if (!panel || !strip) return;
 
-    // bottom/right deaktivieren — würden left/top-Bewegung zu Strecken umdeuten
+    // Deactivate bottom/right — would misinterpret left/top movement as resizing
     panel.style.bottom = 'auto';
     panel.style.right  = 'auto';
 
     if (!_pos) {
-      // Default-Position: unten-rechts im Viewport, 12px Abstand.
-      // Panel kurz sichtbar machen um die echte Größe zu lesen.
+      // Default position: bottom-right in viewport, 12px offset.
+      // Make panel briefly visible to read its actual size.
       const wasHidden = panel.style.display === 'none';
       if (wasHidden) {
         panel.style.visibility = 'hidden';
@@ -878,7 +877,7 @@ if (document.readyState === 'loading') {
       }
       const vp = document.getElementById('viewport');
       const pr = vp.getBoundingClientRect();
-      // Math.max(0, …) verhindert negative Startwerte auf schmalen Displays
+      // Math.max(0, …) prevents negative starting values on narrow displays
       _pos = {
         x: Math.max(0, pr.width  - panel.offsetWidth  - 12),
         y: Math.max(0, pr.height - panel.offsetHeight - 12),
@@ -889,11 +888,11 @@ if (document.readyState === 'loading') {
       }
     }
 
-    // Position setzen (stellt letzte bekannte Position nach innerHTML-Reset wieder her)
+    // Set position (restores the last known position after innerHTML reset)
     panel.style.left = _pos.x + 'px';
     panel.style.top  = _pos.y + 'px';
 
-    // Drag-Start: Nur auf dem Strip, Mouse + Touch
+    // Drag start: Only on the strip, mouse + touch
     const onDragStart = e => {
       if (e.type === 'mousedown' && e.button !== 0) return;
       dragging = true;
@@ -904,7 +903,7 @@ if (document.readyState === 'loading') {
       e.preventDefault();
     };
 
-    // Alten Listener entfernen bevor neu gesetzt (innerHTML baut neuen Strip)
+    // Remove old listener before setting a new one (innerHTML builds a new strip)
     strip.removeEventListener('mousedown',  strip._dragMouse);
     strip.removeEventListener('touchstart', strip._dragTouch);
     strip._dragMouse = onDragStart;
@@ -913,7 +912,7 @@ if (document.readyState === 'loading') {
     strip.addEventListener('touchstart', onDragStart, { passive: false });
   }
 
-  // Zoom-Funktion: step=-1 kleiner, 0=reset, 1=größer
+  // Zoom function: step=-1 smaller, 0=reset, 1=larger
   const ZOOM_STEPS = [8, 9, 10, 11, 12, 14, 16];
   let _zoomIdx = 2;  // Default = 10px (index 2)
   function nodeDetailZoom(step) {
@@ -921,7 +920,7 @@ if (document.readyState === 'loading') {
     else _zoomIdx = Math.max(0, Math.min(ZOOM_STEPS.length - 1, _zoomIdx + step));
     const body = document.getElementById('node-detail-body');
     if (body) body.style.fontSize = ZOOM_STEPS[_zoomIdx] + 'px';
-    // Position neu berechnen damit Panel nach Größenänderung im Viewport bleibt
+    // Recalculate position so the panel stays within the viewport after resizing
     const panel = document.getElementById('node-detail');
     const vp    = document.getElementById('viewport');
     if (panel && vp && _pos) {
@@ -934,7 +933,7 @@ if (document.readyState === 'loading') {
   }
   window.nodeDetailZoom = nodeDetailZoom;
 
-  // Panel schließen und Node-Selektion aufheben
+  // Close panel and deselect node
   function closeNodeDetail() {
     const panel = document.getElementById('node-detail');
     if (panel) panel.style.display = 'none';

@@ -2,64 +2,80 @@
    NWN MDL Viewer — Texture Hot-Reload
    ═══════════════════════════════════════════════
 
-   Beobachtet einen vom User gewählten Ordner auf
-   geänderte Texturdateien (TGA / DDS / PLT) und
-   aktualisiert den textureCache + die Three.js-Szene
-   automatisch ohne Neu-Laden des Modells.
+   Watches a user-selected folder for changed texture files
+   (TGA / DDS / PLT) and updates the textureCache + Three.js scene
+   automatically without reloading the model.
 
-   Backend-Abstraktion (Tauri-ready):
+   Backend abstraction (Tauri-ready):
      'browser-fsa'  – File System Access API (Chrome/Edge)
                       Polling via setInterval + FileSystemFileHandle
-     'tauri'        – (Platzhalter) nativer fs-watch via
-                      tauri-plugin-fs, event-basiert, kein Polling
-     null           – nicht unterstützt (Firefox u.a.)
+     'tauri'        – (placeholder) native fs-watch via
+                      tauri-plugin-fs, event-based, no polling
+     null           – not supported (Firefox etc.)
 
-   Abhängigkeiten (globale Variablen aus anderen Modulen):
+   Dependencies (global variables from other modules):
      textureCache          – textures.js
      parseTGA              – textures.js
      parseNWNDDS           – textures.js
      parseNWNPLT           – textures.js
      applyPLTPalette       – textures.js
      applyTexturesToScene  – session.js
-     getNeededTextures     – loader.js   (Textur-Filter auf Modell-Bedarf)
-     getNodeTexKeys        – loader.js   (Textur-Keys eines einzelnen Nodes)
-     currentModel          – scene.js    (aktiv geladenes Modell)
+     getNeededTextures     – loader.js   (texture filter based on model needs)
+     getNodeTexKeys        – loader.js   (texture keys of a single node)
+     currentModel          – scene.js    (currently loaded model)
      L / fmt               – i18n.js
      setStatus             – ui.js
      logInfoI18n / logWarnI18n / logMsg  – log.js
 
-   Öffentliche API (window.HotReload):
-     HotReload.init()         – beim DOMContentLoaded aufrufen
-     HotReload.toggle()       – Button-Handler: Ordner wählen / Stop
-     HotReload.getBackend()   – 'browser-fsa' | 'tauri' | null
+   Public API (window.HotReload):
+     HotReload.init()              – call on DOMContentLoaded
+     HotReload.toggle()            – button handler: pick folder / stop
+     HotReload.getBackend()        – 'browser-fsa' | 'tauri' | null
+     HotReload.getMDLHandle(name)  – FileSystemFileHandle | null (phase 3)
+     HotReload.onWatchChange(cb)   – cb(active) on watch start/stop (phase 3)
+     HotReload.onMDLChanged(cb)    – cb(key) on MDL change on disk (phase 3)
+     HotReload.onModelLoaded()     – after applyTexturesToScene() from loader.js
+     HotReload.setModelFileHandle(h) – MDL drop handle as picker hint
 
-   Tauri-Migration (später):
-     Nur _backendPick() und _backendStartWatch() / _backendStopWatch()
-     tauschen. _onFileChanged() und alle Textur-Logik bleiben unverändert.
+   Tauri migration (later):
+     Only swap out _backendPick() and _backendStartWatch() / _backendStopWatch().
+     _onFileChanged() and all texture logic remain unchanged.
    ═══════════════════════════════════════════════ */
 
 const HotReload = (() => {
 
-  // ── Konfiguration ────────────────────────────────────────────────────────
-  const POLL_MS  = 2000;                          // Polling-Intervall (ms)
-  const TEX_EXTS = ['tga', 'dds', 'plt'];         // Unterstützte Endungen
+  // ── Configuration ───────────────────────────────────────────────────────
+  const POLL_MS  = 2000;                          // Polling interval (ms)
+  const TEX_EXTS     = ['tga', 'dds', 'plt'];         // Supported texture extensions
+  const TEX_PRIORITY = { 'dds': 3, 'tga': 2, 'plt': 1 }; // Higher value = preferred format
+  const MDL_EXTS     = ['mdl'];                        // Supported model extensions (phase 3)
+  const SCAN_DEPTH = 1;                            // Max. subdirectory depth for scan
 
-  // ── Interner Zustand ─────────────────────────────────────────────────────
+  // ── Internal state ───────────────────────────────────────────────────────
   let _backend   = null;   // 'browser-fsa' | 'tauri' | null
   let _active    = false;
   let _pollTimer = null;
 
-  // Map: basename (lowercase, ohne ext) → { handle, ext, lastModified }
+  // Map: basename (lowercase, without ext) → { handle, ext, lastModified }
   const _watched = new Map();
 
-  // Set: Keys die der User explizit angeklickt hat (hervorgehobener Zustand)
+  // Map: basename (lowercase, without ext) → { handle, lastModified }  (phase 3)
+  const _watchedMDL = new Map();
+
+  // Callbacks for watch start/stop  (phase 3: SetBrowser registers here)
+  const _watchChangeCallbacks = [];
+
+  // Callbacks for MDL change on disk  (phase 3: SetBrowser registers here)
+  const _mdlChangedCallbacks = [];
+
+  // Set: keys explicitly clicked by the user (highlighted state)
   const _selectedWatchKeys = new Set();
 
-  // FileSystemFileHandle des zuletzt per Drag & Drop geladenen MDL –
-  // wird als startIn-Hint für showDirectoryPicker() genutzt.
+  // FileSystemFileHandle of the last MDL loaded via drag & drop –
+  // used as startIn hint for showDirectoryPicker().
   let _modelFileHandle = null;
 
-  // ── Hilfsfunktion: Dateiname → basename + ext ────────────────────────────
+  // ── Helper: filename → basename + ext ───────────────────────────────────
   function _splitName(name) {
     const lower = name.toLowerCase();
     const dot   = lower.lastIndexOf('.');
@@ -77,13 +93,13 @@ const HotReload = (() => {
     if (!btn) return;
 
     if (!_backend) {
-      // Browser unterstützt Feature nicht → Button deaktivieren + Tooltip
+      // Browser does not support feature → disable button + tooltip
       btn.disabled = true;
       btn.title    = L('hr_not_supported');
     }
   }
 
-  // ── Backend-Erkennung ────────────────────────────────────────────────────
+  // ── Backend detection ────────────────────────────────────────────────────
   function _detectBackend() {
     if (typeof window !== 'undefined' && window.__TAURI__)                return 'tauri';
     if (typeof window !== 'undefined' && 'showDirectoryPicker' in window) return 'browser-fsa';
@@ -91,22 +107,23 @@ const HotReload = (() => {
   }
 
   // ════════════════════════════════════════════════════════════════════════
-  //  ÖFFENTLICHE API
+  //  PUBLIC API
   // ════════════════════════════════════════════════════════════════════════
 
-  // Haupt-Toggle: Ordner wählen starten / Beobachtung stoppen
+  // Main toggle: start folder selection / stop watching
   async function toggle() {
     if (!_backend) return;
 
     if (_active) {
-      // Watcher läuft → stoppen und Handles verwerfen
+      // Watcher running → stop and discard handles
       _backendStopWatch();
       _watched.clear();
+      _watchedMDL.clear();
       _selectedWatchKeys.clear();
       _refreshNodeIndicators();
       _updateUI();
     } else {
-      // Watcher inaktiv → Ordner wählen und starten
+      // Watcher inactive → pick folder and start
       await _backendPick();
     }
   }
@@ -115,12 +132,12 @@ const HotReload = (() => {
 
   // ════════════════════════════════════════════════════════════════════════
   //  BACKEND: 'browser-fsa'
-  //  Kann später 1:1 durch Tauri-Pendant ersetzt werden.
+  //  Can be swapped 1:1 for the Tauri counterpart later.
   // ════════════════════════════════════════════════════════════════════════
 
   async function _backendPick() {
     if (_backend === 'tauri') {
-      // ── Tauri (Platzhalter) ─────────────────────────────────────────
+      // ── Tauri (placeholder) ─────────────────────────────────────────
       // const { open } = window.__TAURI__.dialog;
       // const dir = await open({ directory: true, multiple: false });
       // ... Handles über Tauri-FS-API aufbauen ...
@@ -136,45 +153,73 @@ const HotReload = (() => {
         startIn: _modelFileHandle ?? 'documents',
       });
     } catch (_) {
-      // User hat Dialog abgebrochen → still ignorieren
+      // User cancelled dialog → silently ignore
       return;
     }
 
     _watched.clear();
+    _watchedMDL.clear();
     _selectedWatchKeys.clear();
-    let count = 0;
 
     try {
-      for await (const [name, handle] of dirHandle.entries()) {
-        if (handle.kind !== 'file') continue;
-        const parts = _splitName(name);
-        if (!parts || !TEX_EXTS.includes(parts.ext)) continue;
-
-        const file = await handle.getFile();
-        _watched.set(parts.key, {
-          handle,
-          ext:          parts.ext,
-          lastModified: file.lastModified,
-        });
-        count++;
-      }
+      await _scanDir(dirHandle);
     } catch (e) {
-      logMsg(`[HotReload] Ordner-Scan Fehler: ${e.message}`, 'warn');
+      logMsg(`[HotReload] Folder scan error: ${e.message}`, 'warn');
       return;
     }
 
-    if (count === 0) {
+    const texCount = _watched.size;
+    const mdlCount = _watchedMDL.size;
+
+    if (texCount === 0 && mdlCount === 0) {
       setStatus(L('hr_no_textures'));
       return;
     }
 
-    setStatus(fmt('hr_dir_picked', { n: count }));
+    setStatus(fmt('hr_dir_picked', { n: texCount + mdlCount }));
 
-    // Sofort fehlende Texturen für das aktuell geladene Modell nachfüllen
+    // Immediately fill in missing textures for the currently loaded model
     await _fillMissingTextures();
 
     _backendStartWatch();
     _refreshNodeIndicators();
+  }
+
+  // ── Directory scan (recursive up to SCAN_DEPTH) ─────────────────────────
+  //
+  // Traverses dirHandle up to depth SCAN_DEPTH (currently 1 = root + direct
+  // subdirectories). Each file found is registered in _watched (textures)
+  // or _watchedMDL (MDL) depending on its extension.
+  //
+  // On name collisions (e.g. mdl/tca01.mdl and tca01.mdl in the root folder)
+  // the last entry found wins (Map.set overwrites). Since NWN assets
+  // by convention have unique base names, this is not a problem in practice.
+  //
+  async function _scanDir(dirHandle, depth = 0) {
+    for await (const [name, handle] of dirHandle.entries()) {
+
+      if (handle.kind === 'directory') {
+        // Subdirectory: go one level deeper if depth limit not reached
+        if (depth < SCAN_DEPTH) await _scanDir(handle, depth + 1);
+        continue;
+      }
+
+      const parts = _splitName(name);
+      if (!parts) continue;
+
+      if (TEX_EXTS.includes(parts.ext)) {
+        const existing = _watched.get(parts.key);
+        const newPrio  = TEX_PRIORITY[parts.ext] ?? 0;
+        const oldPrio  = existing ? (TEX_PRIORITY[existing.ext] ?? 0) : -1;
+        if (!existing || newPrio > oldPrio) {
+          const file = await handle.getFile();
+          _watched.set(parts.key, { handle, ext: parts.ext, lastModified: file.lastModified });
+        }
+      } else if (MDL_EXTS.includes(parts.ext)) {
+        const file = await handle.getFile();
+        _watchedMDL.set(parts.key, { handle, lastModified: file.lastModified });
+      }
+    }
   }
 
   function _backendStartWatch() {
@@ -182,6 +227,7 @@ const HotReload = (() => {
     _active    = true;
     _pollTimer = setInterval(_poll, POLL_MS);
     document.getElementById('node-list')?.classList.add('node-list-watching');
+    _watchChangeCallbacks.forEach(cb => cb(true));
     _updateUI();
   }
 
@@ -191,10 +237,12 @@ const HotReload = (() => {
     clearInterval(_pollTimer);
     _pollTimer = null;
     document.getElementById('node-list')?.classList.remove('node-list-watching');
+    _watchChangeCallbacks.forEach(cb => cb(false));
   }
 
-  // ── Polling-Schleife (browser-fsa) ───────────────────────────────────────
+  // ── Polling loop (browser-fsa) ───────────────────────────────────────────
   async function _poll() {
+    // ── Texture changes ──────────────────────────────────────────────────
     for (const [key, entry] of _watched.entries()) {
       try {
         const file = await entry.handle.getFile();
@@ -202,43 +250,57 @@ const HotReload = (() => {
         entry.lastModified = file.lastModified;
         await _onFileChanged(key, entry.ext, file);
       } catch (_) {
-        // Handle verloren (Datei gelöscht / Ordner nicht mehr zugänglich) → überspringen
+        // Handle lost (file deleted / folder no longer accessible) → skip
+      }
+    }
+
+    // ── MDL changes (phase 3) ────────────────────────────────────────────
+    // Only check lastModified and fire callback — no auto-reload.
+    // SetBrowser decides what to do (set sb-changed indicator).
+    for (const [key, entry] of _watchedMDL.entries()) {
+      try {
+        const file = await entry.handle.getFile();
+        if (file.lastModified <= entry.lastModified) continue;
+        entry.lastModified = file.lastModified;
+        _mdlChangedCallbacks.forEach(cb => cb(key));
+      } catch (_) {
+        // Handle lost → skip
       }
     }
   }
 
-  // ── Fehlende Texturen aus dem beobachteten Ordner nachfüllen ────────────
+  // ── Fill missing textures from the watched folder ────────────────────────
   //
-  // Läuft einmalig (kein Polling) und lädt alle Dateien aus _watched,
-  // die noch NICHT im textureCache vorhanden sind.
-  // Auslöser: (a) direkt nach _backendPick(), (b) nach jedem Modellladevorgang
-  // via HotReload.onModelLoaded() aus loader.js.
+  // Runs once (no polling) and loads all files from _watched
+  // that are NOT yet present in the textureCache.
+  // Triggered: (a) directly after _backendPick(), (b) after every model load
+  // via HotReload.onModelLoaded() from loader.js.
   //
-  // Batched: applyTexturesToScene() wird nur einmal am Ende aufgerufen,
-  // nicht für jede einzelne Textur.
+  // Batched: applyTexturesToScene() is called only once at the end,
+  // not for each individual texture.
   //
   async function _fillMissingTextures() {
     if (_watched.size === 0) return 0;
 
-    // Nur Texturen laden, die vom aktuellen Modell tatsächlich benötigt werden.
-    // getNeededTextures() ist global in loader.js; currentModel global in scene.js.
+    // Only load textures actually needed by the current model.
+    // getNeededTextures() is global in loader.js; currentModel global in scene.js.
     const needed = (typeof getNeededTextures === 'function' &&
                     typeof currentModel !== 'undefined' && currentModel)
       ? getNeededTextures(currentModel)
-      : null;   // null = kein Filter (Fallback falls Modell noch nicht geladen)
+      : null;   // null = no filter (fallback if model not yet loaded)
 
     let filled = 0;
 
     for (const [key, entry] of _watched.entries()) {
-      if (needed && !needed.has(key)) continue;  // nicht vom Modell benötigt → überspringen
-      if (textureCache[key])          continue;  // bereits im Cache → überspringen
+      if (needed && !needed.has(key)) continue;  // not needed by model → skip
+      if (textureCache[key])          continue;  // already in cache → skip
 
       let buffer;
       try {
         const file = await entry.handle.getFile();
         buffer     = await file.arrayBuffer();
       } catch (_) {
-        continue;   // Handle nicht mehr zugänglich → überspringen
+        continue;   // handle no longer accessible → skip
       }
 
       let newTex;
@@ -257,7 +319,7 @@ const HotReload = (() => {
 
       textureCache[key] = newTex;
 
-      // PLT: Palette direkt mit aktuellen Layer-Einstellungen anwenden
+      // PLT: apply palette immediately with current layer settings
       if (entry.ext === 'plt' && typeof applyPLTPalette === 'function') {
         applyPLTPalette(textureCache[key]);
       }
@@ -277,27 +339,27 @@ const HotReload = (() => {
   }
 
   // ════════════════════════════════════════════════════════════════════════
-  //  TEXTUR-RELOAD  (backend-unabhängig)
-  //  Bleibt bei Tauri-Migration komplett unverändert.
+  //  TEXTURE RELOAD  (backend-independent)
+  //  Remains completely unchanged during Tauri migration.
   // ════════════════════════════════════════════════════════════════════════
 
   async function _onFileChanged(key, ext, file) {
-    // Nur Texturen aktualisieren, die vom aktuellen Modell benötigt werden.
+    // Only update textures needed by the current model.
     if (typeof getNeededTextures === 'function' &&
         typeof currentModel !== 'undefined' && currentModel) {
       if (!getNeededTextures(currentModel).has(key)) return;
     }
 
-    // 1. Datei lesen
+    // 1. Read file
     let buffer;
     try {
       buffer = await file.arrayBuffer();
     } catch (e) {
-      logMsg(`[HotReload] Lesefehler "${key}.${ext}": ${e.message}`, 'warn');
+      logMsg(`[HotReload] Read error "${key}.${ext}": ${e.message}`, 'warn');
       return;
     }
 
-    // 2. Parsen (gleiche Parser wie loader.js)
+    // 2. Parse (same parsers as loader.js)
     let newTex;
     try {
       if      (ext === 'tga') newTex = parseTGA(buffer);
@@ -312,45 +374,45 @@ const HotReload = (() => {
       return;
     }
 
-    // 3. Cache aktualisieren
+    // 3. Update cache
     const existing = textureCache[key];
     if (existing && existing.image instanceof HTMLCanvasElement) {
-      // In-place-Patch: canvas-Inhalt des bestehenden THREE.Texture ersetzen.
-      // Alle Materials in der Szene zeigen das neue Bild ohne Re-Assign.
+      // In-place patch: replace canvas content of the existing THREE.Texture.
+      // All materials in the scene show the new image without re-assignment.
       _patchCanvasInPlace(existing, newTex);
     } else {
-      // Textur war noch nicht im Cache → eintragen und Szene neu zuweisen.
+      // Texture was not yet in cache → register and reassign to scene.
       textureCache[key] = newTex;
       if (typeof applyTexturesToScene === 'function') applyTexturesToScene();
     }
 
-    // 4. PLT: Palette mit aktuellen Layer-Einstellungen neu anwenden
+    // 4. PLT: reapply palette with current layer settings
     if (ext === 'plt' && typeof applyPLTPalette === 'function') {
       applyPLTPalette(textureCache[key]);
     }
 
-    // 5. Log + Statuszeile + Node-Indikator blinken lassen
+    // 5. Log + status bar + flash node indicator
     _flashNodeIndicator(key);
     logInfoI18n('hr_reloaded', { name: key + '.' + ext });
     setStatus(fmt('hr_reloaded', { name: key + '.' + ext }));
   }
 
-  // ── Canvas-Inhalt einer CanvasTexture in-place ersetzen ──────────────────
+  // ── Replace canvas content of a CanvasTexture in place ───────────────────
   //
-  // Strategie: neuen Canvas-Inhalt auf den bestehenden Canvas zeichnen.
-  // Die THREE.Texture-Objekt-Referenz bleibt erhalten → alle Materials,
-  // die diese Textur bereits zugewiesen haben, zeigen sofort das neue Bild
-  // nach needsUpdate = true (kein applyTexturesToScene nötig).
+  // Strategy: draw new canvas content onto the existing canvas.
+  // The THREE.Texture object reference is preserved → all materials
+  // that already reference this texture immediately show the new image
+  // after needsUpdate = true (no applyTexturesToScene needed).
   //
-  // Größenänderung: canvas.width/height neu setzen (setzt canvas-Inhalt zurück,
-  // dann drawImage aus neuem Canvas). GPU-seitig akzeptiert Three.js das via needsUpdate.
+  // Resize: reassign canvas.width/height (resets canvas content,
+  // then drawImage from new canvas). Three.js accepts this GPU-side via needsUpdate.
   //
   function _patchCanvasInPlace(target, source) {
     const srcCvs = source.image;
     const tgtCvs = target.image;
     const ctx    = tgtCvs.getContext('2d');
 
-    // Dimensionen anpassen (reset durch Größenzuweisung ist gewollt)
+    // Adjust dimensions (reset via size assignment is intentional)
     if (tgtCvs.width !== srcCvs.width || tgtCvs.height !== srcCvs.height) {
       tgtCvs.width  = srcCvs.width;
       tgtCvs.height = srcCvs.height;
@@ -360,24 +422,24 @@ const HotReload = (() => {
 
     ctx.drawImage(srcCvs, 0, 0);
 
-    // userData übertragen (hasAlpha, isPLT, pltBuffer, pltTexKey, …)
-    // Vorhandene Keys bleiben erhalten; neue Keys aus source kommen dazu.
+    // Transfer userData (hasAlpha, isPLT, pltBuffer, pltTexKey, …)
+    // Existing keys are preserved; new keys from source are merged in.
     Object.assign(target.userData, source.userData);
 
     target.needsUpdate = true;
 
-    // Alten Zwischen-Canvas freigeben (GC-Hilfe)
+    // Release intermediate canvas (GC hint)
     source.dispose();
   }
 
   // ════════════════════════════════════════════════════════════════════════
-  //  SZENE-GRAPH INDIKATOREN
+  //  SCENE GRAPH INDICATORS
   //
-  //  Zeigt ein ↻-Symbol neben jedem Node dessen Textur beobachtet wird.
-  //  Beim tatsächlichen Reload blinkt der Indikator des betroffenen Nodes auf.
+  //  Shows a ↻ symbol next to every node whose texture is being watched.
+  //  On an actual reload the indicator of the affected node flashes.
   // ════════════════════════════════════════════════════════════════════════
 
-  // Alle Node-Indikatoren auffrischen (nach Watcher-Start/-Stop + nach Modellladen)
+  // Refresh all node indicators (after watcher start/stop + after model load)
   function _refreshNodeIndicators() {
     const items = document.querySelectorAll('.node-item');
     if (!items.length) return;
@@ -392,13 +454,13 @@ const HotReload = (() => {
         return;
       }
 
-      // Node-Objekt aus currentModel suchen
+      // Look up node object from currentModel
       const nodeName = item.dataset.name;
       const node = (typeof currentModel !== 'undefined' && currentModel)
         ? currentModel.nodes.find(n => n.name === nodeName)
         : null;
 
-      // Textur-Keys dieses Nodes mit dem _watched-Set abgleichen
+      // Match texture keys of this node against the _watched set
       const isWatched = node &&
         typeof getNodeTexKeys === 'function' &&
         [...getNodeTexKeys(node)].some(k => _watched.has(k));
@@ -409,7 +471,7 @@ const HotReload = (() => {
           const ind = document.createElement('span');
           ind.className   = 'watch-indicator';
           ind.textContent = '↻';
-          // Tooltip: echte Textur-Dateinamen anzeigen
+          // Tooltip: show actual texture filenames
           ind.title = watchedKeys
             .map(k => k + '.' + (_watched.get(k)?.ext ?? ''))
             .join('\n');
@@ -425,7 +487,7 @@ const HotReload = (() => {
     });
   }
 
-  // Kurzes Aufblinken des Indikators für alle Nodes die key nutzen
+  // Brief flash of the indicator for all nodes using the key
   function _flashNodeIndicator(key) {
     document.querySelectorAll('.node-item').forEach(item => {
       const ind = item.querySelector('.watch-indicator');
@@ -439,19 +501,19 @@ const HotReload = (() => {
       if (node && typeof getNodeTexKeys === 'function' &&
           [...getNodeTexKeys(node)].some(k => k === key)) {
         ind.classList.remove('watch-flash');
-        // Force reflow damit die Animation neu startet
+        // Force reflow so the animation restarts
         void ind.offsetWidth;
         ind.classList.add('watch-flash');
       }
     });
   }
 
-  // Klick auf ↻: Selektion toggeln, Zustände aller Indikatoren aktualisieren,
-  // Texturliste hervorheben und Statuszeile setzen.
+  // Click on ↻: toggle selection, update states of all indicators,
+  // highlight texture list and set status bar.
   function _showWatchedTexInfo(watchedKeys) {
     if (!watchedKeys.length) return;
 
-    // Toggle: waren alle angeklickten Keys bereits ausgewählt → abwählen, sonst auswählen
+    // Toggle: if all clicked keys were already selected → deselect, otherwise select
     const allAlreadySelected = watchedKeys.every(k => _selectedWatchKeys.has(k));
     if (allAlreadySelected) {
       watchedKeys.forEach(k => _selectedWatchKeys.delete(k));
@@ -461,7 +523,7 @@ const HotReload = (() => {
 
     _updateIndicatorStates();
 
-    // Statuszeile + Texturlisten-Highlight nur beim Auswählen (nicht beim Abwählen)
+    // Status bar + texture list highlight only when selecting (not when deselecting)
     if (!allAlreadySelected) {
       const names = watchedKeys
         .map(k => k + '.' + (_watched.get(k)?.ext ?? ''))
@@ -481,11 +543,11 @@ const HotReload = (() => {
     }
   }
 
-  // Alle ↻-Indikatoren gemäß aktuellem Selektionszustand einfärben:
-  //   Keine Auswahl aktiv  → alle hellblau (Neutral)
-  //   Auswahl aktiv:
-  //     ausgewählte Keys   → gold (wi-selected)
-  //     alle anderen       → dunkles Blau (wi-dimmed)
+  // Colour all ↻ indicators according to the current selection state:
+  //   No selection active → all light blue (neutral)
+  //   Selection active:
+  //     selected keys      → gold (wi-selected)
+  //     all others         → dark blue (wi-dimmed)
   function _updateIndicatorStates() {
     const hasSelection = _selectedWatchKeys.size > 0;
 
@@ -494,7 +556,7 @@ const HotReload = (() => {
       if (!ind) return;
 
       ind.classList.remove('wi-selected', 'wi-dimmed');
-      if (!hasSelection) return;   // Neutral → keine Extra-Klasse
+      if (!hasSelection) return;   // Neutral → no extra class
 
       const nodeName = item.dataset.name;
       const node = (typeof currentModel !== 'undefined' && currentModel)
@@ -518,11 +580,11 @@ const HotReload = (() => {
     const status = document.getElementById('hot-reload-status');
     if (!btn) return;
 
-    if (_active && _watched.size > 0) {
+    if (_active && (_watched.size > 0 || _watchedMDL.size > 0)) {
       btn.classList.add('active');
       btn.textContent = L('hr_btn_stop');
       btn.setAttribute('data-i18n', 'hr_btn_stop');
-      if (status) status.textContent = fmt('hr_watching', { n: _watched.size });
+      if (status) status.textContent = fmt('hr_watching', { n: _watched.size + _watchedMDL.size });
     } else {
       btn.classList.remove('active');
       btn.textContent = L('hr_btn_watch');
@@ -535,25 +597,35 @@ const HotReload = (() => {
   //  PUBLIC
   // ════════════════════════════════════════════════════════════════════════
 
-  // Von loader.js nach jedem applyTexturesToScene()-Aufruf aufrufen.
-  // Füllt fehlende Texturen des neu geladenen Modells sofort nach,
-  // sofern der Watcher aktiv ist und den passenden Ordner kennt.
-  function onModelLoaded() {
+  // Called from loader.js after every applyTexturesToScene() call.
+  // Immediately fills in missing textures for the newly loaded model,
+  // provided the watcher is active and knows the matching folder.
+  async function onModelLoaded() {
     if (!_active || _watched.size === 0) return;
-    _fillMissingTextures();
+    await _fillMissingTextures();   // await + return → caller can wait for texture fill
     _refreshNodeIndicators();
     _updateIndicatorStates();
   }
 
-  // Von loader.js nach einem Drag & Drop aufgerufen.
-  // Speichert den MDL-FileHandle als Startordner-Hint für showDirectoryPicker().
+  // Called from loader.js after a drag & drop.
+  // Stores the MDL FileHandle as the start-folder hint for showDirectoryPicker().
   function setModelFileHandle(handle) {
     _modelFileHandle = handle;
   }
 
-  return { init, toggle, getBackend, onModelLoaded, setModelFileHandle };
+  return {
+    init,
+    toggle,
+    getBackend,
+    onModelLoaded,
+    setModelFileHandle,
+    // Phase 3: SetBrowser interface
+    getMDLHandle:   name => _watchedMDL.get(name.toLowerCase())?.handle ?? null,
+    onWatchChange:  cb   => _watchChangeCallbacks.push(cb),
+    onMDLChanged:   cb   => _mdlChangedCallbacks.push(cb),
+  };
 
 })();
 
-// Init sobald DOM bereit ist
+// Initialise as soon as the DOM is ready
 document.addEventListener('DOMContentLoaded', () => HotReload.init());

@@ -2,7 +2,7 @@
    NWN MDL Viewer — MTR Parser & Cache
    ═══════════════════════════════════════════════ */
 
-// MTR-Cache: basename (lowercase, ohne Extension) → geparste MTR-Daten
+// MTR Cache: basename (lowercase, without extension) → parsed MTR data
 const mtrCache = {};
 
 function parseMTR(text) {
@@ -12,13 +12,13 @@ function parseMTR(text) {
     transparency:  false,
     twosided:      false,
     params:        {},     // name → { type, values }
-    customShaderVS: null,  // z.B. 'vslit_nm' — nur für Logging/zukünftige Nutzung
-    customShaderFS: null,  // z.B. 'fslit_nm'
+    customShaderVS: null,  // e.g., 'vslit_nm' — only for logging/future use
+    customShaderFS: null,  // e.g., 'fslit_nm'
   };
 
   const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
   for (let line of lines) {
-    // Kommentare entfernen (// ...)
+    // Remove comments (// ...)
     const ci = line.indexOf('//');
     if (ci >= 0) line = line.substring(0, ci);
     line = line.trim();
@@ -44,7 +44,7 @@ function parseMTR(text) {
       }
 
     } else if (key === 'bitmap') {
-      // bitmap in MTR = schwaches Alias für texture0 (nur wenn texture0 nicht explizit gesetzt)
+      // bitmap in MTR = weak alias for texture0 (only if texture0 is not explicitly set)
       if (!result.textures.hasOwnProperty(0)) {
         const val = (parts[1] || '').toLowerCase();
         result.textures[0] = (val === 'null' || val === '') ? null : val;
@@ -57,7 +57,7 @@ function parseMTR(text) {
       result.twosided = parseInt(parts[1]) === 1;
 
     } else if (key === 'parameter') {
-      // parameter float|int Name Wert(e)
+      // parameter float|int Name Value(s)
       const type   = (parts[1] || '').toLowerCase();
       const name   = parts[2] || '';
       const values = parts.slice(3).map(Number);

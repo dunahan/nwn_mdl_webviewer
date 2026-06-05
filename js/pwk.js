@@ -3,25 +3,25 @@
    Parser & Renderer
    ═══════════════════════════════════════════════
 
-   PWK-Nodes:
-     trimesh  *_wg      → Walk Geometry (Sperrfläche, Material 7 = NonWalk)
-     dummy    IoP_*     → Interaction Points (Benutzungspositionen)
+   PWK Nodes:
+     trimesh  *_wg      → Walk Geometry (Blocking area, Material 7 = NonWalk)
+     dummy    IoP_* → Interaction Points (Usage positions)
 
-   Koordinatensystem: NWN ist Z-up → gleiche -Math.PI/2 Korrektur
-   wie WOK und MDL.
+   Coordinate system: NWN is Z-up → same -Math.PI/2 correction
+   as WOK and MDL.
    ═══════════════════════════════════════════════ */
 
 // ─────────────────────────────────────────────
-//  Farben für PWK-Elemente (mutable für Dropdown)
+//  Colors for PWK elements (mutable for dropdown)
 // ─────────────────────────────────────────────
 const PWK_COLORS = {
-  wg:  0x8833ff,   // Walk Geometry — Sperrfläche (Lila)
-  iop: 0xffcc00,   // Interaction Point — Nutzungsmarker (Gold)
+  wg:  0x8833ff,   // Walk Geometry — Blocking area (Purple)
+  iop: 0xffcc00,   // Interaction Point — Usage marker (Gold)
 };
 
 function numToHex(n) { return '#' + n.toString(16).padStart(6, '0'); }
 
-// Live-Farbupdate für PWK-Meshes
+// Live color update for PWK meshes
 function updatePwkColor(type, hexStr) {
   PWK_COLORS[type] = parseInt(hexStr.replace('#', ''), 16);
   if (!pwkGroup) return;
@@ -32,7 +32,7 @@ function updatePwkColor(type, hexStr) {
   });
 }
 
-// PWK-Panel im Dropdown einblenden und Startwerte setzen
+// Show PWK panel in dropdown and set initial values
 function buildPwkColorPanel() {
   const section = document.getElementById('cdrop-pwk-section');
   const empty   = document.getElementById('cdrop-empty');
@@ -57,8 +57,8 @@ function parsePWK(text) {
   function key(idx) { return (tok(idx)[0] || '').toLowerCase(); }
   function num(s)   { const v = parseFloat(s); return isNaN(v) ? 0 : v; }
 
-  // Dateiname aus dem ersten Kommentarblock oder node-Namen ableiten
-  // (PWK hat kein "beginwalkmeshgeom" — Name steckt im parent-Verweis)
+  // Derive filename from the first comment block or node names
+  // (PWK has no "beginwalkmeshgeom" — name is in the parent reference)
 
   while (i < lines.length) {
     const t = tok(i);
@@ -73,7 +73,7 @@ function parsePWK(text) {
         name:        nodeName,
         parent:      '',
         position:    [0, 0, 0],
-        orientation: [0, 0, 0, 0],  // axis-angle wie MDL
+        orientation: [0, 0, 0, 0],  // axis-angle like MDL
         wirecolor:   [1, 0, 0],
         verts:       [],
         faces:       [],
@@ -85,10 +85,10 @@ function parsePWK(text) {
         const nk = (nt[0] || '').toLowerCase();
 
         if (nk === 'endnode') {
-          // Typ-Routing: trimesh → Walk Geometry, dummy mit IoP-Prefix → Interaction Point
+          // Type routing: trimesh → Walk Geometry, dummy with IoP prefix → Interaction Point
           if (nodeType === 'trimesh') {
             pwk.meshNodes.push(node);
-            // Root-Name aus parent ableiten (falls noch nicht gesetzt)
+            // Derive root name from parent (if not already set)
             if (!pwk.name && node.parent) pwk.name = node.parent;
           } else if (nodeType === 'dummy' && nodeName.toLowerCase().startsWith('iop_')) {
             pwk.iop.push(node);
@@ -137,10 +137,10 @@ function parsePWK(text) {
 // ─────────────────────────────────────────────
 let pwkGroup   = null;
 let pwkVisible = false;
-let pwkPinned  = false;  // Pin-Flag: PWK beim Laden automatisch einblenden
+let pwkPinned  = false;  // Pin flag: automatically show PWK on load
 
 function buildPWKMesh(pwk) {
-  // Altes PWK-Mesh entfernen
+  // Remove old PWK mesh
   if (pwkGroup) {
     scene.remove(pwkGroup);
     pwkGroup.traverse(c => {
@@ -158,10 +158,10 @@ function buildPWKMesh(pwk) {
 
   pwkGroup = new THREE.Group();
   pwkGroup.name = 'pwk_' + pwk.name;
-  // NWN ist Z-up, Three.js ist Y-up — gleiche Korrektur wie WOK und MDL
+  // NWN is Z-up, Three.js is Y-up — same correction as WOK and MDL
   pwkGroup.rotation.x = -Math.PI / 2;
 
-  // ── Walk-Geometry-Meshes ──────────────────────────────────────────
+  // ── Walk Geometry Meshes ──────────────────────────────────────────
   for (const node of pwk.meshNodes) {
     if (node.verts.length === 0 || node.faces.length === 0) continue;
 
@@ -182,7 +182,7 @@ function buildPWKMesh(pwk) {
     geo.setAttribute('position', new THREE.Float32BufferAttribute(posArr, 3));
     geo.computeVertexNormals();
 
-    // Gefüllte Fläche — lila/halbtransparent
+    // Filled surface — purple/semi-transparent
     const fillMat = new THREE.MeshBasicMaterial({
       color:      PWK_COLORS.wg,
       transparent: true,
@@ -194,7 +194,7 @@ function buildPWKMesh(pwk) {
     fillMesh.userData.pwkType = 'wg';
     pwkGroup.add(fillMesh);
 
-    // Kanten
+    // Edges
     const edges   = new THREE.EdgesGeometry(geo);
     const lineMat = new THREE.LineBasicMaterial({
       color:       PWK_COLORS.wg,
@@ -206,20 +206,20 @@ function buildPWKMesh(pwk) {
     pwkGroup.add(lineSegs);
   }
 
-  // ── Interaction Points — kleine Rauten-Marker ─────────────────────
+  // ── Interaction Points — small diamond markers ─────────────────────
   for (const iop of pwk.iop) {
     const [px, py, pz] = iop.position;
 
-    // Raute aus 6 Vertices (Oktaeder-Form, kompakt)
-    const r = 0.08;   // Radius des Markers
-    const h = 0.12;   // Höhe oben/unten
+    // Diamond from 6 vertices (octahedron shape, compact)
+    const r = 0.08;   // Radius of the marker
+    const h = 0.12;   // Height top/bottom
     const iopVerts = [
-      // Seiten (4 Dreiecke)
+      // Sides (4 triangles)
       px,  py+h, pz,    px+r, py, pz,   px,   py, pz+r,
       px,  py+h, pz,    px,   py, pz+r, px-r, py, pz,
       px,  py+h, pz,    px-r, py, pz,   px,   py, pz-r,
       px,  py+h, pz,    px,   py, pz-r, px+r, py, pz,
-      // Boden
+      // Bottom
       px,  py-h, pz,    px,   py, pz+r, px+r, py, pz,
       px,  py-h, pz,    px-r, py, pz,   px,   py, pz+r,
       px,  py-h, pz,    px,   py, pz-r, px-r, py, pz,
@@ -242,7 +242,7 @@ function buildPWKMesh(pwk) {
     iopMesh.userData.iopName = iop.name;
     pwkGroup.add(iopMesh);
 
-    // Kreuz-Linie als zusätzlicher Marker (sichtbar auch aus Distanz)
+    // Cross line as additional marker (visible even from a distance)
     const crossPts = [
       px - r*1.5, py, pz,   px + r*1.5, py, pz,
       px, py, pz - r*1.5,   px, py, pz + r*1.5,
@@ -256,7 +256,7 @@ function buildPWKMesh(pwk) {
     pwkGroup.add(crossLines);
   }
 
-  // Wenn die Pinnadel aktiv ist, PWK automatisch einblenden
+  // If the pin is active, automatically show PWK
   if (pwkPinned) {
     pwkVisible = true;
     const btn = document.getElementById('btn-pwk');
@@ -286,6 +286,6 @@ function togglePwkPin() {
   const pin = document.getElementById('btn-pwk-pin');
   if (pin) pin.classList.toggle('pinned', pwkPinned);
   if (pin) pin.title = pwkPinned
-    ? 'PWK ist fixiert — bleibt beim Laden neuer Modelle erhalten'
-    : 'PWK beim nächsten Modell-Laden fixieren';
+    ? L('pwk_pinned_on')
+    : L('pwk_pin_title');
 }

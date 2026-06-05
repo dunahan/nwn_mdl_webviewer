@@ -48,7 +48,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg);
   display: flex; flex-direction: column;
   overflow-y: auto;
   overflow-x: hidden;
-  direction: rtl;               /* Scrollbalken auf die linke Seite */
+  direction: rtl;               /* Scrollbar on the left side */
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar) transparent;
   z-index: 10;
@@ -59,7 +59,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg);
   border-right-color: transparent;
 }
 #sidebar.collapsed > * { opacity: 0; pointer-events: none; }
-#sidebar > * { transition: opacity 0.15s ease; direction: ltr; }  /* Textrichtung zurücksetzen */
+#sidebar > * { transition: opacity 0.15s ease; direction: ltr; }  /* Reset text direction */
 
 /* ── Sidebar Toggle Button ── */
 #sidebar-toggle {
@@ -156,7 +156,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg);
 #model-info .info-row { display: flex; justify-content: space-between; color: var(--muted); }
 #model-info .info-val { color: var(--text); }
 
-/* ── Global Section Heading (Texturen, Szenen-Graph, Animationen, PLT Layer) ── */
+/* ── Global Section Heading (Textures, Scene Graph, Animations, PLT Layer) ── */
 .section-heading {
   font-size: var(--font-size-small);
   letter-spacing: 2px;
@@ -198,7 +198,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg);
   cursor: pointer; transition: background 0.1s;
   border-left: 2px solid transparent;
   font-size: var(--font-size-node);
-  --vis-w: 1.2em;   /* Breite einer vis-toggle Spalte, em relativ zu node-item */
+  --vis-w: 1.2em;   /* Width of one vis-toggle column, em relative to node-item */
 }
 .node-item:hover { background: rgba(255,255,255,0.04); }
 .node-item.selected { background: rgba(var(--gold-rgb), 0.08); border-left-color: var(--gold); }
@@ -214,14 +214,14 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg);
 .vis-toggle { cursor: pointer; font-size: 12px; color: var(--muted); flex-shrink: 0; width: var(--vis-w); text-align: center; }
 .vis-toggle:hover { color: var(--gold); }
 
-/* Wenn Watcher aktiv: ↻ bei Nodes ohne vis-toggle einrücken.
-   --vis-w + gap (6px) = exakt eine vis-toggle-Spalte, beides im node-item em-Kontext */
+/* When watcher is active: indent ↻ on nodes without vis-toggle.
+   --vis-w + gap (6px) = exactly one vis-toggle column, both in the node-item em context */
 .node-list-watching .node-item:not(:has(.vis-toggle)) .watch-indicator {
   margin-left: calc(var(--vis-w) + 6px);
 }
 
-/* ── Hot-Reload Node-Indikator ── */
-/* Zustand 1 – Neutral: Ordner beobachtet, keine Auswahl */
+/* ── Hot-Reload Node Indicator ── */
+/* State 1 – Neutral: folder watched, no selection */
 .watch-indicator {
   font-size: 13px;
   color: #4a9eca;
@@ -233,13 +233,13 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg);
 }
 .node-item:hover .watch-indicator { opacity: 1; }
 
-/* Zustand 2 – Ausgewählt: User hat diesen Node angeklickt */
+/* State 2 – Selected: user has clicked this node */
 .watch-indicator.wi-selected {
   color: var(--gold);
   opacity: 1;
 }
 
-/* Zustand 3 – Gedimmt: andere sind ausgewählt, dieser nicht */
+/* State 3 – Dimmed: others are selected, this one is not */
 .watch-indicator.wi-dimmed {
   color: #1e4d6a;
   opacity: 0.5;
@@ -255,7 +255,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg);
   animation: watch-flash 0.7s ease-out forwards;
 }
 
-/* Texturlisten-Eintrag kurz hervorheben beim Klick auf ↻ */
+/* Briefly highlight texture list entry on ↻ click */
 .tex-entry { display: block; }
 @keyframes tex-watch-highlight {
   0%   { background: transparent; }
@@ -266,9 +266,9 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg);
   animation: tex-watch-highlight 1.2s ease-out forwards;
 }
 
-/* ── Node-Visibility-Toolbar ── */
+/* ── Node Visibility Toolbar ── */
 #node-toolbar {
-  display: none;          /* wird von buildNodeList() sichtbar gesetzt */
+  display: none;          /* made visible by buildNodeList() */
   align-items: center;
   flex-wrap: wrap;
   gap: 4px;
@@ -289,7 +289,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg);
 }
 .ntb-btn:hover       { background: rgba(var(--gold-rgb), 0.10); color: var(--gold); border-color: var(--gold); }
 .ntb-btn.ntb-active  { background: rgba(var(--gold-rgb), 0.18); color: var(--gold); border-color: var(--gold); }
-/* "Alle/Keine" etwas heller/prominenter */
+/* "All/None" slightly brighter/more prominent */
 #ntb-all, #ntb-none  { color: var(--text); }
 .ntb-sep {
   width: 1px; height: 14px;
@@ -364,7 +364,7 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
 .toggle-btn:hover { border-color: var(--gold); color: var(--gold); }
 .toggle-btn.active { border-color: var(--gold); color: var(--gold); background: rgba(var(--gold-rgb), 0.08); }
 
-/* ── Pin-Button (neben WOK / PWK) ── */
+/* ── Pin Button (next to WOK / PWK) ── */
 .pin-btn {
   flex-shrink: 0;
   padding: 2px 5px;
@@ -390,7 +390,7 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
 #viewport { flex: 1; position: relative; overflow: hidden; }
 #canvas { display: block; width: 100%; height: 100%; }
 
-/* ── Viewport Drag-Highlight ── */
+/* ── Viewport Drag Highlight ── */
 #viewport-drag-overlay {
   position: absolute; inset: 0;
   border: 2px solid transparent;
@@ -443,7 +443,7 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
   background: rgba(255,255,255,0.03);
 }
 
-/* Drag-Strip: breites Touch-Target zwischen Titel und Zoom-Buttons */
+/* Drag strip: wide touch target between title and zoom buttons */
 #node-detail-handle .nd-drag-strip {
   flex: 1;
   display: flex; align-items: center; justify-content: center;
@@ -465,7 +465,7 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
 
 #node-detail-handle .nd-zoom-btns { display: flex; gap: 2px; flex-shrink: 0; }
 
-/* Close-Button: klein, roter Hover */
+/* Close button: small, red on hover */
 #node-detail-handle .nd-close-btn {
   background: none;
   border: 1px solid var(--border);
@@ -494,7 +494,7 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
 #node-detail .nd-row { display: flex; justify-content: space-between; gap: 16px; color: var(--muted); line-height: 1.7; }
 #node-detail .nd-val { color: var(--text); }
 
-/* ── Mesh-Farben Dropdown (top-center im Viewport) ── */
+/* ── Mesh Colors Dropdown (top-center in Viewport) ── */
 #color-dropdown {
   position: absolute;
   top: 12px;
@@ -539,11 +539,11 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
 }
 #color-dropdown-body {
   display: none;
-  position: absolute;          /* ← neu: aus dem Fluss raus */
-  top: calc(100% + 3px);       /* ← neu: direkt unter dem Button */
-  left: 50%;                   /* ← neu: mittig zum Button */
-  transform: translateX(-50%); /* ← neu */
-  margin-top: 0;               /* statt margin-top: 3px */
+  position: absolute;          /* ← new: removed from flow */
+  top: calc(100% + 3px);       /* ← new: directly below the button */
+  left: 50%;                   /* ← new: centered to button */
+  transform: translateX(-50%); /* ← new */
+  margin-top: 0;               /* instead of margin-top: 3px */
   background: rgba(var(--bg-rgb), 0.92);
   backdrop-filter: blur(6px);
   border: 1px solid var(--border);
@@ -643,7 +643,7 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
   0%, 100% { opacity: 0.4; }
   50%       { opacity: 1.0; }
 }
-/* Progressbar */
+/* Progress bar */
 .dcmp-progress-wrap {
   width: 220px; height: 3px;
   background: rgba(255,255,255,0.07);
@@ -714,7 +714,7 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
 }
 #statusbar span { color: var(--text); }
 
-/* ── Log-Panel ── */
+/* ── Log Panel ── */
 #log-panel {
   position: absolute; bottom: 22px; left: 0; right: 0;
   background: rgba(var(--bg-rgb), 0.95); backdrop-filter: blur(4px);
@@ -738,7 +738,7 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
 .log-msg   { color: var(--text); flex: 1; word-break: break-all; }
 .log-time  { color: var(--muted); flex-shrink: 0; font-size: calc(var(--font-size-log) - 1px); }
 
-/* Log-Toggle-Button in Statusbar */
+/* Log toggle button in status bar */
 #log-toggle {
   margin-left: auto; cursor: pointer; pointer-events: all;
   display: flex; align-items: center; gap: 4px;
@@ -751,7 +751,7 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
 #log-toggle.has-warns  { color: var(--log-warn); }
 #log-toggle .log-count { font-size: calc(var(--font-size-log) - 1px); }
 
-/* Scrollbar for sidebar (eigener + Kind-Elemente) */
+/* Scrollbar for sidebar (own + child elements) */
 #sidebar::-webkit-scrollbar,
 #sidebar ::-webkit-scrollbar       { width: 4px; }
 #sidebar::-webkit-scrollbar-thumb,
@@ -759,7 +759,7 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
 #sidebar::-webkit-scrollbar-track,
 #sidebar ::-webkit-scrollbar-track { background: transparent; }
 
-/* ── Animations-Panel ── */
+/* ── Animations Panel ── */
 #anim-panel {
   border-top: 1px solid var(--border);
   display: none;
@@ -812,7 +812,7 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
 }
 .speed-btn:hover, .speed-btn.active { border-color: var(--gold); color: var(--gold); }
 
-/* ── PLT-Panel ── */
+/* ── PLT Panel ── */
 #plt-panel {
   border-top: 1px solid var(--border);
   display: none;
@@ -888,7 +888,7 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
   opacity: 0;
 }
 
-/* ── Einklappbarer Texturen-Abschnitt ── */
+/* ── Collapsible Textures Section ── */
 #texture-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 4px 0 2px; cursor: pointer; user-select: none;
@@ -911,7 +911,7 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
   opacity: 0;
 }
 
-/* ── Node-Detail MTR-Abschnitt ── */
+/* ── Node Detail MTR Section ── */
 .nd-section-header {
   margin-top: 8px;
   padding-top: 6px;
@@ -943,4 +943,320 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
   color: var(--amber);
   font-size: 9px;
   letter-spacing: 0.5px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Set Browser Panel
+   ══════════════════════════════════════════════════════════════ */
+
+#set-browser-panel {
+  position: absolute;
+  display: none;
+  flex-direction: column;
+  min-width: 480px;
+  max-width: 90vw;
+  min-height: 280px;
+  max-height: 80vh;
+  width: 540px;
+  height: 420px;
+  resize: both;
+  overflow: hidden;
+  background: rgba(var(--bg-rgb), 0.93);
+  backdrop-filter: blur(4px);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: var(--font-size-small);
+  font-family: var(--font-mono, 'Share Tech Mono', monospace);
+  user-select: none;
+  z-index: 190;
+}
+
+/* ── Handle (Drag area left, title + strip right, buttons) ── */
+#sb-handle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px 4px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,0.03);
+  border-radius: 4px 4px 0 0;
+  flex-shrink: 0;
+  cursor: default;
+}
+
+/* Invisible drag area fills the left side of the handle */
+#sb-handle .sb-drag-area {
+  flex: 1;
+  min-height: 24px;
+  cursor: grab;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#sb-handle .sb-drag-area:active { cursor: grabbing; }
+
+#sb-handle .sb-title {
+  flex: 0 0 auto;
+  color: var(--gold);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+#sb-handle .sb-drag-strip {
+  flex: 0 0 auto;
+  cursor: grab;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 3px;
+  padding: 4px 4px;
+  opacity: 0.4;
+  touch-action: none;
+  border-radius: 3px;
+  transition: opacity 0.15s, color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+#sb-handle .sb-drag-strip:hover  { opacity: 0.8; color: var(--gold); }
+#sb-handle .sb-drag-strip:active { cursor: grabbing; }
+
+#sb-handle .sb-handle-btns {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+/* Small header buttons (Grid/List toggle + Close) */
+.sb-hbtn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1;
+  padding: 1px 6px 2px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.15s, border-color 0.15s;
+}
+.sb-hbtn:hover         { color: var(--text);  border-color: var(--gold); }
+.sb-hbtn.sb-hbtn-close:hover { color: #e06c6c; border-color: #e06c6c;   }
+.sb-hbtn.sb-hbtn-active      { color: var(--gold); border-color: var(--gold); }
+.sb-hbtn.sb-zoom-btn          { font-size: 12px; padding: 1px 5px 2px; letter-spacing: 0; }
+
+/* ── Toolbar (Load button + Filter + Group select) ── */
+#sb-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.sb-tbtn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: color 0.15s, border-color 0.15s;
+}
+.sb-tbtn:hover { color: var(--text); border-color: var(--gold); }
+
+.sb-filter {
+  flex: 1;
+  min-width: 100px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  font-size: 11px;
+  font-family: inherit;
+  padding: 2px 6px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.sb-filter:focus { border-color: var(--gold); }
+.sb-filter::placeholder { color: var(--muted); opacity: 0.6; }
+
+.sb-group-select {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  font-size: 11px;
+  font-family: inherit;
+  padding: 2px 4px;
+  cursor: pointer;
+  outline: none;
+  max-width: 140px;
+  transition: border-color 0.15s;
+}
+.sb-group-select:focus { border-color: var(--gold); }
+.sb-group-select option {
+  background: var(--panel);
+  color: var(--text);
+}
+
+/* ── Tile Container (scrollbar) ── */
+.sb-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar) transparent;
+}
+.sb-body::-webkit-scrollbar       { width: 6px; }
+.sb-body::-webkit-scrollbar-track { background: transparent; }
+.sb-body::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 3px; }
+
+/* Grid mode */
+.sb-body.sb-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-content: flex-start;
+}
+
+/* List mode */
+.sb-body.sb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* ── Tile Card (Grid) ── */
+.sb-tile {
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 5px 7px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  cursor: default;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+  min-width: 72px;
+}
+
+.sb-grid .sb-tile {
+  width: 80px;
+  align-items: center;
+  text-align: center;
+}
+
+.sb-tile-nr {
+  font-size: 0.9em;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+}
+.sb-tile-model {
+  font-size: 0.9em;
+  color: var(--text);
+  word-break: break-all;
+}
+
+/* Tile states */
+.sb-tile.sb-unavailable {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.sb-tile.sb-available {
+  cursor: pointer;
+}
+.sb-tile.sb-available:hover {
+  border-color: rgba(var(--gold-rgb), 0.5);
+  background: rgba(var(--gold-rgb), 0.05);
+}
+.sb-tile.sb-active {
+  border-color: var(--gold);
+  background: rgba(var(--gold-rgb), 0.08);
+  cursor: pointer;
+}
+.sb-tile.sb-active .sb-tile-nr { color: var(--gold); }
+
+/* ↻ Indicator for changed active tile */
+.sb-tile.sb-changed::after {
+  content: '↻';
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-size: 11px;
+  color: var(--amber);
+  animation: sb-pulse 1.4s ease-in-out infinite;
+}
+@keyframes sb-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+.sb-tile.sb-changed {
+  border-color: var(--amber);
+}
+
+/* ── Tile Row (List mode) ── */
+.sb-tile-row {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  padding: 3px 6px;
+  border-radius: 3px;
+  width: 100%;
+}
+.sb-tile-row .sb-col-nr      { flex: 0 0 36px;  color: var(--muted); font-size: 0.9em; }
+.sb-tile-row .sb-col-model   { flex: 1;          color: var(--text);  font-size: 0.9em; }
+.sb-tile-row .sb-col-terrain { flex: 0 0 130px;  color: var(--muted); font-size: 0.8em;
+                                white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Collapsed state — only handle visible */
+#set-browser-panel.sb-collapsed {
+  height: auto !important;
+  min-height: 0 !important;
+  resize: none;
+}
+#set-browser-panel.sb-collapsed #sb-toolbar,
+#set-browser-panel.sb-collapsed .sb-body,
+#set-browser-panel.sb-collapsed .sb-statusbar { display: none; }
+
+/* ── Model Name Hint (below XYZ, when sidebar is collapsed) ── */
+#model-name-hint {
+  position: absolute;
+  top: 42px;
+  left: 12px;
+  padding: 6px 10px;
+  background: rgba(var(--gold-rgb), 0.06);
+  border: 1px solid rgba(var(--gold-rgb), 0.2);
+  border-radius: 3px;
+  font-size: 13px;
+  font-family: 'Cinzel', serif;
+  color: var(--gold2);
+  opacity: 0;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+  transition: opacity 0.2s;
+}
+/* Visible when sidebar is collapsed AND model is loaded */
+#sidebar.collapsed ~ #viewport #model-name-hint.has-model { opacity: 0.65; }
+  flex-shrink: 0;
+  padding: 3px 10px;
+  font-size: 9px;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

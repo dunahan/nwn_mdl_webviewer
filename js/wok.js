@@ -3,7 +3,7 @@
    ═══════════════════════════════════════════════ */
 
 // ─────────────────────────────────────────────
-//  Surface-Material-Definitionen (NWN Aurora)
+//  Surface material definitions (NWN Aurora)
 // ─────────────────────────────────────────────
 const WOK_SURFACE = {
   0:  { name: 'Nonwalk',      walkable: false },
@@ -27,7 +27,7 @@ const WOK_SURFACE = {
   18: { name: 'Sand',         walkable: true  },
 };
 
-// Separat mutablees Farb-Objekt — wird vom Dropdown live verändert
+// Separately mutable color object — updated live by the dropdown
 const WOK_COLORS = {
   0:  0xff3333,
   1:  0x44dd44,
@@ -55,7 +55,7 @@ function wokSurface(id) {
   return { ...s, color: WOK_COLORS[id] !== undefined ? WOK_COLORS[id] : 0xffffff };
 }
 
-// Live-Farbupdate für WOK — durchläuft wokGroup und setzt alle Materialien
+// Live color update for WOK — iterates through wokGroup and sets all materials
 function updateWokColor(matId, hexStr) {
   WOK_COLORS[matId] = parseInt(hexStr.replace('#', ''), 16);
   if (!wokGroup) return;
@@ -66,7 +66,7 @@ function updateWokColor(matId, hexStr) {
   });
 }
 
-// WOK-Farbpanel im Dropdown befüllen (nur vorhandene matIds)
+// Populate WOK color panel dropdown (only existing matIds)
 function buildWokColorPanel() {
   const list    = document.getElementById('cdrop-wok-list');
   const section = document.getElementById('cdrop-wok-section');
@@ -131,15 +131,15 @@ function parseWOK(text) {
         const nk = nt[0]?.toLowerCase();
         if (nk === 'endnode') { wok.nodes.push(node); break; }
 
-        // AABB-Baum beginnt (Zeilen-Block aus Bounding-Box-Daten).
-        // Geometrie ist da bereits vollständig geparst — bis zum
-        // endnode vorspulen, dann Node sichern und Schleife verlassen.
+        // AABB tree begins (block of lines containing bounding box data).
+        // The geometry has already been fully parsed at this point —
+        // fast-forward to the 'endnode', then save the node and exit the loop.
         if (nk === 'aabb') {
-          while (i < lines.length) {    // bis endnode vorspulen …
+          while (i < lines.length) {    // Fast-forward to end node…
             if (tok(i)[0]?.toLowerCase() === 'endnode') break;
             i++;
           }
-          wok.nodes.push(node);          // … dann erst sichern
+          wok.nodes.push(node);          // … only then save
           break;
         }
 
@@ -177,14 +177,14 @@ function parseWOK(text) {
 }
 
 // ─────────────────────────────────────────────
-//  Scene Builder — pro Surface-Material ein Mesh
+// Scene Builder — one mesh per surface material
 // ─────────────────────────────────────────────
-let wokGroup   = null;   // THREE.Group  (global, damit toggle funktioniert)
+let wokGroup   = null;   // THREE.Group (global, so that the toggle works)
 let wokVisible = false;
-let wokPinned  = false;  // Pin-Flag: WOK beim Laden automatisch einblenden
+let wokPinned  = false;  // Pin Flag: Automatically show WOK during loading
 
 function buildWalkMesh(wok) {
-  // Altes Walkmesh entfernen
+  // Remove old walkmesh
   if (wokGroup) {
     scene.remove(wokGroup);
     wokGroup.traverse(c => {
@@ -196,13 +196,13 @@ function buildWalkMesh(wok) {
 
   wokGroup = new THREE.Group();
   wokGroup.name = 'walkmesh_' + wok.name;
-  // NWN ist Z-up, Three.js ist Y-up — identische Korrektur wie modelGroup in scene_build.js
+  // NWN is Z-up, Three.js is Y-up — identical correction as modelGroup in scene_build.js
   wokGroup.rotation.x = -Math.PI / 2;
 
   for (const node of wok.nodes) {
     if (node.verts.length === 0 || node.faces.length === 0) continue;
 
-    // Faces nach Material gruppieren → ein Mesh pro Materialtyp
+    // Group faces by material → one mesh per material type
     const byMat = {};
     for (const face of node.faces) {
       const mid = face.mat;
@@ -210,7 +210,7 @@ function buildWalkMesh(wok) {
       byMat[mid].push(face);
     }
 
-    // Node-Position aus dem WOK (entspricht dem MDL-Node-Offset)
+    // Node position from the WOK (corresponds to the MDL node offset)
     const [px, py, pz] = node.position;
 
     for (const [matIdStr, faces] of Object.entries(byMat)) {
@@ -222,7 +222,7 @@ function buildWalkMesh(wok) {
         for (const vi of face.v) {
           const v = node.verts[vi];
           if (!v) continue;
-          // WOK-Vertices sind relativ zur Node-Position
+          // WOK vertices are relative to the node position.
           posArr.push(v[0] + px, v[1] + py, v[2] + pz);
         }
       }
@@ -231,7 +231,7 @@ function buildWalkMesh(wok) {
       geo.setAttribute('position', new THREE.Float32BufferAttribute(posArr, 3));
       geo.computeVertexNormals();
 
-      // Gefüllte Fläche (halbtransparent, farbig nach Typ)
+      // Filled area (semi-transparent, colored by type)
       const fillMat = new THREE.MeshBasicMaterial({
         color:       surf.color,
         transparent: true,
@@ -243,7 +243,7 @@ function buildWalkMesh(wok) {
       fillMesh.userData.wokMat = matId;
       wokGroup.add(fillMesh);
 
-      // Kanten (Wireframe) als LineSegments — deutlich besser lesbar als WireframeGeometry
+      // Edges (Wireframe) as LineSegments — significantly more readable than WireframeGeometry
       const edges    = new THREE.EdgesGeometry(geo);
       const lineMat  = new THREE.LineBasicMaterial({
         color:   surf.color,
@@ -256,7 +256,7 @@ function buildWalkMesh(wok) {
     }
   }
 
-  // Wenn die Pinnadel aktiv ist, Walkmesh automatisch einblenden
+  // If the pin is active, automatically show the walkmesh.
   if (wokPinned) {
     wokVisible = true;
     const btn = document.getElementById('btn-walkmesh');
@@ -284,8 +284,8 @@ function toggleWokPin() {
   wokPinned = !wokPinned;
   const pin = document.getElementById('btn-walkmesh-pin');
   if (pin) pin.classList.toggle('pinned', wokPinned);
-  // Tooltip aktualisieren
+  // Update tooltip
   if (pin) pin.title = wokPinned
-    ? 'Walkmesh ist fixiert — bleibt beim Laden neuer Modelle erhalten'
-    : 'Walkmesh beim nächsten Modell-Laden fixieren';
+    ? L('wok_pinned_on')
+    : L('wok_pin_title');
 }
