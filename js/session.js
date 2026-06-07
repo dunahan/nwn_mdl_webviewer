@@ -266,6 +266,14 @@ function applyTexturesToScene() {
       }
 
       mat.needsUpdate = true;
+      // FIX: Sync base* values for MTR path too — same as Non-MTR path below.
+      // Without this, updateMeshOpacity() would reset to stale scene_build.js values
+      // instead of the final state after MTR transparency / alpha overrides.
+      if (obj.userData) {
+        obj.userData.baseTransparent = mat.transparent;
+        obj.userData.baseDepthWrite  = mat.depthWrite;
+        obj.userData.baseAlphaTest   = mat.alphaTest;
+      }
 
     } else {
       // ── Non-MTR Path ─────────────────────────────────────────────
@@ -306,6 +314,22 @@ function applyTexturesToScene() {
         // Remove the BackSide indicator child mesh that buildScene added when it assumed
         // FrontSide-only rendering. Now that we're DoubleSide, the dark indicator mesh
         // is both wrong (dark blue bleed-through) and unnecessary.
+        for (let ci = obj.children.length - 1; ci >= 0; ci--) {
+          if (obj.children[ci].userData?.isBackface) {
+            obj.children[ci].geometry?.dispose();
+            obj.children[ci].material?.dispose();
+            obj.remove(obj.children[ci]);
+          }
+        }
+      } else if (!tex.userData.hasAlpha && node.transparencyhint === 1) {
+        // FIX: transparencyhint=1 without a real alpha channel (24-bit TGA/DXT1).
+        // The texture uses black as its "transparent" color — punch through via alphaTest.
+        // This is the same path as useColorAlphaTest in scene_build.js, applied retroactively
+        // when the texture is loaded after the model.
+        mat.alphaTest  = 0.1;
+        mat.depthWrite = true;
+        mat.side       = THREE.DoubleSide;
+        // Remove the BackSide indicator child mesh (same reasoning as above).
         for (let ci = obj.children.length - 1; ci >= 0; ci--) {
           if (obj.children[ci].userData?.isBackface) {
             obj.children[ci].geometry?.dispose();
@@ -398,9 +422,12 @@ function applyTexturesToScene() {
 
       mat.needsUpdate = true;
       // Sync base* values so updateMeshOpacity() resets to the correct state.
+      // Must always run (not just inside the alpha block) to capture any transparency
+      // mode set by TXI blending, selfIllumColor, or the new useColorAlphaTest path.
       if (obj.userData) {
         obj.userData.baseTransparent = mat.transparent;
         obj.userData.baseDepthWrite  = mat.depthWrite;
+        obj.userData.baseAlphaTest   = mat.alphaTest;
       }
     }
   }

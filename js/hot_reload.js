@@ -245,10 +245,17 @@ const HotReload = (() => {
     // ── Texture changes ──────────────────────────────────────────────────
     for (const [key, entry] of _watched.entries()) {
       try {
-        const file = await entry.handle.getFile();
-        if (file.lastModified <= entry.lastModified) continue;
+        // FIX #149: Read file metadata and content in one step, then drop the
+        // File object immediately. On Windows/Chromium, keeping a File reference
+        // alive holds an OS-level file descriptor open. Passing the raw ArrayBuffer
+        // to _onFileChanged instead of the File object ensures the descriptor is
+        // released as soon as the GC collects the short-lived File.
+        let file = await entry.handle.getFile();
+        if (file.lastModified <= entry.lastModified) { file = null; continue; }
         entry.lastModified = file.lastModified;
-        await _onFileChanged(key, entry.ext, file);
+        const buffer = await file.arrayBuffer();
+        file = null;  // release OS handle (Windows/Chromium lock fix)
+        await _onFileChanged(key, entry.ext, buffer);
       } catch (_) {
         // Handle lost (file deleted / folder no longer accessible) → skip
       }
@@ -297,8 +304,11 @@ const HotReload = (() => {
 
       let buffer;
       try {
-        const file = await entry.handle.getFile();
-        buffer     = await file.arrayBuffer();
+        // FIX #149: Null the File reference immediately after reading to release
+        // the OS-level file descriptor on Windows/Chromium.
+        let file = await entry.handle.getFile();
+        buffer   = await file.arrayBuffer();
+        file     = null;  // release OS handle (Windows/Chromium lock fix)
       } catch (_) {
         continue;   // handle no longer accessible → skip
       }
@@ -343,21 +353,17 @@ const HotReload = (() => {
   //  Remains completely unchanged during Tauri migration.
   // ════════════════════════════════════════════════════════════════════════
 
-  async function _onFileChanged(key, ext, file) {
+  // FIX #149: Signature changed from (key, ext, file) to (key, ext, buffer).
+  // The caller (_poll) now reads arrayBuffer() and drops the File reference
+  // before calling here, so no OS file descriptor is held during parse/update.
+  async function _onFileChanged(key, ext, buffer) {
     // Only update textures needed by the current model.
     if (typeof getNeededTextures === 'function' &&
         typeof currentModel !== 'undefined' && currentModel) {
       if (!getNeededTextures(currentModel).has(key)) return;
     }
 
-    // 1. Read file
-    let buffer;
-    try {
-      buffer = await file.arrayBuffer();
-    } catch (e) {
-      logMsg(`[HotReload] Read error "${key}.${ext}": ${e.message}`, 'warn');
-      return;
-    }
+    // 1. buffer is received directly — no file read needed here
 
     // 2. Parse (same parsers as loader.js)
     let newTex;

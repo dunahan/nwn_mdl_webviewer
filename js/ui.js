@@ -362,10 +362,13 @@ function updateMeshOpacity(val) {
       mat.opacity     = meshOpacity;
       mat.depthWrite  = false;
     } else {
-      // Reset to original state
+      // FIX: Reset to original state — include baseAlphaTest so cutout meshes
+      // (useAlphaTest / useColorAlphaTest paths) correctly restore their alphaTest
+      // value instead of being left fully opaque with alphaTest=0.
       mat.transparent = child.userData.baseTransparent || false;
       mat.opacity     = child.userData.baseOpacity     ?? 1.0;
       mat.depthWrite  = child.userData.baseDepthWrite  ?? true;
+      mat.alphaTest   = child.userData.baseAlphaTest   ?? 0;
     }
     mat.needsUpdate = true;
   });

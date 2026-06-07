@@ -303,8 +303,7 @@ function buildScene(model) {
       
       // Priority: SG-Normals > MDL-Normals > computeVertexNormals (Fallback)
       // NWN MDL files almost always have hasNormals=true, so computeSGNormals
-      // must not hang in the else branch, otherwise it will never be called.
-      const hasSmoothGroups = node.faces.some(f => typeof f.sg === 'number');
+      // must not hang in the else branch, otherwise it will never be called.      const hasSmoothGroups = node.faces.some(f => typeof f.sg === 'number');
       if (hasSmoothGroups) {
         geo.setAttribute('normal', new THREE.BufferAttribute(computeSGNormals(node), 3));
       } else if (hasNormals) {
@@ -426,11 +425,15 @@ function buildScene(model) {
       // Only apply if the texture actually has an alpha channel (DXT5/32-bit TGA/PNG).
       // DXT1 textures have no alpha channel — transparencyhint would be a modeling error.
       const texHasAlpha  = tex ? (tex.userData.hasAlpha === true) : false;
-      //const useTexAlpha  = node.transparencyhint === 1 && texHasAlpha;
       // FIX: If an MTR overrides the texture, trust the texture's actual alpha channel
       // directly — the MDL node's transparencyhint was written for the original texture
       // and may be 0 even when the MTR-supplied texture has alpha.
       const useTexAlpha  = texHasAlpha && (node.transparencyhint === 1 || mtr !== null);
+      // FIX: transparencyhint=1 without a real alpha channel (24-bit TGA/DXT1):
+      // NWN treats black as transparent in this case — use alphaTest on the RGB luminance.
+      // This happens when modellers set transparencyhint=1 on textures that use black as
+      // the "transparent" color (e.g. UV-grid overlays, decal meshes without alpha channel).
+      const useColorAlphaTest = !texHasAlpha && node.transparencyhint === 1 && tex !== null;
       const useMeshAlpha = node.alpha < 0.99;
       const useMtrTrans  = mtr ? mtr.transparency : false;
 
@@ -472,7 +475,7 @@ function buildScene(model) {
       // (magic effects, glass) that may legitimately show both faces.
       // Also force DoubleSide for handbuilt-DoubleSide meshes (useAlphaTest path) so
       // culling never accidentally removes a face that the duplicate geometry relies on.
-      const needsDoubleSide = useMeshAlpha || useMtrTrans || useTexAlpha || (mtr ? mtr.twosided : false) || isFlatMesh(node);
+      const needsDoubleSide = useMeshAlpha || useMtrTrans || useTexAlpha || useColorAlphaTest || (mtr ? mtr.twosided : false) || isFlatMesh(node);
 
       const mat = new THREE.MeshStandardMaterial({
         color:        tex ? new THREE.Color(1, 1, 1) : new THREE.Color(d[0] || 0.8, d[1] || 0.8, d[2] || 0.8),
@@ -484,10 +487,13 @@ function buildScene(model) {
         side:        needsDoubleSide ? THREE.DoubleSide : THREE.FrontSide,
         // FIX: useAlphaTest path → hard cutout, stays in opaque queue, correct depth.
         //      normal alpha-blend path → transparent blend, depthWrite off.
-        transparent: useAlphaTest ? false : (useMeshAlpha || useTexAlpha || useMtrTrans),
+        //      useColorAlphaTest path → transparencyhint=1 without real alpha channel:
+        //        black pixels are "transparent" — punch through via alphaTest on RGB luminance.
+        //        Keep transparent=false to stay in opaque render queue (correct depth sorting).
+        transparent: (useAlphaTest || useColorAlphaTest) ? false : (useMeshAlpha || useTexAlpha || useMtrTrans),
         opacity:     node.alpha,
-        alphaTest:   useAlphaTest ? 0.5 : (useTexAlpha ? 0.1 : 0),
-        depthWrite:  useAlphaTest ? true : !useTexAlpha,
+        alphaTest:   useAlphaTest ? 0.5 : (useColorAlphaTest ? 0.1 : (useTexAlpha ? 0.1 : 0)),
+        depthWrite:  (useAlphaTest || useColorAlphaTest) ? true : !useTexAlpha,
       });
 
       // Apply TXI properties (decal, blending, clamp, register cycle animation)
@@ -519,8 +525,9 @@ function buildScene(model) {
       
       // Store original values — used by updateMeshOpacity to reset
       mesh.userData.baseOpacity     = node.alpha;
-      mesh.userData.baseTransparent = useAlphaTest ? false : (useMeshAlpha || useTexAlpha || useMtrTrans);
-      mesh.userData.baseDepthWrite  = useAlphaTest ? true : !useTexAlpha;
+      mesh.userData.baseTransparent = (useAlphaTest || useColorAlphaTest) ? false : (useMeshAlpha || useTexAlpha || useMtrTrans);
+      mesh.userData.baseDepthWrite  = (useAlphaTest || useColorAlphaTest) ? true : !useTexAlpha;
+      mesh.userData.baseAlphaTest   = useAlphaTest ? 0.5 : (useColorAlphaTest ? 0.1 : (useTexAlpha ? 0.1 : 0));
       obj = mesh;
 
       // Wireframe overlay: attach as child of the main mesh,
