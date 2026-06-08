@@ -149,21 +149,24 @@
       <div class="ctrl-row" style="gap:6px">
         <button class="toggle-btn"        id="btn-bbox"     onclick="toggleBBox()"       data-i18n="btn_bbox">BBox</button>
         <button class="toggle-btn"        id="btn-rotate"   onclick="toggleAutoRotate()" data-i18n="btn_rotate">Rotate</button>
-        <button class="toggle-btn"        id="btn-resetcam" onclick="resetCamera()"      data-i18n="btn_resetcam">↺ Camera</button>
+        <button class="toggle-btn"        id="btn-resetcam" onclick="resetCamera()"      data-i18n="btn_resetcam">↺ Cam</button>
         <button class="toggle-btn"        id="btn-skeleton" onclick="toggleSkeleton()"   data-i18n="btn_skeleton">Skeleton</button>
       </div>
       <div class="ctrl-row" style="gap:6px">
-        <button class="toggle-btn" id="btn-pwk"          onclick="togglePWK()"       data-i18n="btn_pwk"      disabled>PWK</button>
-        <button class="pin-btn"    id="btn-pwk-pin"       onclick="togglePwkPin()"    title="PWK beim nächsten Modell-Laden fixieren">📌</button>
-        <button class="toggle-btn" id="btn-walkmesh"      onclick="toggleWalkMesh()"  data-i18n="btn_walkmesh" disabled>Walkmesh</button>
-        <button class="pin-btn"    id="btn-walkmesh-pin"  onclick="toggleWokPin()"    title="Walkmesh beim nächsten Modell-Laden fixieren">📌</button>
+        <button class="toggle-btn" id="btn-pwk"          onclick="togglePWK()"       data-i18n="btn_pwk"        disabled>PWK</button>
+        <button class="pin-btn"    id="btn-pwk-pin"       onclick="togglePwkPin()"   data-i18n-title="pwk_pin_title" title="Fix PWK when loading next model">📌</button>
+        <button class="toggle-btn" id="btn-walkmesh"      onclick="toggleWalkMesh()" data-i18n="btn_walkmesh"   disabled>Walkmesh</button>
+        <button class="pin-btn"    id="btn-walkmesh-pin"  onclick="toggleWokPin()"   data-i18n-title="wok_pin_title" title="Fix WOK when loading next model">📌</button>
       </div>
       <div class="ctrl-row" style="gap:6px">
-        <button class="toggle-btn" id="btn-dwk"     onclick="toggleDWK()"         data-i18n="btn_dwk" disabled>DWK</button>
-        <button class="pin-btn"    id="btn-dwk-pin" onclick="toggleDwkPin()"       data-i18n-title="dwk_pin_title" title="DWK beim nächsten Modell-Laden fixieren">📌</button>
+        <button class="toggle-btn" id="btn-dwk"     onclick="toggleDWK()"          data-i18n="btn_dwk" disabled>DWK</button>
+        <button class="pin-btn"    id="btn-dwk-pin" onclick="toggleDwkPin()"       data-i18n-title="dwk_pin_title" title="Fix DWK when loading next model">📌</button>
         <button class="speed-btn active" id="dwk-state-closed" onclick="setDWKState('closed')" data-i18n="dwk_state_closed">Closed</button>
         <button class="speed-btn"        id="dwk-state-open1"  onclick="setDWKState('open1')"  data-i18n="dwk_state_open1">Open 1</button>
         <button class="speed-btn"        id="dwk-state-open2"  onclick="setDWKState('open2')"  data-i18n="dwk_state_open2">Open 2</button>
+      </div>
+      <div class="ctrl-row" style="gap:6px">
+        <button class="toggle-btn" id="btn-set-browser" onclick="SetBrowser.open()" data-i18n="btn_set_browser">🗃 Set Browser</button>
       </div>
     </div>
   </div>
@@ -252,6 +255,7 @@
       <div class="ax"><div class="ax-dot" style="background:#40c040"></div><span data-i18n="axis_up">Y (up)</span></div>
       <div class="ax"><div class="ax-dot" style="background:#4080e0"></div>Z</div>
     </div>
+    <div id="model-name-hint"></div>
 
     <div id="statusbar">
       <span data-i18n="status_prefix">Status</span>:&nbsp;<span id="status-msg" data-i18n="status_ready">Ready — drop or open a file</span>
@@ -295,5 +299,6 @@
 <script src="js/emitter.js"></script>     <!-- Particle Emitter Engine --!>
 <script src="js/animation.js"></script>   <!-- Animation Functions--!>
 <script src="js/hot_reload.js"></script>  <!-- Texture Hot-Reload --!>
+<script src="js/setbrowser.js"></script>  <!-- Set Browser --!>
 </body>
 </html>

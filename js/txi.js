@@ -1,48 +1,48 @@
 /* ═══════════════════════════════════════════════
    NWN MDL Viewer — TXI Parser & Cache
 
-   TXI-Dateien weisen einer gleichnamigen Textur
-   zusätzliche Eigenschaften zu (z.B. decal, clamp,
-   blending, prozeduraler Effekt, Bump-Map-Verweise).
+   TXI files assign additional properties to a texture
+   of the same name (e.g. decal, clamp, blending,
+   procedural effect, bump map references).
 
-   Die Datei "c_air_skin.txi" gehört zu "c_air_skin.tga".
+   The file "c_air_skin.txi" belongs to "c_air_skin.tga".
    ═══════════════════════════════════════════════ */
 
-// TXI-Cache: basename (lowercase, ohne Extension) → geparste TXI-Daten
+// TXI cache: basename (lowercase, no extension) → parsed TXI data
 const txiCache = {};
 
-// Materialien mit aktiver Sprite-Sheet-Animation (proceduretype cycle)
+// Materials with active sprite-sheet animation (proceduretype cycle)
 const uvAnimRegistry = [];   // { tex, numx, numy, fps, elapsed }
 
-// Wird beim Modell-Reset aufgerufen
+// Called on model reset
 function clearUVAnimRegistry() {
   uvAnimRegistry.length = 0;
 }
 
 // ─────────────────────────────────────────────
-//  parseTXI  — liest eine TXI-Textdatei
+//  parseTXI  — reads a TXI text file
 // ─────────────────────────────────────────────
 function parseTXI(text) {
   const result = {
     // ── Rendering ────────────────────────────
-    decal:                false,   // 1 = transparentes Overlay, kein Depth-Write
-    clamp:                0,       // 0=repeat/repeat, 1=clampS, 2=clampT, 3=beide
+    decal:                false,   // 1 = transparent overlay, no depth write
+    clamp:                0,       // 0=repeat/repeat, 1=clampS, 2=clampT, 3=both
     blending:             null,    // 'additive' | 'punchthrough' | null
-    mipmap:               true,    // false = Mipmapping deaktiviert
-    filter:               true,    // false = nearest-Filterung
+    mipmap:               true,    // false = mipmapping disabled
+    filter:               true,    // false = nearest filtering
 
-    // ── Textur-Verweise ───────────────────────
-    bumpmaptexture:       null,    // Name einer Bump-Map-Textur
-    envmaptexture:        null,    // Name einer Environment-Map-Textur
+    // ── Texture references ───────────────────
+    bumpmaptexture:       null,    // name of a bump map texture
+    envmaptexture:        null,    // name of an environment map texture
 
-    // ── Sprite-Animation (numx/numy/fps) ─────
-    numx:                 1,       // Sprite-Sheet Spalten
-    numy:                 1,       // Sprite-Sheet Zeilen
-    fps:                  0,       // Frames pro Sekunde
+    // ── Sprite animation (numx/numy/fps) ─────
+    numx:                 1,       // sprite-sheet columns
+    numy:                 1,       // sprite-sheet rows
+    fps:                  0,       // frames per second
 
-    // ── Prozedurale Effekte ───────────────────
-    // (arturo = Hitze-Shimmer, water, cycle, …)
-    // Im Viewer nicht animiert, wird als Marker gespeichert.
+    // ── Procedural effects ───────────────────
+    // (arturo = heat shimmer, water, cycle, …)
+    // Not animated in viewer, stored as marker.
     proceduretype:        null,    // 'arturo' | 'water' | 'cycle' | …
     speed:                0,
     distort:              false,
@@ -53,28 +53,28 @@ function parseTXI(text) {
     downsamplemax:        0,
     downsamplemin:        0,
 
-    // ── UV-Kanal-Animation ────────────────────
-    // channelscale / channeltranslate: jeweils N Werte
-    // (nicht interaktiv gerendert, aber geparst)
+    // ── UV channel animation ─────────────────
+    // channelscale / channeltranslate: N values each
+    // (not rendered interactively, but parsed)
     channelscale:         [],
     channeltranslate:     [],
 
-    // ── Sonstiges ────────────────────────────
+    // ── Miscellaneous ────────────────────────
     alphamean:            0,
   };
 
   const lines   = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
-  let   collect = null;   // aktuell laufender Multi-Zeilen-Block
-  let   needed  = 0;      // noch fehlende Werte im Block
+  let   collect = null;   // currently active multi-line block
+  let   needed  = 0;      // remaining values in block
 
   for (let line of lines) {
-    // Kommentare entfernen
+    // Strip inline comments
     const ci = line.indexOf('//');
     if (ci >= 0) line = line.substring(0, ci);
     line = line.trim();
     if (!line) continue;
 
-    // Laufender Multi-Zeilen-Block (channelscale / channeltranslate)
+    // Running multi-line block (channelscale / channeltranslate)
     if (collect && needed > 0) {
       const v = parseFloat(line);
       if (!isNaN(v)) { collect.push(v); needed--; }
@@ -89,7 +89,7 @@ function parseTXI(text) {
 
     switch (key) {
 
-      // ── Rendering ──────────────────────────
+      // ── Rendering ────────────────────────────
       case 'decal':
         result.decal = parseInt(val1) === 1;
         break;
@@ -106,7 +106,7 @@ function parseTXI(text) {
         result.filter = parseInt(val1) !== 0;
         break;
 
-      // ── Textur-Verweise ─────────────────────
+      // ── Texture references ───────────────────
       case 'bumpmaptexture':
       case 'bumpmap':
         result.bumpmaptexture = val1.toLowerCase() || null;
@@ -116,7 +116,7 @@ function parseTXI(text) {
         result.envmaptexture = val1.toLowerCase() || null;
         break;
 
-      // ── Sprite-Animation ────────────────────
+      // ── Sprite animation ─────────────────────
       case 'numx':
         result.numx = parseInt(val1) || 1;
         break;
@@ -127,7 +127,7 @@ function parseTXI(text) {
         result.fps = parseFloat(val1) || 0;
         break;
 
-      // ── Prozedurale Effekte ─────────────────
+      // ── Procedural effects ───────────────────
       case 'proceduretype':
         result.proceduretype = val1.toLowerCase() || null;
         break;
@@ -156,10 +156,10 @@ function parseTXI(text) {
         result.downsamplemin = parseInt(val1) || 0;
         break;
 
-      // ── UV-Kanal-Blöcke ─────────────────────
-      // Format: channelscale <anzahl>
-      //   <wert1>
-      //   <wert2>  …
+      // ── UV channel blocks ────────────────────
+      // Format: channelscale <count>
+      //   <value1>
+      //   <value2>  …
       case 'channelscale': {
         const n = parseInt(val1) || 0;
         if (n > 0) { collect = result.channelscale; needed = n; }
@@ -171,12 +171,12 @@ function parseTXI(text) {
         break;
       }
 
-      // ── Sonstiges ───────────────────────────
+      // ── Miscellaneous ────────────────────────
       case 'alphamean':
         result.alphamean = parseFloat(val1) || 0;
         break;
 
-      // Unbekannte Keys werden stillschweigend übersprungen
+      // Unknown keys are silently skipped
       default:
         break;
     }
@@ -188,23 +188,23 @@ function parseTXI(text) {
 // ─────────────────────────────────────────────
 //  applyTXIToMaterial
 //
-//  Wendet die geparsten TXI-Eigenschaften auf
-//  ein THREE.Material und die zugehörige Textur an.
-//  Wird aus applyTexturesToScene() heraus aufgerufen.
+//  Applies the parsed TXI properties to a
+//  THREE.Material and its associated texture.
+//  Called from applyTexturesToScene().
 // ─────────────────────────────────────────────
 function applyTXIToMaterial(mat, txi, tex) {
   if (!mat || !txi) return;
 
-  // ── decal → transparentes Overlay ──────────
-  // Kein Depth-Write, DoubleSide, kein AlphaTest
+  // ── decal → transparent overlay ─────────────
+  // No depth write, DoubleSide, no alphaTest
   if (txi.decal) {
     mat.transparent = true;
     mat.depthWrite  = false;
     mat.side        = THREE.DoubleSide;
-    mat.alphaTest   = 0;         // AlphaTest überschreiben (kein Clipping gewünscht)
+    mat.alphaTest   = 0;         // override alphaTest (no clipping desired)
   }
 
-  // ── Additive Überblendung ───────────────────
+  // ── Additive blending ────────────────────────
   if (txi.blending === 'additive') {
     mat.blending    = THREE.AdditiveBlending;
     mat.transparent = true;
@@ -212,40 +212,40 @@ function applyTXIToMaterial(mat, txi, tex) {
     mat.alphaTest   = 0;
   }
 
-  // ── UV-Wrap-Modus (clamp) ───────────────────
+  // ── UV wrap mode (clamp) ─────────────────────
   if (tex && txi.clamp > 0) {
     if (txi.clamp === 1 || txi.clamp === 3) tex.wrapS = THREE.ClampToEdgeWrapping;
     if (txi.clamp === 2 || txi.clamp === 3) tex.wrapT = THREE.ClampToEdgeWrapping;
     tex.needsUpdate = true;
   }
 
-  // ── Bump-Map aus TXI-Verweis ────────────────
+  // ── Bump map from TXI reference ──────────────
   if (txi.bumpmaptexture && textureCache[txi.bumpmaptexture]) {
     mat.bumpMap   = textureCache[txi.bumpmaptexture];
     mat.bumpScale = 0.05;
   }
 
-  // ── Environment-Map aus TXI-Verweis ─────────
+  // ── Environment map from TXI reference ───────
   if (txi.envmaptexture && textureCache[txi.envmaptexture]) {
     mat.envMap          = textureCache[txi.envmaptexture];
     mat.envMapIntensity = 0.5;
   }
 
-  // ── Mipmapping deaktivieren ─────────────────
+  // ── Disable mipmapping ───────────────────────
   if (!txi.mipmap && tex) {
     tex.minFilter       = THREE.LinearFilter;
     tex.generateMipmaps = false;
     tex.needsUpdate     = true;
   }
 
-  // ── Nearest-Filterung ───────────────────────
+  // ── Nearest filtering ────────────────────────
   if (!txi.filter && tex) {
     tex.minFilter = THREE.NearestFilter;
     tex.magFilter = THREE.NearestFilter;
     tex.needsUpdate = true;
   }
 
-  // ── Prozedurale Effekte ─────────────────────
+  // ── Procedural effects ───────────────────────
   if (txi.proceduretype) {
     mat.userData = mat.userData || {};
     mat.userData.txi_proceduretype  = txi.proceduretype;
@@ -253,14 +253,14 @@ function applyTXIToMaterial(mat, txi, tex) {
     mat.userData.txi_distort        = txi.distort;
     mat.userData.txi_distortamp     = txi.distortionamplitude;
 
-    // ── Sprite-Sheet-Animation (proceduretype cycle) ──
+    // ── Sprite-sheet animation (proceduretype cycle) ──
     if (txi.proceduretype === 'cycle' && tex && (txi.numx > 1 || txi.numy > 1) && txi.fps > 0) {
-      // Textur auf eine Zelle einschränken
+      // Restrict texture to one cell
       tex.repeat.set(1 / txi.numx, 1 / txi.numy);
       tex.wrapS = THREE.RepeatWrapping;
       tex.wrapT = THREE.RepeatWrapping;
-      // Startframe: erste Zelle oben links
-      // flipY=false → Zeile 0 (Bildschirmoben) liegt bei hohem V-Wert
+      // Start frame: first cell top-left
+      // flipY=false → row 0 (screen top) is at high V value
       tex.offset.set(0, (txi.numy - 1) / txi.numy);
       tex.needsUpdate = true;
       uvAnimRegistry.push({ tex, numx: txi.numx, numy: txi.numy, fps: txi.fps, elapsed: 0 });
@@ -273,8 +273,8 @@ function applyTXIToMaterial(mat, txi, tex) {
 // ─────────────────────────────────────────────
 //  buildTXISummary
 //
-//  Gibt eine lesbare Zusammenfassung der aktiven
-//  TXI-Eigenschaften zurück (für Log/UI).
+//  Returns a human-readable summary of the active
+//  TXI properties (for log/UI).
 // ─────────────────────────────────────────────
 function buildTXISummary(txi) {
   const parts = [];
@@ -291,7 +291,7 @@ function buildTXISummary(txi) {
 }
 
 // ─────────────────────────────────────────────
-//  updateUVAnims  — pro Frame aufrufen (delta in Sekunden)
+//  updateUVAnims  — call once per frame (delta in seconds)
 // ─────────────────────────────────────────────
 function updateUVAnims(delta) {
   for (const e of uvAnimRegistry) {
@@ -300,7 +300,7 @@ function updateUVAnims(delta) {
     const frameIndex = Math.floor(e.elapsed * e.fps) % frameCount;
     const col = frameIndex % e.numx;
     const row = Math.floor(frameIndex / e.numx);
-    // Zeile 0 = oben im Bild; mit flipY=false liegt V=1 oben
+    // Row 0 = top of image; with flipY=false V=1 is at the top
     e.tex.offset.set(
       col / e.numx,
       (e.numy - 1 - row) / e.numy

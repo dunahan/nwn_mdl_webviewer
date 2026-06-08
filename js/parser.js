@@ -39,7 +39,7 @@ function parseMDL(text) {
     } else if (k === 'newanim') {
       model.animCount++;
       const animName = t[1] || '';
-      // Lies length und transtime aus den nächsten Zeilen
+      // Read length and transtime from the next lines
       let length = 0, transtime = 0;
       const peek = Math.min(i + 4, lines.length);
       for (let p = i + 1; p < peek; p++) {
@@ -55,7 +55,7 @@ function parseMDL(text) {
         if (ak === 'node') {
           const result = parseFullAnimNode(lines, i);
           anim.nodes[result.name] = result.data;
-          // Rest-Pose aus erster Animation (Zeit=0)
+          // Rest pose from first animation (time=0)
           if (model.animCount === 1 && (
               result.data.oriKeys.length > 0 ||
               result.data.posKeys.length > 0 ||
@@ -83,8 +83,8 @@ function parseMDL(text) {
   return model;
 }
 
-// Liest alle Keyframes eines Animations-Nodes.
-// Gibt { name, data: { posKeys, oriKeys, emitterKeys }, next } zurück.
+// Reads all keyframes of an animation node.
+// Returns { name, data: { posKeys, oriKeys, emitterKeys }, next }.
 // posKeys:     [{t, x, y, z}, ...]
 // oriKeys:     [{t, ax, ay, az, angle}, ...]
 // emitterKeys: { birthrate: [{t, vals:[v]}, ...], colorend: [{t, vals:[r,g,b]}, ...], ... }
@@ -93,15 +93,15 @@ function parseFullAnimNode(lines, start) {
   const name = hdr[2] || '';
   const data = {
     posKeys: [], oriKeys: [], scaleKeys: [], emitterKeys: {},
-    samplePeriod: 0, animVerts: [], animTverts: [],  // animmesh UV/Vertex-Animation
+    samplePeriod: 0, animVerts: [], animTverts: [],  // animmesh UV/vertex animation
   };
   let i = start + 1;
 
   function tok(idx) { return lines[idx].trim().split(/\s+/).filter(x => x.length > 0); }
   function num(s)   { const v = parseFloat(s); return isNaN(v) ? 0 : v; }
 
-  // Anzahl der Datenwerte pro bekanntem Emitter-Controller-Key
-  // (alles was nicht explizit gelistet ist, bekommt 1 Wert als Fallback)
+  // Number of data values per known emitter controller key
+  // (anything not explicitly listed gets 1 value as fallback)
   const EMITTER_KEY_COLS = {
     birthrate: 1, velocity: 1, randvel: 1, spread: 1,
     grav: 1, drag: 1, fps: 1, mass: 1, lifeexp: 1, particlerot: 1,
@@ -110,8 +110,8 @@ function parseFullAnimNode(lines, start) {
     colorstart: 3, colormid: 3, colorend: 3,
   };
 
-  // Jedes Schlüsselwort (nicht-numerischer Token) beendet den aktuellen Datenblock.
-  // endlist verbraucht zusätzlich seine eigene Zeile.
+  // Every keyword (non-numeric token) ends the current data block.
+  // endlist additionally consumes its own line.
   function readAllKeys(startIdx, minCols, count) {
     const keys = [];
     let j = startIdx, read = 0;
@@ -119,7 +119,7 @@ function parseFullAnimNode(lines, start) {
       const t2 = tok(j);
       const k0 = (t2[0] || '').toLowerCase();
       if (k0 === 'endlist') { j++; break; }
-      // Jedes alphabetische Schlüsselwort (neuer Block oder endnode) bricht ab
+      // Every alphabetic keyword (new block or endnode) aborts
       if (isNaN(parseFloat(t2[0])) && t2[0] !== '') break;
       if (t2.length >= minCols + 1) {
         const time = parseFloat(t2[0]);
@@ -156,7 +156,7 @@ function parseFullAnimNode(lines, start) {
       i = res.next;
       continue;
     } else if (k.endsWith('key')) {
-      // ── Generischer Emitter-Controller-Key ─────────────────────────────
+      // ── Generic Emitter Controller Key ─────────────────────────────
       // Format: <baseName>key <count>
       //           <time> <val> [<val2> <val3>]
       //           ...
@@ -169,9 +169,9 @@ function parseFullAnimNode(lines, start) {
       continue;
 
     // ── animmesh: sampleperiod / animverts / animtverts ─────────────────
-    // Diese Felder stehen im Animations-Node (nicht im Geometrie-Node).
-    // animtverts: numFrames x vertCount UV-Eintraege ohne Zeitstempel;
-    // Frame-Index = floor(time / samplePeriod) % numFrames.
+    // These fields are located in the animation node (not in the geometry node).
+    // animtverts: numFrames x vertCount UV entries without timestamp;
+    // Frame index = floor(time / samplePeriod) % numFrames.
     } else if (k === 'sampleperiod') {
       data.samplePeriod = parseFloat(t[1]) || 0;
     } else if (k === 'animverts') {
@@ -184,7 +184,7 @@ function parseFullAnimNode(lines, start) {
         if (vt.length >= 3) data.animVerts.push([parseFloat(vt[0])||0, parseFloat(vt[1])||0, parseFloat(vt[2])||0]);
       }
     } else if (k === 'animtverts') {
-      // Zaehlerbasiertes Einlesen — 'endlist' danach wird durch normalen i++ konsumiert.
+      // Counter-based reading — 'endlist' afterwards is consumed by normal i++.
       const count = parseInt(t[1]) || 0;
       data.animTverts = [];
       for (let j = 0; j < count; j++) {
@@ -199,7 +199,7 @@ function parseFullAnimNode(lines, start) {
   return { name, data, next: i };
 }
 
-// Veraltet aber noch referenziert — Wrapper für Kompatibilität
+// Deprecated but still referenced — wrapper for compatibility
 function parseAnimNode(lines, start) {
   const res = parseFullAnimNode(lines, start);
   const firstOri = res.data.oriKeys[0];
@@ -223,7 +223,7 @@ function parseNode(lines, start) {
     scale: 1,
     bitmap: '',
     materialname: '',
-    textures: {},     // index → name (aus MDL-Node, z.B. texture0, texture1 ...)
+    textures: {},     // index → name (from MDL node, e.g., texture0, texture1 ...)
     renderhint: '',   // 'NormalAndSpecMapped' | 'NormalTangents' | ''
     verts: [], tverts: [], normals: [], tangents: [], faces: [],
     ambient: [0.2, 0.2, 0.2],
@@ -232,16 +232,16 @@ function parseNode(lines, start) {
     shininess: 0,
     render: 1,
     alpha: 1.0,
-    selfIllumColor: null, // [r,g,b] oder null — nur bei EFFECT-Nodes
+    selfIllumColor: null, // [r,g,b] or null — only for EFFECT nodes
     tilefade: 0,
-    transparencyhint: 0,  // 0 = opak, 1 = Textur-Alpha nutzen (Decals, Splotches)
-    // ── Emitter-spezifische Properties ──────────────────────────
-    emitterTexture: '',   // "texture" in emitter-Nodes (Partikel-Textur)
+    transparencyhint: 0,  // 0 = opaque, 1 = use texture alpha (decals, splotches)
+    // ── Emitter-specific Properties ──────────────────────────
+    emitterTexture: '',   // "texture" in emitter nodes (particle texture)
     blend:          '',   // 'Normal' | 'Lighten' | 'Additive' | ...
     update:         '',   // 'Fountain' | 'Single' | 'Explosion' | ...
     renderMode:     '',   // 'Normal' | 'Billboard_to_Local_Z' | 'Linked' | ...
-    xgrid: 1, ygrid: 1,   // Sprite-Sheet-Raster
-    xsize: 0, ysize: 0,   // Emitter-Fläche in cm (Spawn-Streubereich)
+    xgrid: 1, ygrid: 1,   // Sprite sheet grid
+    xsize: 0, ysize: 0,   // Emitter area in cm (spawn spread area)
     alphaStart: 1, alphaMid: 1, alphaEnd: 0,
     colorStart: [1,1,1], colorMid: [1,1,1], colorEnd: [1,1,1],
     sizeStart: 1, sizeMid: 1, sizeEnd: 1,
@@ -256,11 +256,11 @@ function parseNode(lines, start) {
     fps:        0,
     frameStart: 0,
     frameEnd:   0,
-    chunkName:  '',   // Chunk-Modell für Rock-Emitter (chunkName)
-    // ── Light-spezifische Properties ─────────────────────────────────────────
-    lightColor:         [1, 1, 1],  // [r, g, b] — Lichtfarbe
-    lightRadius:         5.0,       // Reichweite (Falloff-Distanz)
-    lightMultiplier:     1.0,       // Intensitäts-Multiplikator
+    chunkName:  '',   // Chunk model for rock emitter (chunkName)
+    // ── Light-specific Properties ─────────────────────────────────────────
+    lightColor:         [1, 1, 1],  // [r, g, b] — light color
+    lightRadius:         5.0,       // Range (falloff distance)
+    lightMultiplier:     1.0,       // Intensity multiplier
     lightAmbientOnly:    0,         // 1 → AmbientLight, 0 → PointLight
     lightIsDynamic:      1,
     lightNDynamicType:   0,         // nDynamicType: 0=none, 1=dynamic, 2=dynamic+shadow
@@ -341,7 +341,7 @@ function parseNode(lines, start) {
     else if (k === 'framestart')        node.frameStart = parseInt(t[1]) || 0;
     else if (k === 'frameend')          node.frameEnd   = parseInt(t[1]) || 0;
     else if (k === 'chunkname')         node.chunkName  = (t[1]||'').toLowerCase();
-    // ── Light-Properties (nur für node.type === 'light') ─────────────────────
+    // ── Light-Properties (only for node.type === 'light') ─────────────────────
     else if (k === 'color'         && node.type === 'light') node.lightColor        = [num(t[1]), num(t[2]), num(t[3])];
     else if (k === 'radius'        && node.type === 'light') node.lightRadius        = num(t[1]);
     else if (k === 'multiplier')                             node.lightMultiplier    = num(t[1]);
@@ -379,16 +379,16 @@ function parseNode(lines, start) {
         if (vt.length >= 3) node.normals.push([num(vt[0]), num(vt[1]), num(vt[2])]);
       }
     } else if (k === 'tangents') {
-      // Pro Vertex: tx ty tz  bx by bz  nx ny nz  (Tangente, Binormale, Normale — je 3 Floats)
+      // Per vertex: tx ty tz  bx by bz  nx ny nz  (Tangent, Binormal, Normal — 3 floats each)
       const count = parseInt(t[1]) || 0;
       for (let j = 0; j < count; j++) {
         i++;
         if (i >= lines.length) break;
         const vt = tok(i);
         if (vt.length >= 9) node.tangents.push([
-          num(vt[0]), num(vt[1]), num(vt[2]),  // T  — Tangente
-          num(vt[3]), num(vt[4]), num(vt[5]),  // B  — Binormale
-          num(vt[6]), num(vt[7]), num(vt[8]),  // N  — Normale (im Tangent-Space)
+          num(vt[0]), num(vt[1]), num(vt[2]),  // T  — Tangents
+          num(vt[3]), num(vt[4]), num(vt[5]),  // B  — Binormals
+          num(vt[6]), num(vt[7]), num(vt[8]),  // N  — Normale (in Tangent-Space)
         ]);
       }
     } else if (k === 'faces') {
@@ -407,15 +407,15 @@ function parseNode(lines, start) {
         }
       }
     } else if (k === 'constraints') {
-      // danglymesh: ein Constraint-Wert pro Zeile (0=starr, 255=frei) — nur überspringen
+      // danglymesh: one constraint value per line (0=rigid, 255=free) — just skip
       const count = parseInt(t[1]) || 0;
       for (let j = 0; j < count; j++) {
         i++;
         if (i >= lines.length) break;
       }
     } else if (k === 'weights') {
-      // skin-Node: pro Original-Vertex eine Zeile "BoneName Gewicht BoneName Gewicht ..."
-      // Gespeichert als node.vertexWeights[vi] = [{bone, weight}, ...]
+      // skin node: one line per original vertex "BoneName Weight BoneName Weight ..."
+      // Stored as node.vertexWeights[vi] = [{bone, weight}, ...]
       const count = parseInt(t[1]) || 0;
       node.vertexWeights = [];
       for (let j = 0; j < count; j++) {
@@ -437,14 +437,14 @@ function parseNode(lines, start) {
 }
 
 // ─────────────────────────────────────────────
-//  NWN Orientation: Achse-Winkel → Quaternion
-//  NWN speichert (axis_x, axis_y, axis_z, winkel_rad)
-//  NICHT als Quaternion-XYZW!
+//  NWN Orientation: Axis-Angle → Quaternion
+//  NWN stores (axis_x, axis_y, axis_z, angle_rad)
+//  NOT as Quaternion-XYZW!
 // ─────────────────────────────────────────────
 function axisAngleToQuat(ax, ay, az, angle) {
   const len = Math.sqrt(ax*ax + ay*ay + az*az);
   if (len < 1e-6 || Math.abs(angle) < 1e-6) {
-    return new THREE.Quaternion(0, 0, 0, 1); // Identität
+    return new THREE.Quaternion(0, 0, 0, 1); // Identity
   }
   const half = angle / 2;
   const s = Math.sin(half) / len;

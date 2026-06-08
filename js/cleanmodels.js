@@ -1,18 +1,18 @@
 /* ═══════════════════════════════════════════════
    NWN MDL Viewer — cleanmodels-wasm Integration
    ═══════════════════════════════════════════════
-   Das WASM-Modul installiert ein globales `cleanmodels`-
-   Objekt mit synchronen Methoden (kein stdin/stdout):
+   The WASM module installs a global `cleanmodels`
+   object with synchronous methods (no stdin/stdout):
 
      cleanmodels.version()             → string
      cleanmodels.decompile(Uint8Array) → { ok, ascii }   | { ok, error }
      cleanmodels.compile(string)       → { ok, binary }  | { ok, error }
      cleanmodels.parse(string)         → { ok, warnings }| { ok, error }
 
-   Ablauf:
-     1. WASM-Binary laden (Base64 bei file://, fetch bei HTTP)
-     2. go.run(instance) starten — läuft permanent, nie awaiten
-     3. Auf window.cleanmodels warten (Polling)
+   Workflow:
+     1. Load WASM binary (Base64 for file://, fetch for HTTP)
+     2. Start go.run(instance) — runs permanently, never await
+     3. Wait for window.cleanmodels (Polling)
      4. cm.decompile(ArrayBuffer) → Promise<string> (ASCII-MDL)
    ═══════════════════════════════════════════════ */
 
@@ -30,8 +30,8 @@ const cm = (() => {
     _readyReject  = rej;
   });
 
-  let _progressCb      = null;   // Externer Progress-Callback
-  let _fetchController  = null;  // AbortController für Fetch-Abbruch
+  let _progressCb       = null;  // External progress callback
+  let _fetchController  = null;  // AbortController for fetch cancellation
 
   function _fireProgress(evt) {
     if (typeof _progressCb === 'function') _progressCb(evt);
@@ -47,7 +47,7 @@ const cm = (() => {
     });
   }
 
-  // Wartet bis window.cleanmodels gesetzt ist (go.run installiert es async).
+  // Waits until window.cleanmodels is set (go.run installs it async).
   function _waitForGlobal(timeout = 10000) {
     return new Promise((resolve, reject) => {
       if (window.cleanmodels) { resolve(); return; }
@@ -73,11 +73,11 @@ const cm = (() => {
     }
 
     try {
-      // ── 1. WASM-Binary laden ──────────────────────────────────────
+      // ── 1. Load WASM binary ──────────────────────────────────────
       let wasmBuffer;
 
       if (_isLocal) {
-        // Lokal (file:// / content:): Base64-Pfad, kein Streaming möglich
+        // Local (file:// / content:): Base64 path, no streaming possible
         _fireProgress({ phase: 'fetch_indeterminate' });
         if (typeof CM_WASM_B64 === 'undefined') {
           console.info(fmt('cm_loading_b64', { src: CM_WASM_B64_JS }));
@@ -93,7 +93,7 @@ const cm = (() => {
         wasmBuffer = buf.buffer;
         console.info(fmt('cm_b64_decoded', { size: (wasmBuffer.byteLength / 1048576).toFixed(2) }));
       } else {
-        // HTTP: Streaming-Fetch mit Fortschrittsanzeige
+        // HTTP: Streaming fetch with progress indication
         _fetchController = new AbortController();
         const resp = await fetch(CM_WASM_PATH, { signal: _fetchController.signal });
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
@@ -102,7 +102,7 @@ const cm = (() => {
         const total = contentLength ? parseInt(contentLength, 10) : 0;
 
         if (total > 0 && resp.body) {
-          // Determinate: Content-Length bekannt → echten % anzeigen
+          // Determinate: Content-Length known → show real %
           const reader = resp.body.getReader();
           const chunks = [];
           let loaded = 0;
@@ -119,15 +119,15 @@ const cm = (() => {
           for (const chunk of chunks) { all.set(chunk, offset); offset += chunk.length; }
           wasmBuffer = all.buffer;
         } else {
-          // Indeterminate: kein Content-Length (z.B. Compression ohne bekannter Größe)
+          // Indeterminate: no Content-Length (e.g., compression without known size)
           _fireProgress({ phase: 'fetch_indeterminate' });
           wasmBuffer = await resp.arrayBuffer();
         }
         console.info(fmt('cm_wasm_loaded', { size: (wasmBuffer.byteLength / 1048576).toFixed(2) }));
       }
 
-      // ── 2. Instanz erzeugen und go.run() starten ─────────────────
-      // go.run() läuft permanent — fire-and-forget, NICHT awaiten.
+      // ── 2. Create instance and start go.run() ─────────────────
+      // go.run() runs permanently — fire-and-forget, DO NOT await.
       _fireProgress({ phase: 'compile' });
       const go   = new Go();
       const wasm = await WebAssembly.compile(wasmBuffer);
@@ -138,7 +138,7 @@ const cm = (() => {
       console.info(L('cm_instantiated'));
       go.run(instance);
 
-      // ── 3. Auf window.cleanmodels warten ─────────────────────────
+      // ── 3. Wait for window.cleanmodels ─────────────────────────
       _fireProgress({ phase: 'wait' });
       await _waitForGlobal();
 
@@ -150,13 +150,13 @@ const cm = (() => {
       console.info(fmt('cm_ready', { ver }));
 
     } catch (err) {
-      if (err && err.name === 'AbortError') return;  // Nutzer hat abgebrochen
+      if (err && err.name === 'AbortError') return;  // User aborted
       console.error(L('cm_load_error'), err);
       _readyReject(err);
     }
   }
 
-  // Dekompiliert ein binäres MDL (ArrayBuffer) → Promise<string> (ASCII)
+  // Decompiles a binary MDL (ArrayBuffer) → Promise<string> (ASCII)
   async function decompile(buffer) {
     await _readyPromise;
     const bytes  = new Uint8Array(buffer);

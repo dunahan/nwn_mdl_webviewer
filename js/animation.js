@@ -5,14 +5,14 @@
 //  Animation Engine
 // ─────────────────────────────────────────────
 const animState = {
-  current:  null,   // aktuelles Anim-Objekt
+  current:  null,   // current animation object
   time:     0,
   playing:  false,
   speed:    1.0,
   scrubbing: false,
 };
 
-// Gespeicherte Rest-Pose (Geometrie-Transforms) für Reset
+// Saved rest pose (geometry transforms) for reset
 let geometryPose = {};  // nodeName → { pos, quat }
 
 function saveGeometryPose() {
@@ -26,14 +26,14 @@ function saveGeometryPose() {
   }
 }
 
-// Lineare Interpolation zwischen zwei Keyframe-Arrays
+// Linear interpolation between two keyframe arrays
 function lerpKeys(keys, time) {
   if (!keys || keys.length === 0) return null;
   if (keys.length === 1) return keys[0];
-  // Klemme auf gültigen Bereich
+  // Clamp to valid range
   if (time <= keys[0].t) return keys[0];
   if (time >= keys[keys.length - 1].t) return keys[keys.length - 1];
-  // Suche umgebende Keys
+  // Find surrounding keys
   let lo = 0, hi = keys.length - 1;
   while (hi - lo > 1) {
     const mid = (lo + hi) >> 1;
@@ -44,7 +44,7 @@ function lerpKeys(keys, time) {
   return { lo: a, hi: b, alpha };
 }
 
-// Interpolation für emitterKey-Arrays ({ t, vals[] }) — gibt interpoliertes vals-Array zurück.
+// Interpolation for emitterKey arrays ({ t, vals[] }) — returns interpolated vals array.
 function lerpEmitterKey(keys, time) {
   if (!keys || keys.length === 0) return null;
   if (time <= keys[0].t) return keys[0].vals;
@@ -61,7 +61,7 @@ function applyAnimFrame(anim, time) {
     const obj = nodeObjects[nodeName];
     if (!obj) continue;
 
-    // Position interpolieren
+    // Interpolate position
     if (data.posKeys.length > 0) {
       const r = lerpKeys(data.posKeys, time);
       if (r && r.alpha !== undefined) {
@@ -75,7 +75,7 @@ function applyAnimFrame(anim, time) {
       }
     }
 
-    // Orientierung interpolieren (Achse-Winkel → Quaternion → Slerp)
+    // Interpolate orientation (axis-angle → quaternion → slerp)
     if (data.oriKeys.length > 0) {
       const r = lerpKeys(data.oriKeys, time);
       if (r && r.alpha !== undefined) {
@@ -87,7 +87,7 @@ function applyAnimFrame(anim, time) {
       }
     }
 
-    // Scale interpolieren (scalekey)
+    // Interpolate scale (scalekey)
     if (data.scaleKeys && data.scaleKeys.length > 0) {
       const r = lerpKeys(data.scaleKeys, time);
       if (r && r.alpha !== undefined) {
@@ -97,7 +97,7 @@ function applyAnimFrame(anim, time) {
       }
     }
 
-    // Alpha interpolieren (alphakey — EFFECT-Modelle animieren Mesh-Transparenz)
+    // Interpolate alpha (alphakey — EFFECT models animate mesh transparency)
     const aKeys = data.emitterKeys && data.emitterKeys.alpha;
     if (aKeys && aKeys.length > 0) {
       let alpha;
@@ -112,7 +112,7 @@ function applyAnimFrame(anim, time) {
         const frac = (b.t === a.t) ? 0 : (time - a.t) / (b.t - a.t);
         alpha = a.vals[0] + (b.vals[0] - a.vals[0]) * frac;
       }
-      // meshOpacity-Slider berücksichtigen (globale Variable aus scene.js / ui.js)
+      // Take meshOpacity slider into account (global variable from scene.js / ui.js)
       const mats = obj.material ? (Array.isArray(obj.material) ? obj.material : [obj.material]) : [];
       for (const mat of mats) {
         mat.opacity     = alpha * (typeof meshOpacity === 'number' ? meshOpacity : 1.0);
@@ -121,7 +121,7 @@ function applyAnimFrame(anim, time) {
       }
     }
 
-    // Licht-Properties animieren (colorkey, radiuskey, multiplierkey)
+    // Animate light properties (colorkey, radiuskey, multiplierkey)
     const mdlLight = obj.userData && obj.userData.mdlLight;
     if (mdlLight && data.emitterKeys) {
       const ck = data.emitterKeys.color;
@@ -141,16 +141,16 @@ function applyAnimFrame(anim, time) {
       }
     }
 
-    // UV-Animation (animmesh) — animtverts: lineare Interpolation zwischen Frames.
-    // Statt hartem Frame-Step werden die UV-Koordinaten zweier benachbarter Frames
-    // per alpha-Blend gemischt → fliesender Kameraschwenk statt Springen.
+    // UV animation (animmesh) — animtverts: linear interpolation between frames.
+    // Instead of a hard frame step, the UV coordinates of two adjacent frames
+    // are blended via alpha → smooth camera pan instead of jumping.
     if (data.animTverts && data.animTverts.length > 0 && data.samplePeriod > 0) {
       const geo = obj.geometry;
       if (geo && geo.userData.animFaceTverts) {
         const vertCount  = geo.userData.animVertCount  || 1;
         const numFrames  = Math.floor(data.animTverts.length / vertCount);
         if (numFrames > 0) {
-          // Gebrochene Frame-Position: z. B. 1.7 → zwischen Frame 1 und Frame 2
+          // Fractional frame position: e.g. 1.7 → between frame 1 and frame 2
           const rawFrame = (time / data.samplePeriod) % numFrames;
           const frameA   = Math.floor(rawFrame) % numFrames;
           const frameB   = (frameA + 1) % numFrames;
@@ -166,7 +166,7 @@ function applyAnimFrame(anim, time) {
               const uvA = data.animTverts[offA + ti];
               const uvB = data.animTverts[offB + ti];
               uvArr[fi * 6 + k * 2 + 0] = uvA[0] + (uvB[0] - uvA[0]) * alpha;
-              uvArr[fi * 6 + k * 2 + 1] = 1.0 - (uvA[1] + (uvB[1] - uvA[1]) * alpha);  // V-Flip
+              uvArr[fi * 6 + k * 2 + 1] = 1.0 - (uvA[1] + (uvB[1] - uvA[1]) * alpha);  // V-flip
             }
           }
           geo.attributes.uv.needsUpdate = true;
@@ -177,14 +177,14 @@ function applyAnimFrame(anim, time) {
 }
 
 function resetToPose() {
-  // Zurück zur Rest-Pose (Geometrie-Transforms + Rest-Pose-Keys)
+  // Return to rest pose (geometry transforms + rest pose keys)
   for (const [name, pose] of Object.entries(geometryPose)) {
     const obj = nodeObjects[name];
     if (!obj) continue;
     obj.position.copy(pose.pos);
     obj.quaternion.copy(pose.quat);
     if (pose.scale) obj.scale.copy(pose.scale);
-    // Licht-Properties auf MDL-Basiswerte zurücksetzen
+    // Reset light properties to MDL base values
     if (obj.userData && obj.userData.mdlLight && obj.userData.nodeData) {
       const nd    = obj.userData.nodeData;
       const light = obj.userData.mdlLight;
@@ -192,8 +192,8 @@ function resetToPose() {
       light.distance  = nd.lightRadius;
       light.intensity = nd.lightMultiplier;
     }
-    // animmesh: UVs in den Geometrie-Grundzustand zuruecksetzen,
-    // damit beim Wechsel auf eine anim ohne animtverts kein veralteter Frame sichtbar bleibt.
+    // animmesh: reset UVs to the base geometry state
+    // so that no stale frame remains visible when switching to an anim without animtverts.
     if (obj.geometry && obj.geometry.userData.baseUVs) {
       obj.geometry.attributes.uv.array.set(obj.geometry.userData.baseUVs);
       obj.geometry.attributes.uv.needsUpdate = true;
@@ -201,11 +201,11 @@ function resetToPose() {
   }
 }
 
-// ── CPU-Skinning (Linear Blend Skinning in NWN-Z-Up-Space) ──────────────────
-// Formel pro Vertex:  finalPos = Σ_i ( weight_i × skinMat_i × bindPos )
+// ── CPU Skinning (Linear Blend Skinning in NWN Z-Up space) ──────────────────
+// Formula per vertex:  finalPos = Σ_i ( weight_i × skinMat_i × bindPos )
 // skinMat_i = currentBoneNWN × inverseBoneBindNWN
-// Alle Matrizen und Positionen in NWN-Space (vor modelGroup -90°-X-Rotation).
-// Die modelGroup-Rotation wird von Three.js automatisch auf das Skin-Mesh angewendet.
+// All matrices and positions in NWN space (before modelGroup -90° X rotation).
+// The modelGroup rotation is applied to the skin mesh automatically by Three.js.
 const _sk = {
   mgInv:    new THREE.Matrix4(),
   boneMat:  new THREE.Matrix4(),
@@ -220,7 +220,7 @@ function applySkinning() {
   const bindInv = window._nwnBindInvMatrices;
   const mg      = window._nwnModelGroup;
 
-  // mg_inv einmal pro Frame berechnen: wandelt bone.matrixWorld in NWN-Space um
+  // Compute mg_inv once per frame: transforms bone.matrixWorld into NWN space
   mg.updateMatrixWorld(true);
   _sk.mgInv.copy(mg.matrixWorld).invert();
 
@@ -246,7 +246,7 @@ function applySkinning() {
         const boneObj = nodeObjects[bone];
         if (!boneObj || !bindInv[bone]) continue;
 
-        // Aktueller Bone in NWN-Space
+        // Current bone in NWN space
         _sk.boneMat.multiplyMatrices(_sk.mgInv, boneObj.matrixWorld);
         _sk.skinMat.multiplyMatrices(_sk.boneMat, bindInv[bone]);
 
@@ -256,9 +256,9 @@ function applySkinning() {
       }
 
       if (totalW < 1e-6) {
-        _sk.vFinal.copy(_sk.vBind);        // Fallback: Bind-Position
+        _sk.vFinal.copy(_sk.vBind);        // Fallback: bind position
       } else if (Math.abs(totalW - 1.0) > 0.01) {
-        _sk.vFinal.divideScalar(totalW);   // Gewichte normalisieren
+        _sk.vFinal.divideScalar(totalW);   // Normalize weights
       }
 
       posArr[i * 3]     = _sk.vFinal.x;
@@ -272,7 +272,7 @@ function applySkinning() {
   }
 }
 
-// Rest-Pose aus Modell auf Szene anwenden (nach Supermodel-Merge nötig)
+// Apply rest pose from model to scene (required after supermodel merge)
 function applyRestPose(model) {
   for (const node of model.nodes) {
     const obj = nodeObjects[node.name];
@@ -309,7 +309,7 @@ function buildAnimUI(model) {
     opt.textContent = a.name + '  (' + a.length.toFixed(2) + 's)';
     sel.appendChild(opt);
   }
-  // Erste Animation auswählen aber nicht starten
+  // Select first animation but do not start it
   selectAnim(model.animations[0].name, false);
 }
 
@@ -382,9 +382,9 @@ function tickAnimation(dt) {
 }
 
 // ── TXI proceduretype cycle ────────────────────────────────────────────────
-// Animiert Texturen mit proceduretype cycle (numx/numy/fps aus TXI-Cache).
-// Laeuft unabhaengig vom MDL-Animationskanal auf Echtzeit-Basis.
-// txiCache wird von txi.js befuellt; jeder Eintrag: { proceduretype, numx, numy, fps, blending, ... }
+// Animates textures with proceduretype cycle (numx/numy/fps from TXI cache).
+// Runs independently of the MDL animation channel on a real-time basis.
+// txiCache is populated by txi.js; each entry: { proceduretype, numx, numy, fps, blending, ... }
 let txiWallTime = 0;
 
 function tickTxiCycle(dt) {
@@ -408,9 +408,9 @@ function tickTxiCycle(dt) {
     if (!obj || !obj.material) continue;
     const mat = Array.isArray(obj.material) ? obj.material[0] : obj.material;
     if (!mat || !mat.map) continue;
-    // Textur-Ausschnitt per repeat/offset setzen (kein UV-Buffer-Update noetig).
+    // Set texture crop via repeat/offset (no UV buffer update needed).
     mat.map.repeat.set(1 / numx, 1 / numy);
-    mat.map.offset.set(col / numx, (numy - 1 - row) / numy);  // V-Flip fuer Three.js
+    mat.map.offset.set(col / numx, (numy - 1 - row) / numy);  // V-flip for Three.js
   }
 }
 
@@ -426,7 +426,7 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 updateCamera();
-loadLanguage();   // Sprache laden (async) — wendet data-i18n Attribute an
+loadLanguage();   // Load language (async) — applies data-i18n attributes
 
 let lastTime = 0;
 function animate(time) {

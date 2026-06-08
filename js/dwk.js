@@ -3,28 +3,28 @@
    Parser & Renderer
    ═══════════════════════════════════════════════
 
-   DWK-Nodes (Tür-Walkmesh):
-     trimesh  *_wg_closed  → Sperr-Geometrie (Tür geschlossen)
-     trimesh  *_wg_open1   → Sperr-Geometrie (Tür auf, Richtung 1)
-     trimesh  *_wg_open2   → Sperr-Geometrie (Tür auf, Richtung 2)
-     dummy    *_dp_closed_N → Türpositionen (geschlossen)
-     dummy    *_dp_open1_N  → Türpositionen (offen, Richtung 1)
-     dummy    *_dp_open2_N  → Türpositionen (offen, Richtung 2)
+   DWK-Nodes (Door walkmesh):
+     trimesh  *_wg_closed   → Blocking geometry (door closed)
+     trimesh  *_wg_open1    → Blocking geometry (door open, direction 1)
+     trimesh  *_wg_open2    → Blocking geometry (door open, direction 2)
+     dummy    *_dp_closed_N → Door positions (closed)
+     dummy    *_dp_open1_N  → Door positions (open, direction 1)
+     dummy    *_dp_open2_N  → Door positions (open, direction 2)
 
-   Koordinatensystem: NWN ist Z-up → -Math.PI/2 Korrektur wie WOK/PWK/MDL.
+   Coordinate system: NWN is Z-up → -Math.PI/2 correction like WOK/PWK/MDL.
    ═══════════════════════════════════════════════ */
 
 // ─────────────────────────────────────────────
-//  Farben für DWK-Elemente (mutable für Dropdown)
+//  Colors for DWK elements (mutable for dropdown)
 // ─────────────────────────────────────────────
 const DWK_COLORS = {
-  wg: 0x00aacc,   // Walk-Geometry (Sperr-Box) — Cyan
-  dp: 0xffaa00,   // Door-Position-Marker — Amber
+  wg: 0x00aacc,   // Walk Geometry (Blocking box) — Cyan
+  dp: 0xffaa00,   // Door Position Marker — Amber
 };
 
 function _dwkNumToHex(n) { return '#' + n.toString(16).padStart(6, '0'); }
 
-// Live-Farbupdate für DWK-Meshes
+// Live color update for DWK meshes
 function updateDwkColor(type, hexStr) {
   DWK_COLORS[type] = parseInt(hexStr.replace('#', ''), 16);
   if (!dwkGroup) return;
@@ -35,7 +35,7 @@ function updateDwkColor(type, hexStr) {
   });
 }
 
-// DWK-Panel im Dropdown einblenden und Startwerte setzen
+// Show DWK panel in dropdown and set initial values
 function buildDwkColorPanel() {
   const section = document.getElementById('cdrop-dwk-section');
   const empty   = document.getElementById('cdrop-empty');
@@ -49,7 +49,7 @@ function buildDwkColorPanel() {
 }
 
 // ─────────────────────────────────────────────
-//  Zustand-Erkennung aus Node-Namen
+//  State detection from node names
 // ─────────────────────────────────────────────
 function _dwkNodeState(name) {
   const n = name.toLowerCase();
@@ -96,7 +96,7 @@ function parseDWK(text) {
         const nk = (nt[0] || '').toLowerCase();
 
         if (nk === 'endnode') {
-          // DWK-Root-Name aus parent ableiten (erster gültiger)
+          // Derive DWK root name from parent (first valid one)
           if (!dwk.name && node.parent && node.parent.toLowerCase() !== 'null') {
             dwk.name = node.parent;
           }
@@ -148,10 +148,10 @@ function parseDWK(text) {
 let dwkGroup   = null;
 let dwkVisible = false;
 let dwkPinned  = false;
-let dwkState   = 'closed';  // aktuell angezeigter Zustand: 'closed' | 'open1' | 'open2'
+let dwkState   = 'closed';  // currently displayed state: 'closed' | 'open1' | 'open2'
 
 function buildDWKMesh(dwk) {
-  // Altes DWK-Mesh entfernen
+  // Remove old DWK mesh
   if (dwkGroup) {
     scene.remove(dwkGroup);
     dwkGroup.traverse(c => {
@@ -169,10 +169,10 @@ function buildDWKMesh(dwk) {
 
   dwkGroup = new THREE.Group();
   dwkGroup.name = 'dwk_' + dwk.name;
-  // NWN ist Z-up, Three.js ist Y-up — gleiche Korrektur wie WOK und MDL
+  // NWN is Z-up, Three.js is Y-up — same correction as WOK and MDL
   dwkGroup.rotation.x = -Math.PI / 2;
 
-  // ── Walk-Geometry-Meshes (pro Zustand) ───────────────────────────────────
+  // ── Walk Geometry Meshes (per state) ───────────────────────────────────
   for (const node of dwk.meshNodes) {
     if (node.verts.length === 0 || node.faces.length === 0) continue;
 
@@ -193,7 +193,7 @@ function buildDWKMesh(dwk) {
     geo.setAttribute('position', new THREE.Float32BufferAttribute(posArr, 3));
     geo.computeVertexNormals();
 
-    // Gefüllte Fläche — Cyan/halbtransparent
+    // Filled surface — Cyan/semi-transparent
     const fillMat = new THREE.MeshBasicMaterial({
       color:       DWK_COLORS.wg,
       transparent: true,
@@ -206,7 +206,7 @@ function buildDWKMesh(dwk) {
     fillMesh.userData.dwkState = node.state;
     dwkGroup.add(fillMesh);
 
-    // Kanten
+    // Edges
     const edges   = new THREE.EdgesGeometry(geo);
     const lineMat = new THREE.LineBasicMaterial({
       color:       DWK_COLORS.wg,
@@ -219,18 +219,18 @@ function buildDWKMesh(dwk) {
     dwkGroup.add(lineSegs);
   }
 
-  // ── Door-Position-Marker — kleine Rauten wie PWK IoP ────────────────────
+  // ── Door Position Marker — small diamonds like PWK IoP ────────────────────
   for (const dp of dwk.dpNodes) {
     const [px, py, pz] = dp.position;
 
     const r = 0.08, h = 0.12;
     const dpVerts = [
-      // Obere 4 Dreiecke
+      // Top 4 triangles
       px, py+h, pz,   px+r, py, pz,   px,   py, pz+r,
       px, py+h, pz,   px,   py, pz+r, px-r, py, pz,
       px, py+h, pz,   px-r, py, pz,   px,   py, pz-r,
       px, py+h, pz,   px,   py, pz-r, px+r, py, pz,
-      // Untere 4 Dreiecke
+      // Bottom 4 triangles
       px, py-h, pz,   px,   py, pz+r, px+r, py, pz,
       px, py-h, pz,   px-r, py, pz,   px,   py, pz+r,
       px, py-h, pz,   px,   py, pz-r, px-r, py, pz,
@@ -253,7 +253,7 @@ function buildDWKMesh(dwk) {
     dpMesh.userData.dpName   = dp.name;
     dwkGroup.add(dpMesh);
 
-    // Kreuz-Linie als zusätzlicher Marker
+    // Cross line as additional marker
     const crossPts = [
       px - r*1.5, py, pz,   px + r*1.5, py, pz,
       px, py, pz - r*1.5,   px, py, pz + r*1.5,
@@ -268,7 +268,7 @@ function buildDWKMesh(dwk) {
     dwkGroup.add(crossLines);
   }
 
-  // Initialen Zustand anwenden
+  // Apply initial state
   _applyDwkState();
 
   if (dwkPinned) {
@@ -288,23 +288,23 @@ function buildDWKMesh(dwk) {
   }));
 }
 
-// Zeigt nur Kinder des aktuell gewählten Zustands
+// Shows only children of the currently selected state
 function _applyDwkState() {
   if (!dwkGroup) return;
   dwkGroup.traverse(child => {
-    if (!child.userData.dwkState) return;  // Root-Group oder unmarkierte Objekte
+    if (!child.userData.dwkState) return;  // Root group or unmarked objects
     child.visible = (child.userData.dwkState === dwkState);
   });
 }
 
-// Zustand wechseln (closed / open1 / open2)
+// Switch state (closed / open1 / open2)
 function setDWKState(state) {
   dwkState = state;
   _applyDwkState();
   _updateDwkStateButtons();
 }
 
-// State-Buttons im UI hervorheben
+// Highlight state buttons in the UI
 function _updateDwkStateButtons() {
   for (const s of ['closed', 'open1', 'open2']) {
     const btn = document.getElementById('dwk-state-' + s);
