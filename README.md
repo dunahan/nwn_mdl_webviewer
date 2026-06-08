@@ -74,8 +74,8 @@ No installation, no server — just open `index.html` locally or use it directly
 | Control | Description |
 |---------|-------------|
 | Orbit | Left mouse drag |
-| Zoom | Scroll wheel or right mouse drag |
-| Pan | Middle mouse drag |
+| Zoom | Scroll wheel |
+| Pan | Right mouse drag |
 | Touch | Pinch-zoom & one/two-finger drag |
 | Reset Camera | Button in toolbar |
 
