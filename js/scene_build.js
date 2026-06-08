@@ -426,14 +426,16 @@ function buildScene(model) {
       // Only apply if the texture actually has an alpha channel (DXT5/32-bit TGA/PNG).
       // DXT1 textures have no alpha channel — transparencyhint would be a modeling error.
       const texHasAlpha  = tex ? (tex.userData.hasAlpha === true) : false;
-      // FIX: If an MTR overrides the texture, trust the texture's actual alpha channel
-      // directly — the MDL node's transparencyhint was written for the original texture
-      // and may be 0 even when the MTR-supplied texture has alpha.
-      const useTexAlpha  = texHasAlpha && (node.transparencyhint === 1 || mtr !== null);
+      // FIX: Trust the texture's actual alpha channel unconditionally when it has one.
+      // transparencyhint=0 can be wrong in two common NWN scenarios:
+      //   1. MTR overrides the diffuse with a texture that has alpha (hint was for original).
+      //   2. The texture has a real 32-bit alpha channel but the modeller forgot the hint
+      //      (e.g. uvwgrid: bpp=32, 24% soft alpha pixels, transparencyhint=0).
+      // In both cases suppressing alpha causes transparent pixels to render as black.
+      // Safe: opaque NWN textures are authored as 24-bit (DXT1/24-bit TGA) -> texHasAlpha stays false.
+      const useTexAlpha  = texHasAlpha;
       // FIX: transparencyhint=1 without a real alpha channel (24-bit TGA/DXT1):
-      // NWN treats black as transparent in this case — use alphaTest on the RGB luminance.
-      // This happens when modellers set transparencyhint=1 on textures that use black as
-      // the "transparent" color (e.g. UV-grid overlays, decal meshes without alpha channel).
+      // NWN treats black as transparent -- punch through via alphaTest on RGB luminance.
       const useColorAlphaTest = !texHasAlpha && node.transparencyhint === 1 && tex !== null;
       const useMeshAlpha = node.alpha < 0.99;
       const useMtrTrans  = mtr ? mtr.transparency : false;
@@ -524,10 +526,12 @@ function buildScene(model) {
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       
-      // Store original values — used by updateMeshOpacity to reset
+      // Store original values -- used by updateMeshOpacity to reset.
+      // FIX: mirror the material constructor exactly so the reset path always restores
+      // the correct state. All three useAlphaTest/useColorAlphaTest branches must appear here.
       mesh.userData.baseOpacity     = node.alpha;
       mesh.userData.baseTransparent = (useAlphaTest || useColorAlphaTest) ? false : (useMeshAlpha || useTexAlpha || useMtrTrans);
-      mesh.userData.baseDepthWrite  = (useAlphaTest || useColorAlphaTest) ? true : !useTexAlpha;
+      mesh.userData.baseDepthWrite  = (useAlphaTest || useColorAlphaTest) ? true  : !useTexAlpha;
       mesh.userData.baseAlphaTest   = useAlphaTest ? 0.5 : (useColorAlphaTest ? 0.1 : (useTexAlpha ? 0.1 : 0));
       obj = mesh;
 

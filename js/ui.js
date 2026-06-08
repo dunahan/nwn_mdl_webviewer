@@ -362,10 +362,11 @@ function updateMeshOpacity(val) {
       mat.opacity     = meshOpacity;
       mat.depthWrite  = false;
     } else {
-      // FIX: Reset to original state — include baseAlphaTest so cutout meshes
-      // (useAlphaTest / useColorAlphaTest paths) correctly restore their alphaTest
-      // value instead of being left fully opaque with alphaTest=0.
-      mat.transparent = child.userData.baseTransparent || false;
+      // Reset to original state
+      // FIX: restore alphaTest alongside transparent/depthWrite — without it,
+      // meshes that use alphaTest (e.g. foliage, decals) appear black at 100%
+      // because transparent=false + alphaTest=0 discards alpha-punched pixels.
+      mat.transparent = child.userData.baseTransparent ?? false;
       mat.opacity     = child.userData.baseOpacity     ?? 1.0;
       mat.depthWrite  = child.userData.baseDepthWrite  ?? true;
       mat.alphaTest   = child.userData.baseAlphaTest   ?? 0;

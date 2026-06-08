@@ -191,8 +191,8 @@ function applyTexturesToScene() {
         mat.map = diffuseTex;
         mat.color.set(0xffffff);
         applied++;
-        if (diffuseTex.userData.hasAlpha === true && (node.transparencyhint === 1 || mtr.transparency)) {
-          // FIX: same hasMirroredNormals + isTextureBimodal guard as in the non-MTR path (see below).
+        // FIX: trust actual alpha channel, same as scene_build.js / non-MTR path.
+        if (diffuseTex.userData.hasAlpha === true) {
           if (hasMirroredNormals(node) && isTextureBimodal(diffuseTex)) {
             mat.transparent = false;
             mat.alphaTest   = 0.5;
@@ -270,9 +270,9 @@ function applyTexturesToScene() {
       // Without this, updateMeshOpacity() would reset to stale scene_build.js values
       // instead of the final state after MTR transparency / alpha overrides.
       if (obj.userData) {
-        obj.userData.baseTransparent = mat.transparent;
-        obj.userData.baseDepthWrite  = mat.depthWrite;
-        obj.userData.baseAlphaTest   = mat.alphaTest;
+         obj.userData.baseTransparent = mat.transparent;
+         obj.userData.baseDepthWrite  = mat.depthWrite;
+         obj.userData.baseAlphaTest   = mat.alphaTest;
       }
 
     } else {
@@ -289,12 +289,10 @@ function applyTexturesToScene() {
       mat.color.set(0xffffff);
       applied++;
 
-      if (tex.userData.hasAlpha === true && node.transparencyhint === 1) {
-        // FIX: NWN "handbuilt DoubleSide" meshes (fences, foliage) with BIMODAL alpha
-        // (mostly 0 or 255, < 5 % soft pixels) → use alphaTest (hard cutout).
-        // Meshes with GRADIENT alpha (cobwebs, smoke) need transparent=true for soft blending,
-        // even if they also use the mirrored-normal trick.
-        // hasMirroredNormals() and isTextureBimodal() are defined in scene_build.js.
+      if (tex.userData.hasAlpha === true) {
+        // FIX: Apply alpha mode whenever the texture actually has an alpha channel,
+        // regardless of transparencyhint. Mirrors scene_build.js: useTexAlpha = texHasAlpha.
+        // transparencyhint=0 is sometimes wrong (modeller oversight / MTR texture swap).
         if (hasMirroredNormals(node) && isTextureBimodal(tex)) {
           // Handbuilt-DoubleSide + bimodal alpha: hard cutout, stays in opaque queue.
           mat.transparent = false;
@@ -306,9 +304,7 @@ function applyTexturesToScene() {
           mat.alphaTest   = 0.1;
           mat.depthWrite  = true;
         }
-        // FIX: buildScene may have set FrontSide (when tex was absent at build time).
         // Any alpha-texture mesh needs DoubleSide so back-facing geometry isn't culled.
-        // This mirrors the needsDoubleSide logic in buildScene (which includes useTexAlpha).
         mat.side = THREE.DoubleSide;
 
         // Remove the BackSide indicator child mesh that buildScene added when it assumed
@@ -425,9 +421,10 @@ function applyTexturesToScene() {
       // Must always run (not just inside the alpha block) to capture any transparency
       // mode set by TXI blending, selfIllumColor, or the new useColorAlphaTest path.
       if (obj.userData) {
-        obj.userData.baseTransparent = mat.transparent;
-        obj.userData.baseDepthWrite  = mat.depthWrite;
-        obj.userData.baseAlphaTest   = mat.alphaTest;
+         obj.userData.baseTransparent = mat.transparent;
+         obj.userData.baseDepthWrite  = mat.depthWrite;
+         // FIX: sync alphaTest too
+         obj.userData.baseAlphaTest   = mat.alphaTest;
       }
     }
   }
