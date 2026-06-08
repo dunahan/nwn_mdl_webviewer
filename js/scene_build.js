@@ -303,7 +303,8 @@ function buildScene(model) {
       
       // Priority: SG-Normals > MDL-Normals > computeVertexNormals (Fallback)
       // NWN MDL files almost always have hasNormals=true, so computeSGNormals
-      // must not hang in the else branch, otherwise it will never be called.      const hasSmoothGroups = node.faces.some(f => typeof f.sg === 'number');
+      // must not hang in the else branch, otherwise it will never be called.
+      const hasSmoothGroups = node.faces.some(f => typeof f.sg === 'number');
       if (hasSmoothGroups) {
         geo.setAttribute('normal', new THREE.BufferAttribute(computeSGNormals(node), 3));
       } else if (hasNormals) {
