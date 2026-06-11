@@ -7,6 +7,35 @@ No installation, no server — just open `index.html` locally or use it directly
 
 ---
 
+## 📋 Table of Contents
+
+- [✨ Features](#-features)
+  - [MDL Parsing & Rendering](#mdl-parsing--rendering)
+  - [Multi-Part Model Assembly](#multi-part-model-assembly)
+  - [Animations](#animations)
+  - [Particle Emitters](#particle-emitters)
+  - [Textures & Materials](#textures--materials)
+  - [Walkmesh Visualisation](#walkmesh-visualisation)
+  - [Texture Hot-Reload](#texture-hot-reload)
+  - [Set Browser](#set-browser)
+  - [Scene Graph & Inspection](#scene-graph--inspection)
+  - [Camera & Display Controls](#camera--display-controls)
+  - [UI & Theming](#ui--theming)
+  - [MTR Texture Status Indicators](#mtr-texture-status-indicators)
+- [🚀 Quick Start](#-quick-start)
+- [📁 File Formats Supported](#-file-formats-supported)
+- [🔧 Binary MDL Decompilation](#-binary-mdl-decompilation)
+- [📂 Project Structure](#-project-structure)
+- [🎮 Usage](#-usage)
+- [⚠️ Known Limitations](#️-known-limitations)
+- [🗺️ Roadmap](#️-roadmap)
+- [❓ FAQ](#-faq)
+- [🛠️ Tech Stack](#️-tech-stack)
+- [📜 License](#-license)
+- [🙏 Credits](#-credits)
+
+---
+
 ## ✨ Features
 
 ### MDL Parsing & Rendering
