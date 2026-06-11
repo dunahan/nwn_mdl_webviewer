@@ -251,6 +251,7 @@ nwn-mdl-webviewer/
 └── .github/
     └── workflows/
         ├── pages.yml       # GitHub Pages auto-deploy
+        ├── release.yml     # Manual release action
         └── update-wasm.yml # Auto-update WASM from CleanModelsEE releases
 ```
 
@@ -298,6 +299,72 @@ nwn-mdl-webviewer/
 - [x] TXI support (decal, clamp, blending, cycle sprite animation)
 - [ ] Export to glTF / OBJ
 - [ ] Automatic supermodel chain loading
+
+---
+
+## ❓ FAQ
+
+### Hot-Reload: Texture files stay locked after closing the viewer (Windows / Chrome)
+
+**Symptom:** After closing the viewer tab (or reloading the page), texture files in the watched folder can no longer be edited or overwritten on Windows — they appear locked by another process.
+
+**Cause:** Chrome/Chromium holds OS-level file handles open when a `FileSystemFileHandle` is accessed. In earlier versions of the viewer, `File` objects created during polling were not always released promptly, leaving handles open until garbage collection caught up — which on Windows can take longer than expected.
+
+**Fix (v1.4.1+):** The polling loop in `hot_reload.js` now immediately nulls `File` references after reading (`file = null`), so the GC can release OS handles much sooner. See [Issue #149](https://github.com/dunahan/nwn_mdl_webviewer/issues/149) for the full background.
+
+**If the problem still occurs:** Close the browser tab completely and reopen it — a simple `F5` reload is not always sufficient to free all handles on Windows.
+
+> **Note:** Hot-Reload and Set Browser require **Chrome or Edge** (File System Access API). Firefox is not supported.
+
+---
+
+### Textures are not showing — what can I do?
+
+1. **Drop textures together with the model** — drag `.tga`, `.dds`, `.plt`, or `.png` files onto the viewer at the same time as the `.mdl`.
+2. **Use Watch Folder** — click *Watch Folder* in the sidebar and select the folder containing your textures. Any texture referenced by the loaded model is filled in automatically.
+3. **Check the log panel** — click the ▲ icon at the bottom right. Missing textures are listed by exact filename so you can see what the model expects.
+4. **Filename case sensitivity** — on Linux/GitHub Pages filenames are case-sensitive. `Skin01.tga` and `skin01.tga` are different files. The viewer lowercases all lookups internally; make sure your files are lowercase.
+
+---
+
+### The Animations panel does not appear
+
+The model references its animations via a **supermodel** (e.g. `a_fa.mdl` for female characters, `a_ma.mdl` for male). Load the supermodel file alongside the main model — the log panel will tell you the exact filename it expects. Once the supermodel is loaded, the Animation panel appears and all keyframe animations become available.
+
+---
+
+### Binary MDL: the "Decompiling…" spinner runs forever
+
+The WebAssembly decompiler (cleanmodels) is downloaded once on first use (~2–4 MB). The progress bar shows the stage:
+
+| Stage shown | What is happening |
+|---|---|
+| Downloading WASM… | Fetching the `.wasm` binary from the server |
+| Decoding… | Decoding the Base64 bundle (local `file://` mode only) |
+| Compiling / Instantiating… | Browser compiling and initialising the module |
+| Decompiling… | Active decompilation of your MDL |
+
+If it stalls at *Downloading WASM…*, your connection may be slow or the request may have been interrupted. Click **Cancel** and try again. In `file://` mode (standalone HTML) the WASM is embedded as Base64 and does not require a network connection.
+
+---
+
+### Character parts are floating or stacked in the wrong positions
+
+Multi-part character models (chest, head, legs, …) require all body parts **and** the base skeleton (e.g. `pmh0.mdl`, `pmf0.mdl`) to be dropped at the same time. Without the skeleton, the viewer falls back to bounding-box stacking which is a rough approximation. For exact placement, include the skeleton file in your drop. The log panel confirms which assembly mode was used.
+
+---
+
+### Set Browser / Hot-Reload button is greyed out
+
+These features rely on the [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API), which is currently only available in **Chrome and Edge**. Firefox does not support this API. The rest of the viewer (MDL rendering, textures, animations, PLT) works in all modern browsers.
+
+---
+
+### Custom theme is not restored after a page reload
+
+Custom themes loaded via *📂 Custom…* are applied immediately but are only stored as a flag in `localStorage` — the actual JSON file is not cached by the browser. On reload, the viewer falls back to the Default theme. To reapply your theme, use the *📂 Custom…* option again and re-select your JSON file.
+
+> **Tip:** The two built-in themes (*Default* and *High Contrast*) are fully persistent across reloads with no re-selection needed.
 
 ---
 
