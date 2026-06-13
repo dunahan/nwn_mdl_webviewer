@@ -245,6 +245,28 @@ function buildScene(model) {
   // modelGroup/wireGroup/bboxHelper have already been cleared by clearSession().
   // (clearSession is called before every MDL load)
 
+  // ── Classification-based PBR limits ────────────────────────────────────
+  // NWN Phong specular values are additive colour, not physical reflectivity.
+  // Mapping them 1:1 to PBR metalness/roughness produces over-shiny surfaces,
+  // especially on Tileset, Door, Placeable and Effect models which almost never
+  // carry real metallic materials (those use dedicated MTR slots instead).
+  // Characters may have armour parts with slightly higher metalness.
+  //
+  // These limits apply only to the Phong→PBR fallback path (no MTR, no roughnessMap).
+  // When an MTR Roughness/Specularity parameter or a roughnessMap is present,
+  // the authored values are used directly and these limits are NOT applied.
+  const _cls = (model.classification || '').toLowerCase();
+  const _isTileOrEnv = _cls === 'tile' || _cls === 'door' ||
+                       _cls === 'placeable' || _cls === 'effect';
+  // FIX: Max metalness for non-authored (Phong-derived) path.
+  //   Tile/Door/Placeable/Effect → 0.12  (wood, stone, plaster: near-zero metalness)
+  //   Character / other          → 0.30  (may have armour, still capped below 0.35)
+  const _maxMetalness    = _isTileOrEnv ? 0.12 : 0.30;
+  // FIX: Roughness floor for non-authored path.
+  //   Tile/Door/Placeable/Effect → 0.60  (weathered surfaces should be matte)
+  //   Character / other          → 0.40  (skin, leather can be smoother)
+  const _roughnessFloor  = _isTileOrEnv ? 0.60 : 0.40;
+
   modelGroup = new THREE.Group();
 
   // NWN uses a Z-up coordinate system, Three.js expects Y-up.
@@ -463,16 +485,27 @@ function buildScene(model) {
       // Roughness + Metalness:
       // If roughnessMap is present → scalar = multiplier (1.0 = map has full effect).
       // If no roughnessMap → convert from MDL Phong values.
-      // MTR Roughness parameter overwrites both if explicitly set.
+      // MTR Roughness/Specularity parameters overwrite the fallback if explicitly set.
+      //
+      // FIX: The original Phong→PBR conversion over-estimated both metalness and
+      // specularity for typical NWN geometry:
+      //   • specMax * 1.5, capped at 0.6 → produced metalness 0.4–0.6 for normal meshes.
+      //     In PBR, non-metallic surfaces (wood, stone, plaster) must stay below 0.04.
+      //     We now use * 0.5 and cap at _maxMetalness (class-dependent: 0.12 or 0.30).
+      //   • shininess / 64.0 → roughness curve was too steep; shininess=32 gave 0.50
+      //     (visually glassy). Dividing by 128 and raising the floor via _roughnessFloor
+      //     maps typical NWN values (16–64) to roughness 0.65–0.88 instead of 0.25–0.75.
+      //   • MTR Specularity scalar was multiplied by 0.4 before; now 0.2 to match the
+      //     reduced non-authored path.
       const roughness = roughTex
         ? (mtrRoughParam !== null ? mtrRoughParam : 1.0)
         : (mtrRoughParam !== null
             ? mtrRoughParam
-            : Math.max(0.1, 1.0 - Math.min(node.shininess / 64.0, 0.9)));
+            : Math.max(_roughnessFloor, 1.0 - Math.min(node.shininess / 128.0, 0.40)));
       const specMax   = Math.max(node.specular[0], node.specular[1], node.specular[2]);
       const metalness = mtrSpecParam !== null
-        ? Math.min(mtrSpecParam * 0.4, 0.6)
-        : Math.min(specMax * 1.5, 0.6);
+        ? Math.min(mtrSpecParam * 0.2, _maxMetalness)
+        : Math.min(specMax * 0.5, _maxMetalness);
         
       // NWN uses back-face culling; DoubleSide only for alpha-blended materials
       // (magic effects, glass) that may legitimately show both faces.
