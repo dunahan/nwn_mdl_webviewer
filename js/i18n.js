@@ -218,6 +218,8 @@ const I18N_BUNDLE = {
     sb_load_error:        'Error loading tile model: {model} — {msg}',
     sb_group_loaded:      'Group loaded: {n} tiles',
     sb_group_empty:       'No tiles available in watch folder for this group',
+    sb_watch_hint:        'Activate "Watch Folder" in the sidebar to load tile models.',
+    sb_watch_unsupported: 'Watch Folder requires Chrome or Edge.',
   },
   de: {
     _meta: { language: 'Deutsch', code: 'de' },
@@ -426,6 +428,8 @@ const I18N_BUNDLE = {
     sb_load_error:        'Fehler beim Laden des Tile-Modells: {model} — {msg}',
     sb_group_loaded:      'Gruppe geladen: {n} Tiles',
     sb_group_empty:       'Keine Tiles der Gruppe im beobachteten Ordner verfügbar',
+    sb_watch_hint:        '„Ordner beobachten" in der Sidebar aktivieren, um Tile-Modelle zu laden.',
+    sb_watch_unsupported: 'Watch Folder erfordert Chrome oder Edge.',
   }
 };
 

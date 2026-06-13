@@ -342,6 +342,24 @@ const SetBrowser = (() => {
   function _refreshAvailability() {
     if (!_setData) return;
 
+    // ── Watch Folder hint banner ─────────────────────────────────────
+    const hintEl = document.getElementById('sb-watch-hint');
+    if (hintEl) {
+      const backend     = typeof HotReload !== 'undefined' ? HotReload.getBackend() : null;
+      const watching    = typeof HotReload !== 'undefined' && HotReload.isWatching();
+      if (!backend) {
+        // Browser does not support File System Access API (Firefox etc.)
+        hintEl.textContent = L('sb_watch_unsupported');
+        hintEl.style.display = 'block';
+      } else if (!watching) {
+        // Supported but not yet active → prompt user to click Watch Folder
+        hintEl.textContent = L('sb_watch_hint');
+        hintEl.style.display = 'block';
+      } else {
+        hintEl.style.display = 'none';
+      }
+    }
+
     const canQuery = typeof HotReload !== 'undefined' &&
                      typeof HotReload.getMDLHandle === 'function';
 
@@ -604,6 +622,12 @@ const SetBrowser = (() => {
     toolbar.appendChild(groupSel);
 
     panel.appendChild(toolbar);
+
+    // ── Watch Folder hint (shown when no watcher is active) ──────
+    const watchHint = document.createElement('div');
+    watchHint.id = 'sb-watch-hint';
+    watchHint.style.display = 'none';   // _refreshAvailability() controls visibility
+    panel.appendChild(watchHint);
 
     // ── Tile container (scrollbar) ───────────────────────────
     const body = document.createElement('div');

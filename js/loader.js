@@ -9,6 +9,7 @@ function loadFiles(fileList) {
 
   const files    = Array.from(fileList);
   const mdlFiles = files.filter(f => f.name.toLowerCase().endsWith('.mdl') || f.name.toLowerCase().endsWith('.txt'));
+  const setFiles = files.filter(f => f.name.toLowerCase().endsWith('.set'));
   const texFiles = files.filter(f => /\.(tga|png|jpg|jpeg|dds|plt)$/i.test(f.name));
   const txiFiles = files.filter(f => /\.txi$/i.test(f.name));
   const mtrFiles = files.filter(f => /\.mtr$/i.test(f.name));
@@ -18,7 +19,7 @@ function loadFiles(fileList) {
 
   if (mdlFiles.length === 0 && texFiles.length === 0 && txiFiles.length === 0 
       && mtrFiles.length === 0 && wokFiles.length === 0 && pwkFiles.length === 0
-      && dwkFiles.length === 0) {
+      && dwkFiles.length === 0 && setFiles.length === 0) {
     setStatus(L('status_no_files'));
     return;
   }
@@ -152,6 +153,14 @@ function loadFiles(fileList) {
       }
     };
     reader.readAsText(file);
+  }
+
+  // ── .set Files → Set Browser ─────────────────────────────────────────
+  for (const file of setFiles) {
+    if (typeof SetBrowser !== 'undefined') {
+      SetBrowser.open();
+      SetBrowser.loadSetFile(file);
+    }
   }
 
   if (texPending === 0 && mtrPending === 0) {
