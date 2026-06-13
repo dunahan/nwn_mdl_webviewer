@@ -629,6 +629,9 @@ const HotReload = (() => {
     getMDLHandle:   name => _watchedMDL.get(name.toLowerCase())?.handle ?? null,
     onWatchChange:  cb   => _watchChangeCallbacks.push(cb),
     onMDLChanged:   cb   => _mdlChangedCallbacks.push(cb),
+    // Returns true when the watcher is running and has found at least one file.
+    // Used by SetBrowser to show/hide the "Watch Folder required" hint banner.
+    isWatching:     ()   => _active && _watched.size > 0,
   };
 
 })();

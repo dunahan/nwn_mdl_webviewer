@@ -234,5 +234,7 @@
   "sb_read_error": "Error reading .set file: {name} — {msg}",
   "sb_load_error": "Error loading tile model: {model} — {msg}",
   "sb_group_loaded": "Group loaded: {n} tiles",
-  "sb_group_empty": "No tiles available in watch folder for this group"
+  "sb_group_empty": "No tiles available in watch folder for this group",
+  "sb_watch_hint": "Activate 'Watch Folder' in the sidebar to load tile models.",
+  "sb_watch_unsupported": "Watch Folder requires Chrome or Edge."
 }

@@ -23,15 +23,20 @@ camera.position.set(2, 2, 4);
 camera.lookAt(0, 0, 0);
 
 // Lights, updates for r152
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+// FIX: Reduced directional intensities to avoid over-bright specular peaks on
+// Phong-converted PBR materials. Ambient raised to compensate shadow-side darkness.
+// dirLight  1.4 → 0.9  (main sun: was too strong for corrected low-metalness mats)
+// dirLight2 0.6 → 0.4  (fill:    proportional reduction)
+// ambient   0.5 → 0.7  (raised so dark sides stay readable)
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
 scene.add(ambientLight);
 
-const dirLight = new THREE.DirectionalLight(0xfff0d0, 1.4);
+const dirLight = new THREE.DirectionalLight(0xfff0d0, 0.9);
 dirLight.position.set(5, 10, 8);
 dirLight.castShadow = true;
 scene.add(dirLight);
 
-const dirLight2 = new THREE.DirectionalLight(0xd0e0ff, 0.6);
+const dirLight2 = new THREE.DirectionalLight(0xd0e0ff, 0.4);
 dirLight2.position.set(-6, 3, -5);
 scene.add(dirLight2);
 
@@ -213,5 +218,45 @@ canvas.addEventListener('touchmove', e => {
   }
   e.preventDefault();
 }, { passive: false });
+
+// ─────────────────────────────────────────────
+//  Mesh Pick (Left Click → select node)
+// ─────────────────────────────────────────────
+const _pickRaycaster = new THREE.Raycaster();
+
+canvas.addEventListener('click', e => {
+  // Only when Ctrl or Cmd is pressed and a selection is made with the left mouse button.
+  if (!e.ctrlKey || e.metaKey) return;
+  if (!modelGroup) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const ndc = new THREE.Vector2(
+    ((e.clientX - rect.left) / rect.width)  *  2 - 1,
+    ((e.clientY - rect.top)  / rect.height) * -2 + 1
+  );
+
+  _pickRaycaster.setFromCamera(ndc, camera);
+  const hits = _pickRaycaster.intersectObject(modelGroup, true);
+
+  for (const hit of hits) {
+    let obj = hit.object;
+
+    // Skip wireframe and backface children
+    if (obj.userData.isWireframe || obj.userData.isBackface || obj.userData.isAABB) continue;
+
+    // Skip emitter-preview-quads
+    if (obj.userData.isEmitterPreview) continue;
+
+    // Ascend to the named node (children of groups, etc.)
+    while (obj && !obj.name) obj = obj.parent;
+    if (!obj || !obj.name) continue;
+
+    // Select only nodes known to the scene graph
+    if (!nodeObjects[obj.name]) continue;
+
+    selectNode(obj.name);
+    return;
+  }
+});
 
 // ─────────────────────────────────────────────

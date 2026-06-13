@@ -1228,6 +1228,20 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
 #set-browser-panel.sb-collapsed .sb-body,
 #set-browser-panel.sb-collapsed .sb-statusbar { display: none; }
 
+/* ── Set Browser: Watch Folder hint banner ── */
+#sb-watch-hint {
+  margin: 6px 8px 2px;
+  padding: 6px 10px;
+  background: rgba(var(--gold-rgb), 0.05);
+  border: 1px solid rgba(var(--gold-rgb), 0.2);
+  border-radius: 3px;
+  color: var(--amber);
+  font-size: 10px;
+  letter-spacing: 0.3px;
+  line-height: 1.5;
+  flex-shrink: 0;
+}
+
 /* ── Model Name Hint (below XYZ, when sidebar is collapsed) ── */
 #model-name-hint {
   position: absolute;

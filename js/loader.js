@@ -9,6 +9,7 @@ function loadFiles(fileList) {
 
   const files    = Array.from(fileList);
   const mdlFiles = files.filter(f => f.name.toLowerCase().endsWith('.mdl') || f.name.toLowerCase().endsWith('.txt'));
+  const setFiles = files.filter(f => f.name.toLowerCase().endsWith('.set'));
   const texFiles = files.filter(f => /\.(tga|png|jpg|jpeg|dds|plt)$/i.test(f.name));
   const txiFiles = files.filter(f => /\.txi$/i.test(f.name));
   const mtrFiles = files.filter(f => /\.mtr$/i.test(f.name));
@@ -18,7 +19,7 @@ function loadFiles(fileList) {
 
   if (mdlFiles.length === 0 && texFiles.length === 0 && txiFiles.length === 0 
       && mtrFiles.length === 0 && wokFiles.length === 0 && pwkFiles.length === 0
-      && dwkFiles.length === 0) {
+      && dwkFiles.length === 0 && setFiles.length === 0) {
     setStatus(L('status_no_files'));
     return;
   }
@@ -152,6 +153,14 @@ function loadFiles(fileList) {
       }
     };
     reader.readAsText(file);
+  }
+
+  // ── .set Files → Set Browser ─────────────────────────────────────────
+  for (const file of setFiles) {
+    if (typeof SetBrowser !== 'undefined') {
+      SetBrowser.open();
+      SetBrowser.loadSetFile(file);
+    }
   }
 
   if (texPending === 0 && mtrPending === 0) {
@@ -404,6 +413,44 @@ async function loadGroupFromHandles(entries, cols, rows) {
   modelGroup = rootGroup;
 
   if (loadedCount > 0) {
+    // ── Rebuild combined node list for all loaded tiles ───────────────────
+    // buildScene() calls buildNodeList() after each tile, which overwrites
+    // the sidebar list with only that tile's nodes. After the loop we rebuild
+    // it once from the fully accumulated nodeObjects so that the scene-graph
+    // toolbar buttons (All/None/type toggles) operate on every tile's nodes.
+    const allNodes = [];
+    let groupVerts = 0, groupFaces = 0;
+    for (const obj of Object.values(nodeObjects)) {
+      const nd = obj.userData && obj.userData.nodeData;
+      if (nd) {
+        allNodes.push(nd);
+        groupVerts += nd.verts ? nd.verts.length : 0;
+        groupFaces += nd.faces ? nd.faces.length : 0;
+      }
+    }
+
+    // Synthetic group model — only the fields consumed by buildNodeList()
+    // and showModelInfo() are required.
+    const groupModel = {
+      name:           fmt('sb_tile_count', { n: loadedCount }),
+      supermodel:     null,
+      classification: 'Tileset',
+      animCount:      0,
+      nodes:          allNodes,
+    };
+
+    // Replace currentModel so that getNeededTextures() / HotReload cover
+    // all tiles, not just the last one.
+    currentModel = groupModel;
+
+    buildNodeList(groupModel);
+    showModelInfo(groupModel, groupVerts, groupFaces);
+
+    // Update HUD stats to reflect the full group
+    document.getElementById('stat-verts').textContent = groupVerts.toLocaleString('de');
+    document.getElementById('stat-faces').textContent = groupFaces.toLocaleString('de');
+    document.getElementById('stat-nodes').textContent = allNodes.length;
+
     logInfoI18n('sb_group_loaded', { n: loadedCount });
     setStatus(fmt('sb_group_loaded', { n: loadedCount }));
   } else {

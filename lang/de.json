@@ -234,5 +234,7 @@
   "sb_read_error": "Fehler beim Lesen der .set-Datei: {name} — {msg}",
   "sb_load_error": "Fehler beim Laden des Tile-Modells: {model} — {msg}",
   "sb_group_loaded": "Gruppe geladen: {n} Tiles",
-  "sb_group_empty": "Keine Tiles der Gruppe im beobachteten Ordner verfügbar"
+  "sb_group_empty": "Keine Tiles der Gruppe im beobachteten Ordner verfügbar",
+  "sb_watch_hint": "'Ordner beobachten' in der Sidebar aktivieren, um Tile-Modelle zu laden.",
+  "sb_watch_unsupported": "Watch Folder erfordert Chrome oder Edge."
 }
