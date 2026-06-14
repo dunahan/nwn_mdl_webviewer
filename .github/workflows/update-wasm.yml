@@ -71,10 +71,15 @@ jobs:
       - name: Fetch upstream release info
         id: upstream
         run: |
+          # /releases (nicht /releases/latest) damit auch Pre-Releases (RC) gefunden werden.
+          # Der Auth-Header gibt dem Runner ein eigenes Rate-Limit von 5000 Req/h statt
+          # des geteilten unauthentifizierten Limits — verhindert sporadische 403-Fehler.
           RELEASE_JSON=$(curl -sSf \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/${{ env.UPSTREAM }}/releases/latest")
+            "https://api.github.com/repos/${{ env.UPSTREAM }}/releases" \
+            | jq 'first')
 
           TAG=$(echo "$RELEASE_JSON" | jq -r '.tag_name')
 

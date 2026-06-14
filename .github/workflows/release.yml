@@ -99,6 +99,26 @@ jobs:
           fi
           echo "version=$VER" >> $GITHUB_OUTPUT
 
+      # Determine the previous release tag for the diff/compare link.
+      # fetch-depth: 1 above only fetches the tip — we need all tags for this.
+      # We sort by version (--sort=-version:refname) and skip the current tag
+      # to get the one directly before it.
+      - name: Determine previous tag
+        id: prev_tag
+        run: |
+          git fetch --tags --quiet
+          CURRENT="${{ steps.tag.outputs.name }}"
+          PREV=$(git tag --sort=-version:refname \
+            | grep -v "^${CURRENT}$" \
+            | head -1)
+          if [ -n "$PREV" ]; then
+            echo "tag=$PREV" >> $GITHUB_OUTPUT
+            echo "Previous tag: $PREV"
+          else
+            echo "tag=" >> $GITHUB_OUTPUT
+            echo "No previous tag found — this appears to be the first release."
+          fi
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -131,6 +151,9 @@ jobs:
             | Component | Version |
             |---|---|
             | cleanmodels WASM | `${{ steps.wasm_ver.outputs.version }}` |
+
+            ### Changes
+            ${{ steps.prev_tag.outputs.tag != '' && format('**[Full diff: {0}...{1}](https://github.com/{2}/compare/{0}...{1})**', steps.prev_tag.outputs.tag, steps.tag.outputs.name, github.repository) || '_No previous release found — this is the first release._' }}
           draft: false
           prerelease: ${{ contains(steps.tag.outputs.name, '-') }}
           files: |
