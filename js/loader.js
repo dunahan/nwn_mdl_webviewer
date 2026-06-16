@@ -362,6 +362,15 @@ async function loadGroupFromHandles(entries, cols, rows) {
 
   let loadedCount = 0;
 
+  // FIX: Accumulate nodes and stats across all tiles so the scene graph and
+  // model-info panel reflect the entire group, not just the last loaded tile.
+  // buildScene() is still called per tile (geometry + nodeObjects build up
+  // correctly), but the UI update at the end of buildScene() is overwritten
+  // here after the loop with a single aggregate pass.
+  const allNodes   = [];   // nodes from every successfully loaded tile
+  let   totalVerts = 0;
+  let   totalFaces = 0;
+
   for (let i = 0; i < entries.length; i++) {
     const handle = entries[i];
     if (!handle) continue;   // skip empty slot
@@ -402,6 +411,13 @@ async function loadGroupFromHandles(entries, cols, rows) {
     rootGroup.add(modelGroup);
     loadedCount++;
 
+    // FIX: Accumulate this tile's nodes and geometry counts.
+    for (const node of parsed.nodes) allNodes.push(node);
+    for (const node of parsed.nodes) {
+      totalVerts += node.verts ? node.verts.length : 0;
+      totalFaces += node.faces ? node.faces.length : 0;
+    }
+
     // Short pause: browser renders the finished tile before loading the next
     await new Promise(r => setTimeout(r, TILE_PAUSE));
 
@@ -413,43 +429,46 @@ async function loadGroupFromHandles(entries, cols, rows) {
   modelGroup = rootGroup;
 
   if (loadedCount > 0) {
-    // ── Rebuild combined node list for all loaded tiles ───────────────────
-    // buildScene() calls buildNodeList() after each tile, which overwrites
-    // the sidebar list with only that tile's nodes. After the loop we rebuild
-    // it once from the fully accumulated nodeObjects so that the scene-graph
-    // toolbar buttons (All/None/type toggles) operate on every tile's nodes.
-    const allNodes = [];
-    let groupVerts = 0, groupFaces = 0;
-    for (const obj of Object.values(nodeObjects)) {
-      const nd = obj.userData && obj.userData.nodeData;
-      if (nd) {
-        allNodes.push(nd);
-        groupVerts += nd.verts ? nd.verts.length : 0;
-        groupFaces += nd.faces ? nd.faces.length : 0;
-      }
-    }
-
-    // Synthetic group model — only the fields consumed by buildNodeList()
-    // and showModelInfo() are required.
-    const groupModel = {
+    // FIX: Build a lightweight aggregate model so buildNodeList() and
+    // showModelInfo() reflect all tiles, not just the last one.
+    // nodeObjects is already complete — buildScene() accumulated all
+    // Three.js objects into it across the loop iterations.
+    const aggregateModel = {
       name:           fmt('sb_tile_count', { n: loadedCount }),
       supermodel:     null,
       classification: 'Tileset',
       animCount:      0,
+      animations:     [],
+      restPose:       {},
       nodes:          allNodes,
     };
+    currentModel = aggregateModel;
 
-    // Replace currentModel so that getNeededTextures() / HotReload cover
-    // all tiles, not just the last one.
-    currentModel = groupModel;
-
-    buildNodeList(groupModel);
-    showModelInfo(groupModel, groupVerts, groupFaces);
-
-    // Update HUD stats to reflect the full group
-    document.getElementById('stat-verts').textContent = groupVerts.toLocaleString('de');
-    document.getElementById('stat-faces').textContent = groupFaces.toLocaleString('de');
+    // Update HUD stats with group totals
+    document.getElementById('stat-verts').textContent = totalVerts.toLocaleString('de');
+    document.getElementById('stat-faces').textContent = totalFaces.toLocaleString('de');
     document.getElementById('stat-nodes').textContent = allNodes.length;
+
+    // Fit camera to the entire rootGroup bounding box
+    const box = new THREE.Box3().setFromObject(rootGroup);
+    if (!box.isEmpty()) {
+      const center = box.getCenter(new THREE.Vector3());
+      const size   = box.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z);
+      orbit.target.copy(center);
+      orbit.radius = Math.max(maxDim * 1.4, 4.0);
+      orbit.theta  = 0.5; orbit.phi = 1.1;
+      updateCamera();
+      orbit.initTarget = center.clone();
+      orbit.initRadius = orbit.radius;
+      orbit.initTheta  = orbit.theta;
+      orbit.initPhi    = orbit.phi;
+      refreshBBox();
+    }
+
+    // Rebuild scene graph and model info for the full group
+    buildNodeList(aggregateModel);
+    showModelInfo(aggregateModel, totalVerts, totalFaces);
 
     logInfoI18n('sb_group_loaded', { n: loadedCount });
     setStatus(fmt('sb_group_loaded', { n: loadedCount }));
