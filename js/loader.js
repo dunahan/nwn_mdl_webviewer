@@ -487,30 +487,42 @@ function mergeAnimationsFromSupermodel(mainModel, superModel) {
     return;
   }
 
-  const mainNodeNames = new Set(mainModel.nodes.map(n => n.name));
-  const animScale = mainModel.animationScale || 1.0;
+  // FIX: NWN node names are inconsistently cased across different files
+  // (e.g., "Lbicep_g" vs. "lbicep_g") — the same issue already handled
+  // during the BONE_MAP lookup in character part assembly.
+  // Lowercase → original-casing map, ensuring animation keys match
+  // the mainModel node names (and thus nodeObjects) exactly.
+  const mainNodeNamesLC = new Map();
+  for (const n of mainModel.nodes) mainNodeNamesLC.set(n.name.toLowerCase(), n.name);
+
+  const superNameLC = superModel.name.toLowerCase();
+  const animScale    = mainModel.animationScale || 1.0;
 
   for (const anim of superModel.animations) {
     const remapped = { name: anim.name, length: anim.length, transtime: anim.transtime, nodes: {} };
     for (const [nodeName, data] of Object.entries(anim.nodes)) {
-      // Remap root node name: supermodel.name → mainmodel.name
-      const mapped = (nodeName === superModel.name) ? mainModel.name : nodeName;
-      if (mainNodeNames.has(mapped) || mapped === mainModel.name) {
-        // Scale posKeys if needed — do not mutate data object (shared with superModel)
-        if (animScale !== 1.0 && data.posKeys.length > 0) {
-          remapped.nodes[mapped] = {
-            ...data,
-            posKeys: data.posKeys.map(k => ({
-              t: k.t, x: k.x * animScale, y: k.y * animScale, z: k.z * animScale
-            }))
-          };
-        } else {
-          remapped.nodes[mapped] = data;
-        }
+      // Root node of the supermodel → root name of the mainModel (case-insensitive)
+      const mapped = (nodeName.toLowerCase() === superNameLC)
+        ? mainModel.name
+        : mainNodeNamesLC.get(nodeName.toLowerCase());
+
+      if (!mapped) continue;  // no matching node in mainModel, even when case-insensitive
+
+      // Scale posKeys if necessary — do not mutate the data object (it is shared with superModel)
+      if (animScale !== 1.0 && data.posKeys.length > 0) {
+        remapped.nodes[mapped] = {
+          ...data,
+          posKeys: data.posKeys.map(k => ({
+            t: k.t, x: k.x * animScale, y: k.y * animScale, z: k.z * animScale
+          }))
+        };
+      } else {
+        remapped.nodes[mapped] = data;
       }
     }
     mainModel.animations.push(remapped);
   }
+
   mainModel.animCount = mainModel.animations.length;
 
   // Rest pose from first animation if none present yet
