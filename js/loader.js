@@ -486,7 +486,7 @@ function mergeAnimationsFromSupermodel(mainModel, superModel) {
     logWarnI18n('super_no_anims', { name: superModel.name });
     return;
   }
-
+/*
   const mainNodeNames = new Set(mainModel.nodes.map(n => n.name));
   const animScale = mainModel.animationScale || 1.0;
 
@@ -510,7 +510,44 @@ function mergeAnimationsFromSupermodel(mainModel, superModel) {
       }
     }
     mainModel.animations.push(remapped);
+  }*/
+
+  // FIX: NWN-Node-Namen sind über verschiedene Dateien hinweg nicht einheitlich
+  // gecast (z. B. "Lbicep_g" vs. "lbicep_g") — dasselbe Problem, das bereits
+  // beim BONE_MAP-Lookup in der Character-Part-Assembly behandelt wird.
+  // Lowercase → Originalschreibweise-Map, damit die Animationskeys exakt auf
+  // den Node-Namen des mainModel (und damit auf nodeObjects) treffen.
+  const mainNodeNamesLC = new Map();
+  for (const n of mainModel.nodes) mainNodeNamesLC.set(n.name.toLowerCase(), n.name);
+
+  const superNameLC = superModel.name.toLowerCase();
+  const animScale    = mainModel.animationScale || 1.0;
+
+  for (const anim of superModel.animations) {
+    const remapped = { name: anim.name, length: anim.length, transtime: anim.transtime, nodes: {} };
+    for (const [nodeName, data] of Object.entries(anim.nodes)) {
+      // Root-Node des Supermodells → Root-Name des mainModel (case-insensitive)
+      const mapped = (nodeName.toLowerCase() === superNameLC)
+        ? mainModel.name
+        : mainNodeNamesLC.get(nodeName.toLowerCase());
+
+      if (!mapped) continue;   // auch case-insensitiv kein passender Node im mainModel
+
+      // Scale posKeys falls nötig — data-Objekt nicht mutieren (wird mit superModel geteilt)
+      if (animScale !== 1.0 && data.posKeys.length > 0) {
+        remapped.nodes[mapped] = {
+          ...data,
+          posKeys: data.posKeys.map(k => ({
+            t: k.t, x: k.x * animScale, y: k.y * animScale, z: k.z * animScale
+          }))
+        };
+      } else {
+        remapped.nodes[mapped] = data;
+      }
+    }
+    mainModel.animations.push(remapped);
   }
+
   mainModel.animCount = mainModel.animations.length;
 
   // Rest pose from first animation if none present yet
