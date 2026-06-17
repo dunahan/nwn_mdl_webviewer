@@ -486,37 +486,12 @@ function mergeAnimationsFromSupermodel(mainModel, superModel) {
     logWarnI18n('super_no_anims', { name: superModel.name });
     return;
   }
-/*
-  const mainNodeNames = new Set(mainModel.nodes.map(n => n.name));
-  const animScale = mainModel.animationScale || 1.0;
 
-  for (const anim of superModel.animations) {
-    const remapped = { name: anim.name, length: anim.length, transtime: anim.transtime, nodes: {} };
-    for (const [nodeName, data] of Object.entries(anim.nodes)) {
-      // Remap root node name: supermodel.name → mainmodel.name
-      const mapped = (nodeName === superModel.name) ? mainModel.name : nodeName;
-      if (mainNodeNames.has(mapped) || mapped === mainModel.name) {
-        // Scale posKeys if needed — do not mutate data object (shared with superModel)
-        if (animScale !== 1.0 && data.posKeys.length > 0) {
-          remapped.nodes[mapped] = {
-            ...data,
-            posKeys: data.posKeys.map(k => ({
-              t: k.t, x: k.x * animScale, y: k.y * animScale, z: k.z * animScale
-            }))
-          };
-        } else {
-          remapped.nodes[mapped] = data;
-        }
-      }
-    }
-    mainModel.animations.push(remapped);
-  }*/
-
-  // FIX: NWN-Node-Namen sind über verschiedene Dateien hinweg nicht einheitlich
-  // gecast (z. B. "Lbicep_g" vs. "lbicep_g") — dasselbe Problem, das bereits
-  // beim BONE_MAP-Lookup in der Character-Part-Assembly behandelt wird.
-  // Lowercase → Originalschreibweise-Map, damit die Animationskeys exakt auf
-  // den Node-Namen des mainModel (und damit auf nodeObjects) treffen.
+  // FIX: NWN node names are inconsistently cased across different files
+  // (e.g., "Lbicep_g" vs. "lbicep_g") — the same issue already handled
+  // during the BONE_MAP lookup in character part assembly.
+  // Lowercase → original-casing map, ensuring animation keys match
+  // the mainModel node names (and thus nodeObjects) exactly.
   const mainNodeNamesLC = new Map();
   for (const n of mainModel.nodes) mainNodeNamesLC.set(n.name.toLowerCase(), n.name);
 
@@ -526,14 +501,14 @@ function mergeAnimationsFromSupermodel(mainModel, superModel) {
   for (const anim of superModel.animations) {
     const remapped = { name: anim.name, length: anim.length, transtime: anim.transtime, nodes: {} };
     for (const [nodeName, data] of Object.entries(anim.nodes)) {
-      // Root-Node des Supermodells → Root-Name des mainModel (case-insensitive)
+      // Root node of the supermodel → root name of the mainModel (case-insensitive)
       const mapped = (nodeName.toLowerCase() === superNameLC)
         ? mainModel.name
         : mainNodeNamesLC.get(nodeName.toLowerCase());
 
-      if (!mapped) continue;   // auch case-insensitiv kein passender Node im mainModel
+      if (!mapped) continue;  // no matching node in mainModel, even when case-insensitive
 
-      // Scale posKeys falls nötig — data-Objekt nicht mutieren (wird mit superModel geteilt)
+      // Scale posKeys if necessary — do not mutate the data object (it is shared with superModel)
       if (animScale !== 1.0 && data.posKeys.length > 0) {
         remapped.nodes[mapped] = {
           ...data,
