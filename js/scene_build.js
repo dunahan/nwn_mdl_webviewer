@@ -241,6 +241,19 @@ function refreshBBox() {
   scene.add(bboxHelper);
 }
 
+function hasOpenBoundary(node) {
+  const edgeCount = new Map();
+  for (const face of node.faces) {
+    const [a, b, c] = face.v;
+    for (const [i, j] of [[a, b], [b, c], [c, a]]) {
+      const key = i < j ? i + '_' + j : j + '_' + i;
+      edgeCount.set(key, (edgeCount.get(key) || 0) + 1);
+    }
+  }
+  for (const n of edgeCount.values()) if (n === 1) return true;
+  return false;
+}
+
 function buildScene(model) {
   // modelGroup/wireGroup/bboxHelper have already been cleared by clearSession().
   // (clearSession is called before every MDL load)
@@ -511,7 +524,8 @@ function buildScene(model) {
       // (magic effects, glass) that may legitimately show both faces.
       // Also force DoubleSide for handbuilt-DoubleSide meshes (useAlphaTest path) so
       // culling never accidentally removes a face that the duplicate geometry relies on.
-      const needsDoubleSide = useMeshAlpha || useMtrTrans || useTexAlpha || useColorAlphaTest || (mtr ? mtr.twosided : false) || isFlatMesh(node);
+      const needsDoubleSide = useMeshAlpha || useMtrTrans || useTexAlpha || useColorAlphaTest
+        || (mtr ? mtr.twosided : false) || isFlatMesh(node) || hasOpenBoundary(node);
 
       const mat = new THREE.MeshStandardMaterial({
         color:        tex ? new THREE.Color(1, 1, 1) : new THREE.Color(d[0] || 0.8, d[1] || 0.8, d[2] || 0.8),
