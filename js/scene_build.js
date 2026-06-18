@@ -468,7 +468,9 @@ function buildScene(model) {
       //      (e.g. uvwgrid: bpp=32, 24% soft alpha pixels, transparencyhint=0).
       // In both cases suppressing alpha causes transparent pixels to render as black.
       // Safe: opaque NWN textures are authored as 24-bit (DXT1/24-bit TGA) -> texHasAlpha stays false.
-      const useTexAlpha  = texHasAlpha;
+      const isCharacterModel = (model.classification || '').toUpperCase() === 'CHARACTER';
+      const useTexAlpha  = texHasAlpha && (!isCharacterModel || node.transparencyhint === 1);
+    //const useTexAlpha  = texHasAlpha;
       // FIX: transparencyhint=1 without a real alpha channel (24-bit TGA/DXT1):
       // NWN treats black as transparent -- punch through via alphaTest on RGB luminance.
       const useColorAlphaTest = !texHasAlpha && node.transparencyhint === 1 && tex !== null;

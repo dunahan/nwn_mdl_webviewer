@@ -167,6 +167,9 @@ function clearSession(keepTextures = false) {
 function applyTexturesToScene() {
   if (!currentModel) return;
   let applied = 0;
+  
+  // FIX (regression guard, siehe scene_build.js)
+  const isCharacterModel = (currentModel.classification || '').toUpperCase() === 'CHARACTER';
 
   for (const node of currentModel.nodes) {
     const obj = nodeObjects[node.name];
@@ -289,7 +292,10 @@ function applyTexturesToScene() {
       mat.color.set(0xffffff);
       applied++;
 
-      if (tex.userData.hasAlpha === true) {
+      const useTexAlphaSession = tex.userData.hasAlpha === true && (!isCharacterModel || node.transparencyhint === 1);
+
+      if (useTexAlphaSession) {
+    //if (tex.userData.hasAlpha === true) {
         // FIX: Apply alpha mode whenever the texture actually has an alpha channel,
         // regardless of transparencyhint. Mirrors scene_build.js: useTexAlpha = texHasAlpha.
         // transparencyhint=0 is sometimes wrong (modeller oversight / MTR texture swap).
