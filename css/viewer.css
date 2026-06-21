@@ -1279,10 +1279,10 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
    Floating Panel Manager  (floating_panel.js)
    ══════════════════════════════════════════════════════════════ */
 
-/* ── Float-Toggle-Button (immer im Panel-Header sichtbar) ─── */
+/* ── Float-Toggle-Button (always visible in the panel header) ─── */
 .fp-float-btn {
   flex-shrink: 0;
-  background: none;
+  background: var(--panel);
   border: 1px solid transparent;
   border-radius: 3px;
   color: var(--muted);
@@ -1301,17 +1301,18 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
   color: var(--gold);
   border-color: var(--gold);
 }
-/* Beim Floaten stärker hervorgehoben */
+/* More pronounced during floating */
 .panel-floating .fp-float-btn {
+  background: var(--panel);
   opacity: 1;
   color: var(--gold);
   border-color: rgba(var(--gold-rgb), 0.4);
 }
 
-/* ── Drag-Strip (in Sidebar unsichtbar, beim Floaten sichtbar) ── */
+/* ── Drag-Strip (invisible in the sidebar, visible when floating) ── */
 .fp-drag-strip {
-  display: none;          /* versteckt, wenn angedockt */
-  flex: 1;                /* füllt Platz zwischen Heading und Buttons */
+  display: none;          /* hidden when docked */
+  flex: 1;                /* fills the space between the heading and the buttons */
   cursor: grab;
   color: var(--muted);
   font-size: 11px;
@@ -1328,7 +1329,7 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
 .fp-drag-strip:hover  { opacity: 0.8; color: var(--gold); }
 .fp-drag-strip:active { cursor: grabbing; }
 
-/* Drag-Strip einblenden wenn Panel schwebt */
+/* Show drag strip when panel is floating */
 .panel-floating .fp-drag-strip {
   display: inline-flex;
   align-items: center;
@@ -1339,23 +1340,22 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
 .panel-floating {
   position: absolute;
   z-index: 150;
-  width: 280px;           /* entspricht der Sidebar-Breite */
+  width: 280px;           /* corresponds to the sidebar width */
   background: rgba(var(--bg-rgb), 0.93);
   backdrop-filter: blur(4px);
-  border: 1px solid var(--border) !important;  /* überschreibt panel-spezifisches border-top */
+  border: 1px solid var(--border) !important;  /* overrides the panel-specific border-top */
   border-radius: 4px;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
   margin: 0;
 }
 
-/* Header im Floating-Zustand: Drag-Strip bekommt flex:1,
-   daher justify-content: space-between deaktivieren */
+/* Header in floating state: Drag-strip gets `flex: 1`,
+   so disable `justify-content: space-between` */
 .panel-floating > *:first-child {
   justify-content: flex-start !important;
   gap: 4px;
   background: rgba(255, 255, 255, 0.03);
   border-bottom: 1px solid var(--border);
   border-radius: 4px 4px 0 0;
-  cursor: default;        /* Header-collapse bleibt per Klick erhalten,
-                             aber der Grab-Cursor kommt vom Drag-Strip */
+  cursor: default;        /* Header collapse persists after a click, but the grab cursor comes from the drag strip */
 }
