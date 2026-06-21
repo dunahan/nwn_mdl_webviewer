@@ -5,6 +5,8 @@ No installation, no server — just open `index.html` locally or use it directly
 
 🌐 **Live Demo:** `https://dunahan.github.io/nwn_mdl_webviewer/`
 
+[![Latest Release](https://img.shields.io/github/v/release/dunahan/nwn_mdl_webviewer?label=Release&color=c8a44a)](https://github.com/dunahan/nwn_mdl_webviewer/releases/latest)
+
 ---
 
 ## 📋 Table of Contents
