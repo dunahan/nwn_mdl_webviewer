@@ -266,7 +266,7 @@ const FloatPanel = (() => {
 
   // Update float button icon and tooltip
   function _setBtn(p, floating) {
-    p.floatBtn.textContent = floating ? '⇲' : '⇱';
+    p.floatBtn.textContent = floating ? '↙' : '↗';
     p.floatBtn.title       = floating ? L('fp_dock_title') : L('fp_float_title');
   }
 
