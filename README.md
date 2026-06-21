@@ -21,6 +21,7 @@ No installation, no server — just open `index.html` locally or use it directly
   - [Scene Graph & Inspection](#scene-graph--inspection)
   - [Camera & Display Controls](#camera--display-controls)
   - [UI & Theming](#ui--theming)
+  - [Floating Panels](#floating-panels)
   - [MTR Texture Status Indicators](#mtr-texture-status-indicators)
 - [🚀 Quick Start](#-quick-start)
 - [📁 File Formats Supported](#-file-formats-supported)
@@ -136,6 +137,13 @@ No installation, no server — just open `index.html` locally or use it directly
 
 The panel opens automatically on errors; the badge counter lights up orange for warnings.
 
+### Floating Panels
+
+- **Floatable sidebar panels** — The Animations and PLT Layers panels can be detached from the sidebar into freely positionable floating windows via the ⇱ button in their header; ⇲ re-docks them back into the sidebar
+- **Drag-to-reposition** — Each floating panel has a ⠿ grip strip for repositioning; panels are clamped to the viewport boundary
+- **Persistent state** — Floating/docked state and position are saved per panel in `localStorage` and restored on the next visit
+- **Extensible** — Any sidebar container can be made floatable by adding `data-floatable` to its HTML element (`floating_panel.js`)
+
 ### MTR Texture Status Indicators
 
 | Symbol | Color | Meaning |
@@ -242,6 +250,7 @@ nwn-mdl-webviewer/
 │   ├── cleanmodels.js      # WASM bridge for binary MDL decompilation (HTTP + file:// / Base64)
 │   ├── dwk.js              # Door walkmesh parser & renderer (3 door states)
 │   ├── emitter.js          # Particle emitter system (pool-based, sprite-sheet, birthratekey)
+│   ├── floating_panel.js   # Floating panel manager — dock ↔ float for data-floatable sidebar panels
 │   ├── hot_reload.js       # Texture hot-reload via File System Access API (browser-fsa)
 │   ├── i18n.js             # Internationalisation — embedded EN/DE bundles + external JSON support
 │   ├── loader.js           # File loader, multi-part assembly, supermodel merge, decompile overlay
@@ -294,9 +303,10 @@ nwn-mdl-webviewer/
 3. For **multi-part models** (character body parts, weapon components), drop all parts at once — the viewer assembles them automatically
 4. Use the **sidebar** to inspect nodes and toggle visibility
 5. Click any node name to open the **Node Inspector** panel (draggable, zoomable)
-6. Drop `.wok` / `.pwk` / `.dwk` files alongside the model to visualise walkmesh geometry
-7. Use **Watch Folder** (Chrome/Edge) to auto-reload textures whenever you edit them externally
-8. Load a `.set` file via the **Set Browser** button to browse and load tileset tiles
+6. Use ⇱ in the **Animations** or **PLT Layers** panel header to detach them from the sidebar as floating windows; ⇲ docks them back
+7. Drop `.wok` / `.pwk` / `.dwk` files alongside the model to visualise walkmesh geometry
+8. Use **Watch Folder** (Chrome/Edge) to auto-reload textures whenever you edit them externally
+9. Load a `.set` file via the **Set Browser** button to browse and load tileset tiles
 
 ---
 
@@ -326,6 +336,7 @@ nwn-mdl-webviewer/
 - [x] Theme system (built-in + custom JSON, localStorage persistence)
 - [x] Full i18n (EN / DE, retranslation of log entries on language switch)
 - [x] TXI support (decal, clamp, blending, cycle sprite animation)
+- [x] Floatable sidebar panels (Animations, PLT Layers — freely positionable, state persisted in localStorage)
 - [ ] Export to glTF / OBJ
 - [ ] Automatic supermodel chain loading
 
