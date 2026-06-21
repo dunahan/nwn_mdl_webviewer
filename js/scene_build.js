@@ -130,7 +130,7 @@ function computeSGNormals(node) {
   return out;
 }
 
-/**
+/*
   * Detects flat meshes based on the bounding box.
   * If the smallest dimension is less than the FLAT_RATIO of the largest,
   * the mesh is considered a 2D surface → DoubleSide is appropriate.
@@ -158,7 +158,7 @@ function isFlatMesh(node) {
   return minExt / maxExt < FLAT_RATIO;
 }
 
-/**
+/*
  * Detects NWN-style "handbuilt DoubleSide" meshes.
  *
  * NWN modellers often duplicate every face with inverted winding/normals to fake
@@ -200,7 +200,7 @@ function hasMirroredNormals(node) {
   return isMirrored(posX, negX) || isMirrored(posY, negY) || isMirrored(posZ, negZ);
 }
 
-/**
+/*
  * Returns true when tex.userData.isBimodal was set by the texture parser
  * (parseTGA / parseNWNDDS / parseStandardDDS in textures.js).
  *
@@ -305,7 +305,8 @@ function buildScene(model) {
   for (const node of model.nodes) {
     let obj;
 
-    if ((node.type === 'trimesh' || node.type === 'skin' || node.type === 'danglymesh' || node.type === 'animmesh') && node.faces.length > 0 && node.verts.length > 0) {
+    if ((node.type === 'trimesh' || node.type === 'skin' || node.type === 'danglymesh'
+          || node.type === 'animmesh') && node.faces.length > 0 && node.verts.length > 0) {
       // Explode geometry: 3 verts per face (separate UV / normal per-face-vertex)
       const positions = new Float32Array(node.faces.length * 9);
       const uvs       = new Float32Array(node.faces.length * 6);
@@ -470,7 +471,6 @@ function buildScene(model) {
       // Safe: opaque NWN textures are authored as 24-bit (DXT1/24-bit TGA) -> texHasAlpha stays false.
       const isCharacterModel = (model.classification || '').toUpperCase() === 'CHARACTER';
       const useTexAlpha  = texHasAlpha && (!isCharacterModel || node.transparencyhint === 1);
-    //const useTexAlpha  = texHasAlpha;
       // FIX: transparencyhint=1 without a real alpha channel (24-bit TGA/DXT1):
       // NWN treats black as transparent -- punch through via alphaTest on RGB luminance.
       const useColorAlphaTest = !texHasAlpha && node.transparencyhint === 1 && tex !== null;
@@ -861,10 +861,6 @@ function buildScene(model) {
     orbit.initPhi    = orbit.phi;
 
     // BBox helper
-/* bboxHelper = new THREE.Box3Helper(box, new THREE.Color(0xc8a44a));
-    bboxHelper.visible = document.getElementById('btn-bbox').classList.contains('active');
-    scene.add(bboxHelper);*/
-    
     refreshBBox();
     
     // NEW: Initialize SkeletonHelper
@@ -963,12 +959,6 @@ function buildScene(model) {
     const rawPos = geo.attributes.position.array;
     const bindPos = new Float32Array(rawPos.length);
     const _vtmp = new THREE.Vector3();
-    
-/* for (let k = 0; k < rawPos.length; k += 3) {
-      bindPos[k]     = rawPos[k]     + spx;
-      bindPos[k + 1] = rawPos[k + 1] + spy;
-      bindPos[k + 2] = rawPos[k + 2] + spz;
-    }*/
     
     for (let k = 0; k < rawPos.length; k += 3) {
       _vtmp.set(rawPos[k], rawPos[k + 1], rawPos[k + 2]);

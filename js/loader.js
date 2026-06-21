@@ -311,7 +311,7 @@ async function loadMDLFromHandle(handle) {
 async function _readMDLHandle(handle) {
   let file;
   try { file = await handle.getFile(); }
-  catch (e) { logMsg(`[Group] File not readable: ${handle.name}`, 'warn'); return null; }
+  catch (e) { logWarnI18n('sb_group_file_error', { name: handle.name }); return null; }
 
   return new Promise(resolve => {
     const reader = new FileReader();
@@ -325,7 +325,7 @@ async function _readMDLHandle(handle) {
           resolve(new TextDecoder('utf-8').decode(buffer));
         }
       } catch (err) {
-        logMsg(`[Group] Decompile error: ${handle.name} — ${err.message}`, 'warn');
+        logWarnI18n('sb_group_decompile_error', { name: handle.name, msg: err.message });
         resolve(null);
       }
     };
@@ -389,7 +389,7 @@ async function loadGroupFromHandles(entries, cols, rows) {
     let parsed;
     try { parsed = parseMDL(text); }
     catch (e) {
-      logMsg(`[Group] Parse error: ${handle.name} — ${e.message}`, 'warn');
+      logWarnI18n('sb_group_parse_error', { name: handle.name, msg: e.message });
       continue;
     }
     if (!parsed) continue;
@@ -716,7 +716,7 @@ function positionCharacterParts(charParts, skeletonModel) {
       'neck':   'neck_g',
       'head':   'head_g',
       'shol':   'lbicep_g',    // shoulder plate: left shoulder joint
-      'shor':   'rbicep_g',    //                  right shoulder joint
+      'shor':   'rbicep_g',    //                 right shoulder joint
       'bicepl': 'lbicep_g',    // upper arm left
       'bicepr': 'rbicep_g',    // upper arm right
       'forel':  'lforearm_g',  // forearm left
