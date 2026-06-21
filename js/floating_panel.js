@@ -83,7 +83,7 @@ const FloatPanel = (() => {
     // ── Insert float toggle button at the far right ─────────────────────────
     const floatBtn = document.createElement('button');
     floatBtn.className   = 'fp-float-btn';
-    floatBtn.textContent = '⇱';
+    floatBtn.textContent = '↗';
     floatBtn.title       = L('fp_float_title');
     floatBtn.addEventListener('click', e => {
       e.stopPropagation();
