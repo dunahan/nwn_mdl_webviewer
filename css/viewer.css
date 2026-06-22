@@ -1263,7 +1263,8 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
   transition: opacity 0.2s;
 }
 /* Visible when sidebar is collapsed AND model is loaded */
-#sidebar.collapsed ~ #viewport #model-name-hint.has-model { opacity: 0.65; }
+#sidebar.collapsed ~ #viewport #model-name-hint.has-model {
+  opacity: 0.65; 
   flex-shrink: 0;
   padding: 3px 10px;
   font-size: 9px;
@@ -1285,7 +1286,8 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
   background: var(--panel);
   border: 1px solid transparent;
   border-radius: 3px;
-  color: var(--muted);
+  border-color: rgba(var(--gold-rgb), 0.4);
+  color: var(--gold);
   font-size: 12px;
   line-height: 1;
   padding: 1px 5px 2px;
@@ -1301,6 +1303,19 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
   color: var(--gold);
   border-color: var(--gold);
 }
+
+/* Moves the category arrow in the sidebar right up to the dock icon */
+[data-floatable]:not(.panel-floating) > *:first-child {
+  display: flex;
+  justify-content: flex-start !important; /* Cancels the uniform distribution */
+  gap: 6px;                               /* Defines the exact spacing between the symbols */
+}
+
+/* The title takes up all the remaining space and pushes the icons to the right */
+[data-floatable]:not(.panel-floating) > *:first-child .section-heading {
+  flex: 1;
+}
+
 /* More pronounced during floating */
 .panel-floating .fp-float-btn {
   background: var(--panel);
