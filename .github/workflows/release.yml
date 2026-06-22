@@ -48,7 +48,7 @@ jobs:
       # (new WASM version). By using ref: github.ref_name, we always fetch
       # the latest state including any potential WASM updates.
       - name: Checkout (after potential WASM update)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.ref_name }}
           fetch-depth: 1
@@ -117,7 +117,7 @@ jobs:
           fi
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.tag.outputs.name }}
           name: "NWN MDL WebViewer ${{ steps.tag.outputs.name }}"
