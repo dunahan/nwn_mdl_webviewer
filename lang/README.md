@@ -181,6 +181,9 @@ The Set Browser is a floating panel that parses NWN `.set` tileset-definition fi
 | `sb_load_error` | Error message when a tile model could not be loaded. Placeholders: `{model}`, `{msg}`. |
 | `sb_group_loaded` | Status message after a whole group of tiles was loaded into the scene as a grid. Placeholder: `{n}`. |
 | `sb_group_empty` | Status message when the selected group has no tiles available in the watch folder. |
+| `sb_group_file_error` | Log warning during group loading when a tile's MDL FileHandle could not be read. Placeholder: `{name}`. |
+| `sb_group_decompile_error` | Log warning during group loading when a binary tile MDL failed to decompile. Placeholders: `{name}`, `{msg}`. |
+| `sb_group_parse_error` | Log warning during group loading when a tile MDL's ASCII text failed to parse. Placeholders: `{name}`, `{msg}`. |
 
 ### Supermodel Logic (`super_*`)
 If a model references a Supermodel for animations, these strings guide the user to load the required additional `.mdl` files to enable animations.

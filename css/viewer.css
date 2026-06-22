@@ -1263,7 +1263,8 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
   transition: opacity 0.2s;
 }
 /* Visible when sidebar is collapsed AND model is loaded */
-#sidebar.collapsed ~ #viewport #model-name-hint.has-model { opacity: 0.65; }
+#sidebar.collapsed ~ #viewport #model-name-hint.has-model {
+  opacity: 0.65; 
   flex-shrink: 0;
   padding: 3px 10px;
   font-size: 9px;
@@ -1273,4 +1274,103 @@ input[type=number].ctrl-val:focus { border-color: var(--gold); }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Floating Panel Manager  (floating_panel.js)
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Float-Toggle-Button (always visible in the panel header) ─── */
+.fp-float-btn {
+  flex-shrink: 0;
+  background: var(--panel);
+  border: 1px solid transparent;
+  border-radius: 3px;
+  border-color: rgba(var(--gold-rgb), 0.4);
+  color: var(--gold);
+  font-size: 12px;
+  line-height: 1;
+  padding: 1px 5px 2px;
+  cursor: pointer;
+  font-family: inherit;
+  opacity: 0.45;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.fp-float-btn:hover {
+  opacity: 1;
+  color: var(--gold);
+  border-color: var(--gold);
+}
+
+/* Moves the category arrow in the sidebar right up to the dock icon */
+[data-floatable]:not(.panel-floating) > *:first-child {
+  display: flex;
+  justify-content: flex-start !important; /* Cancels the uniform distribution */
+  gap: 6px;                               /* Defines the exact spacing between the symbols */
+}
+
+/* The title takes up all the remaining space and pushes the icons to the right */
+[data-floatable]:not(.panel-floating) > *:first-child .section-heading {
+  flex: 1;
+}
+
+/* More pronounced during floating */
+.panel-floating .fp-float-btn {
+  background: var(--panel);
+  opacity: 1;
+  color: var(--gold);
+  border-color: rgba(var(--gold-rgb), 0.4);
+}
+
+/* ── Drag-Strip (invisible in the sidebar, visible when floating) ── */
+.fp-drag-strip {
+  display: none;          /* hidden when docked */
+  flex: 1;                /* fills the space between the heading and the buttons */
+  cursor: grab;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 3px;
+  padding: 4px 4px;
+  opacity: 0.4;
+  text-align: center;
+  touch-action: none;
+  border-radius: 3px;
+  transition: opacity 0.15s, color 0.15s;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.fp-drag-strip:hover  { opacity: 0.8; color: var(--gold); }
+.fp-drag-strip:active { cursor: grabbing; }
+
+/* Show drag strip when panel is floating */
+.panel-floating .fp-drag-strip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Floating Panel Container ──────────────────────────────── */
+.panel-floating {
+  position: absolute;
+  z-index: 150;
+  width: 280px;           /* corresponds to the sidebar width */
+  background: rgba(var(--bg-rgb), 0.93);
+  backdrop-filter: blur(4px);
+  border: 1px solid var(--border) !important;  /* overrides the panel-specific border-top */
+  border-radius: 4px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+  margin: 0;
+}
+
+/* Header in floating state: Drag-strip gets `flex: 1`,
+   so disable `justify-content: space-between` */
+.panel-floating > *:first-child {
+  justify-content: flex-start !important;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--border);
+  border-radius: 4px 4px 0 0;
+  cursor: default;        /* Header collapse persists after a click, but the grab cursor comes from the drag strip */
 }

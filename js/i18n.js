@@ -218,8 +218,14 @@ const I18N_BUNDLE = {
     sb_load_error:        'Error loading tile model: {model} — {msg}',
     sb_group_loaded:      'Group loaded: {n} tiles',
     sb_group_empty:       'No tiles available in watch folder for this group',
+    sb_group_file_error:      '[Group] File not readable: {name}',
+    sb_group_decompile_error: '[Group] Decompile error: {name} — {msg}',
+    sb_group_parse_error:     '[Group] Parse error: {name} — {msg}',
     sb_watch_hint:        'Activate "Watch Folder" in the sidebar to load tile models.',
     sb_watch_unsupported: 'Watch Folder requires Chrome or Edge.',
+    // Floating Panel Manager
+    fp_float_title:       'Detach panel',
+    fp_dock_title:        'Dock panel',
   },
   de: {
     _meta: { language: 'Deutsch', code: 'de' },
@@ -428,8 +434,14 @@ const I18N_BUNDLE = {
     sb_load_error:        'Fehler beim Laden des Tile-Modells: {model} — {msg}',
     sb_group_loaded:      'Gruppe geladen: {n} Tiles',
     sb_group_empty:       'Keine Tiles der Gruppe im beobachteten Ordner verfügbar',
+    sb_group_file_error:      '[Gruppe] Datei nicht lesbar: {name}',
+    sb_group_decompile_error: '[Gruppe] Dekompilierungsfehler: {name} — {msg}',
+    sb_group_parse_error:     '[Gruppe] Parse-Fehler: {name} — {msg}',
     sb_watch_hint:        '„Ordner beobachten" in der Sidebar aktivieren, um Tile-Modelle zu laden.',
     sb_watch_unsupported: 'Watch Folder erfordert Chrome oder Edge.',
+    // Floating Panel Manager
+    fp_float_title:       'Panel ablösen',
+    fp_dock_title:        'Panel andocken',
   }
 };
 
