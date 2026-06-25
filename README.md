@@ -49,6 +49,7 @@ No installation, no server — just open `index.html` locally or use it directly
 - **Skinned meshes** — CPU Linear Blend Skinning in NWN Z-up space; skin node orientation (axis-angle) applied for accurate bind positions
 - **Normal & specular mapping** — `NormalAndSpecMapped` / `NormalTangents` renderhint support; tangent vectors read directly from MDL or computed as fallback; ATI2/BC5 DDS normal maps supported
 - **animmesh UV animation** — Smooth per-frame UV interpolation for scrolling textures (waterfalls, lava, etc.)
+- **Danglymesh simulation** — Procedural sine-wave physics for cloth, hair and chain nodes (`danglymesh`); constraint-weighted per-vertex displacement; per-animation `displacement`/`period` overrides honoured from animation blocks (e.g. wider swing during `run` animations); `displacement=0` in an animation block deactivates jitter for that clip, leaving only keyframe-driven rotation
 - **AABB walkmesh** — Interior walkmesh nodes rendered with per-surface-type coloring
 
 ### Multi-Part Model Assembly
@@ -62,6 +63,7 @@ No installation, no server — just open `index.html` locally or use it directly
 - **Scrubber & speed control** — Interactive timeline with ¼×, ½×, 1×, 2× speed presets
 - **Animation selector** — Drop-down list of `newanim` blocks in the model
 - **Supermodel animations** — Animations from base skeletons (e.g. `a_fa.mdl`) merged and applied to character parts
+- **`selfillumcolorkey`** — Animated emissive color for EFFECT-class nodes; all three RGB channels correctly interpolated each frame and applied to the `emissiveMap` material
 
 ### Particle Emitters
 - **Emitter system** — Pool-based particle management with NWN emitter parameter support (`birthrate`, `lifeexp`, `velocity`, `spread`, `particleRot`, `mass`, `drag`, …)
@@ -250,6 +252,7 @@ nwn-mdl-webviewer/
 ├── js/
 │   ├── animation.js        # Keyframe animation engine, render loop, CPU skinning, TXI cycle
 │   ├── cleanmodels.js      # WASM bridge for binary MDL decompilation (HTTP + file:// / Base64)
+│   ├── dangly.js           # Danglymesh simulation — procedural sine-wave physics, per-animation displacement/period overrides
 │   ├── dwk.js              # Door walkmesh parser & renderer (3 door states)
 │   ├── emitter.js          # Particle emitter system (pool-based, sprite-sheet, birthratekey)
 │   ├── floating_panel.js   # Floating panel manager — dock ↔ float for data-floatable sidebar panels
@@ -339,6 +342,8 @@ nwn-mdl-webviewer/
 - [x] Full i18n (EN / DE, retranslation of log entries on language switch)
 - [x] TXI support (decal, clamp, blending, cycle sprite animation)
 - [x] Floatable sidebar panels (Animations, PLT Layers — freely positionable, state persisted in localStorage)
+- [x] Danglymesh simulation (procedural sine-wave physics, constraint-weighted per-vertex displacement, per-animation `displacement`/`period` overrides)
+- [x] `selfillumcolorkey` animation for EFFECT-class nodes (all 3 RGB channels, applied to emissiveMap)
 - [ ] Export to glTF / OBJ
 - [ ] Automatic supermodel chain loading
 
