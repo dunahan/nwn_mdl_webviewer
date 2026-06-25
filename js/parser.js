@@ -94,6 +94,10 @@ function parseFullAnimNode(lines, start) {
   const data = {
     posKeys: [], oriKeys: [], scaleKeys: [], emitterKeys: {},
     samplePeriod: 0, animVerts: [], animTverts: [],  // animmesh UV/vertex animation
+    // Danglymesh per-animation overrides (null = not specified → fall back to geometry defaults)
+    danglyDisplacement: null,
+    danglyPeriod:       null,
+    danglyTightness:    null,
   };
   let i = start + 1;
 
@@ -174,6 +178,14 @@ function parseFullAnimNode(lines, start) {
     // Frame index = floor(time / samplePeriod) % numFrames.
     } else if (k === 'sampleperiod') {
       data.samplePeriod = parseFloat(t[1]) || 0;
+    } else if (k === 'displacement') {
+      // danglymesh per-animation override: Aurora stores these as signed floats;
+      // negative values indicate an active (inverted/directional) effect.
+      data.danglyDisplacement = parseFloat(t[1]) || 0;
+    } else if (k === 'period') {
+      data.danglyPeriod       = parseFloat(t[1]) || 0;
+    } else if (k === 'tightness') {
+      data.danglyTightness    = parseFloat(t[1]) || 0;
     } else if (k === 'animverts') {
       const count = parseInt(t[1]) || 0;
       data.animVerts = [];
@@ -270,6 +282,11 @@ function parseNode(lines, start) {
     lightShadow:         0,
     lightGenerateFlare:  0,
     lightFlareRadius:    0,
+    // ── Danglymesh-specific Properties ──────────────────────────────────────
+    danglyPeriod:        1.0,   // Swing period in seconds
+    danglyTightness:     1.0,   // Return force (stored for reference, unused in sine-wave sim)
+    danglyDisplacement:  0.5,   // Maximum vertex displacement in NWN units
+    constraints:         [],    // Per-vertex weights [0–1], normalised from MDL's 0–255
   };
 
   function tok(idx) { return lines[idx].trim().split(/\s+/).filter(x => x.length > 0); }
@@ -406,12 +423,17 @@ function parseNode(lines, start) {
           });
         }
       }
-    } else if (k === 'constraints') {
-      // danglymesh: one constraint value per line (0=rigid, 255=free) — just skip
+    } else if (k === 'period')         node.danglyPeriod       = num(t[1]);
+    else if (k === 'tightness')        node.danglyTightness    = num(t[1]);
+    else if (k === 'displacement')     node.danglyDisplacement = num(t[1]);
+    else if (k === 'constraints') {
+      // danglymesh: one weight per line (0=rigid, 255=free) — normalise to 0–1
       const count = parseInt(t[1]) || 0;
+      node.constraints = [];
       for (let j = 0; j < count; j++) {
         i++;
         if (i >= lines.length) break;
+        node.constraints.push((parseFloat(lines[i].trim()) || 0) / 255.0);
       }
     } else if (k === 'weights') {
       // skin node: one line per original vertex "BoneName Weight BoneName Weight ..."
