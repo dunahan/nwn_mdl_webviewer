@@ -124,6 +124,7 @@ function clearSession(keepTextures = false) {
   animState.playing  = false;
   animState.time     = 0;
   if (typeof txiWallTime !== 'undefined') txiWallTime = 0;
+  if (typeof danglyWallTime !== 'undefined') danglyWallTime = 0;
   geometryPose       = {};
   document.getElementById('anim-panel').style.display = 'none';
   const animBody  = document.getElementById('anim-body');

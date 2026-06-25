@@ -241,6 +241,19 @@ function refreshBBox() {
   scene.add(bboxHelper);
 }
 
+// Maps per-original-vertex constraint weights into the exploded face-vertex buffer format.
+// Mirrors the same explode step used for positions/normals in buildScene().
+function buildDanglyWeights(node) {
+  const out = new Float32Array(node.faces.length * 3);
+  for (let fi = 0; fi < node.faces.length; fi++) {
+    for (let k = 0; k < 3; k++) {
+      const vi = node.faces[fi].v[k];
+      out[fi * 3 + k] = (vi < node.constraints.length) ? node.constraints[vi] : 0;
+    }
+  }
+  return out;
+}
+
 function hasOpenBoundary(node) {
   const edgeCount = new Map();
   for (const face of node.faces) {
@@ -365,6 +378,21 @@ function buildScene(model) {
         }
         geo.userData.animFaceTverts = faceTverts;
         geo.userData.animVertCount  = node.tverts.length;
+      }
+
+      // ── Danglymesh: save rest positions and per-vertex constraint weights ──
+      // dangly.js (tickDangly) reads these every frame to compute displaced positions.
+      // Normals are NOT recomputed per frame for performance — minor lighting artefacts
+      // are acceptable for small displacements in a viewer context.
+      if (node.type === 'danglymesh' && node.constraints.length > 0) {
+        geo.userData.isDangly          = true;
+        geo.userData.danglyRest        = positions.slice();   // copy of rest positions
+        geo.userData.danglyConstraints = buildDanglyWeights(node);
+        geo.userData.danglyPeriod      = node.danglyPeriod;
+        geo.userData.danglyTightness   = node.danglyTightness;
+        geo.userData.danglyDisplacement = node.danglyDisplacement;
+        geo.userData.danglyPhase       = Math.random() * Math.PI * 2; // stagger multiple nodes
+        geo.attributes.position.usage  = THREE.DynamicDrawUsage;
       }
 
       // ── MTR-Lookup: materialname → MTR cache takes precedence over bitmap ───────

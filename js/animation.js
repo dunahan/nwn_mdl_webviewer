@@ -439,6 +439,7 @@ function animate(time) {
   }
   tickAnimation(dt);
   if (typeof tickAllEmitters === 'function') tickAllEmitters(dt);
+  if (typeof tickDangly === 'function') tickDangly(dt);
   tickTxiCycle(dt);
   renderer.render(scene, camera);
 }
