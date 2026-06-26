@@ -124,7 +124,6 @@ function clearSession(keepTextures = false) {
   animState.playing  = false;
   animState.time     = 0;
   if (typeof txiWallTime !== 'undefined') txiWallTime = 0;
-  if (typeof danglyWallTime !== 'undefined') danglyWallTime = 0;
   geometryPose       = {};
   document.getElementById('anim-panel').style.display = 'none';
   const animBody  = document.getElementById('anim-body');
@@ -445,8 +444,14 @@ function applyTexturesToScene() {
     const texName = node.emitterTexture;
     if (!texName || !textureCache[texName]) continue;
     const tex = textureCache[texName];
-    // Find preview quad mesh inside the emitter group
+    // Update preview quad and hide decoration markers now that particles take over.
     obj.traverse(child => {
+      // FIX: Decoration (sphere / ring / arrows) was shown at 50% as placeholder
+      // while the texture was still missing. Now that the texture has arrived,
+      // hide it completely so it doesn't obscure the particle effect.
+      if (child.userData.isEmitterDecoration) {
+        child.visible = false;
+      }
       if (child.userData.isEmitterPreview && child.material) {
         child.material.map     = tex;
         child.material.color.set(0xffffff);

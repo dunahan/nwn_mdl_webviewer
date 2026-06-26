@@ -110,7 +110,7 @@ function parseFullAnimNode(lines, start) {
     birthrate: 1, velocity: 1, randvel: 1, spread: 1,
     grav: 1, drag: 1, fps: 1, mass: 1, lifeexp: 1, particlerot: 1,
     alphastart: 1, alphamid: 1, alphaend: 1,
-    sizestart: 1, sizemid: 1, sizeend: 1,
+    sizestart: 1, sizemid: 0, sizeend: 1,
     colorstart: 3, colormid: 3, colorend: 3,
   };
 
@@ -256,7 +256,7 @@ function parseNode(lines, start) {
     xsize: 0, ysize: 0,   // Emitter area in cm (spawn spread area)
     alphaStart: 1, alphaMid: 1, alphaEnd: 0,
     colorStart: [1,1,1], colorMid: [1,1,1], colorEnd: [1,1,1],
-    sizeStart: 1, sizeMid: 1, sizeEnd: 1,
+    sizeStart: 1, sizeMid: 0, sizeEnd: 1,
     birthrate:  0,
     lifeExp:    1,
     mass:       0,
