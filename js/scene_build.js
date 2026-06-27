@@ -704,50 +704,65 @@ function buildScene(model) {
         ? new THREE.Color(0xf0a030)
         : new THREE.Color(cs[0], cs[1], cs[2]);
 
-      // Marker opacity: 50% if the emitter is active (particles take over the display),
-      // otherwise full opacity as a placeholder indicator.
       // An emitter is considered active if either static birthrate > 0 OR
       // birthratekey is present in an animation.
       const hasAnimBirthrate = (model.animations || []).some(
         anim => (anim.nodes[node.name]?.emitterKeys?.birthrate?.length ?? 0) > 0
       );
       const markerActive = (node.birthrate > 0 || hasAnimBirthrate) && node.emitterTexture;
-      const markerOpacity = markerActive ? 0.5 : 1.0;
 
-      // Center: Sphere
-      const sGeo = new THREE.SphereGeometry(0.06, 8, 6);
-      const sMat = new THREE.MeshBasicMaterial({ color: emitColor, transparent: markerActive, opacity: markerOpacity });
-      group.add(new THREE.Mesh(sGeo, sMat));
+      // Resolve texture now — needed to decide decoration visibility below.
+      const emTexName = node.emitterTexture || null;
+      const emTex     = emTexName ? textureCache[emTexName] : null;
 
-      // Ring in XZ plane (horizontal after rotation = emitter opening)
-      const rGeo = new THREE.TorusGeometry(0.15, 0.012, 6, 20);
-      const rMat = new THREE.MeshBasicMaterial({ color: emitColor, transparent: true, opacity: 0.75 * markerOpacity });
+      // Decoration visibility strategy:
+      //   markerActive + texture already in cache → particles start immediately
+      //     → hide decoration and quad (particles take over)
+      //   markerActive + texture not yet loaded   → show decoration at full opacity +
+      //     colored placeholder quad; both hidden once texture arrives (session.js)
+      //   !markerActive (no birthrate / no texture) → show at full opacity
+      const decorVisible = !markerActive;
+
+      // Center: Sphere — r reduced from 0.06 → 0.04
+      const sGeo = new THREE.SphereGeometry(0.04, 8, 6);
+      const sMat = new THREE.MeshBasicMaterial({ color: emitColor });
+      const sphereMesh = new THREE.Mesh(sGeo, sMat);
+      sphereMesh.userData.isEmitterDecoration = true;
+      sphereMesh.visible = decorVisible;
+      group.add(sphereMesh);
+
+      // Ring in XZ plane — r reduced 0.15 → 0.10, tube 0.012 → 0.008
+      const rGeo = new THREE.TorusGeometry(0.10, 0.008, 6, 20);
+      const rMat = new THREE.MeshBasicMaterial({ color: emitColor, transparent: true, opacity: 0.75 });
       const ring = new THREE.Mesh(rGeo, rMat);
       ring.rotation.x = Math.PI / 2;
+      ring.userData.isEmitterDecoration = true;
+      ring.visible = decorVisible;
       group.add(ring);
 
-      // Direction arrows: local -Z → world +Y (up) after modelGroup rotation
+      // Direction arrows — scaled ~30% smaller (reach 0.22 → 0.16)
       const arrowPts = new Float32Array([
         // Center ray
-         0,    0,  0,       0,    0,  -0.22,
+         0,    0,  0,       0,    0,  -0.16,
         // Arrowhead legs
-        -0.06, 0, -0.14,    0,    0,  -0.22,
-         0.06, 0, -0.14,    0,    0,  -0.22,
+        -0.04, 0, -0.10,    0,    0,  -0.16,
+         0.04, 0, -0.10,    0,    0,  -0.16,
         // Side rays (indicate spread)
-        -0.12, 0,  0,      -0.08, 0,  -0.16,
-         0.12, 0,  0,       0.08, 0,  -0.16,
+        -0.08, 0,  0,      -0.06, 0,  -0.11,
+         0.08, 0,  0,       0.06, 0,  -0.11,
       ]);
       const aGeo = new THREE.BufferGeometry();
       aGeo.setAttribute('position', new THREE.Float32BufferAttribute(arrowPts, 3));
-      const aMat = new THREE.LineBasicMaterial({ color: emitColor, transparent: true, opacity: 0.85 * markerOpacity });
-      group.add(new THREE.LineSegments(aGeo, aMat));
+      const aMat = new THREE.LineBasicMaterial({ color: emitColor, transparent: true, opacity: 0.85 });
+      const arrowLines = new THREE.LineSegments(aGeo, aMat);
+      arrowLines.userData.isEmitterDecoration = true;
+      arrowLines.visible = decorVisible;
+      group.add(arrowLines);
 
       // ── Texture Preview Quad ───────────────────────────────────────────
       // PlaneGeometry has normal = local +Z.
       // rotation.x = +π/2 rotates the normal to local -Y.
       // After modelGroup rotation: local -Y → world +Z (towards camera) → visible.
-      const emTexName = node.emitterTexture || null;
-      const emTex     = emTexName ? textureCache[emTexName] : null;
       // Size from sizeStart, minimum size 0.15
       const qSize = Math.max(node.sizeStart || 0.5, 0.15);
       const qGeo  = new THREE.PlaneGeometry(qSize, qSize);
@@ -758,10 +773,10 @@ function buildScene(model) {
         alphaTest:   0.05,
         color:       emTex ? 0xffffff : emitColor,
         map:         emTex || null,
-        opacity:     emTex ? 1.0 : 0.0,   // invisible until texture arrives
+        opacity:     emTex ? 1.0 : 0.0,
       });
       if ((node.blend || '').toLowerCase() === 'additive') {
-        qMat.blending = THREE.AdditiveBlending;
+        qMat.blending  = THREE.AdditiveBlending;
         qMat.alphaTest = 0;
       }
       const quad = new THREE.Mesh(qGeo, qMat);
@@ -769,14 +784,15 @@ function buildScene(model) {
       quad.userData.isEmitterPreview  = true;
       quad.userData.emitterTexName    = emTexName;
       quad.userData.emitterBlend      = (node.blend || '').toLowerCase();
-      // Hide preview quad when the particle emitter is active —
-      // emitter.js will take over the display then.
+      // Active emitter + texture already loaded → hide quad (particles take over).
+      // Active emitter + texture missing        → hide quad (emitter.js shows placeholder).
+      // Inactive emitter                        → show quad (texture preview or empty).
       quad.visible = !markerActive;
       group.add(quad);
 
       // userData on the group object for applyTexturesToScene
-      group.userData.hasEmitterPreview = true;
-      group.userData.emitterTexName    = emTexName;
+      group.userData.hasEmitterPreview    = true;
+      group.userData.emitterTexName       = emTexName;
 
       obj = group;
 

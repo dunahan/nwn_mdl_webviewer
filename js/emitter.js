@@ -318,7 +318,11 @@ class NWNEmitter {
     this.active      = [];    // currently living particles
     this.accumulator = 0;     // spawn time accumulator
     this.baseTex     = textureCache[node.emitterTexture] || null;
+    // Placeholder marker shown at the emitter position when no texture is loaded yet.
+    // Managed entirely within emitter.js — see _syncPlaceholder().
+    this._placeholder = null;
     this._buildPool();
+    this._syncPlaceholder();
   }
 
   _buildPool() {
@@ -350,7 +354,64 @@ class NWNEmitter {
       this._disposeParticles();
       this.baseTex = tex;
       this._buildPool();
+      // Texture arrived → hide placeholder, particles take over
+      this._syncPlaceholder();
     }
+  }
+
+  // ─────────────────────────────────────────────
+  //  Placeholder marker (visible when baseTex is null)
+  // ─────────────────────────────────────────────
+
+  /**
+   * Central switch: builds or shows/hides the placeholder depending on
+   * whether a texture is available. Called from constructor and refreshTexture().
+   */
+  _syncPlaceholder() {
+    if (!this.baseTex) {
+      // No texture → ensure placeholder exists and is visible
+      if (!this._placeholder) this._buildPlaceholder();
+      if (this._placeholder) this._placeholder.visible = true;
+    } else {
+      // Texture loaded → hide placeholder (particles take over)
+      if (this._placeholder) this._placeholder.visible = false;
+    }
+  }
+
+  /**
+   * Builds a small marker (tiny sphere + halo ring) in the emitter's colorStart
+   * and attaches it as a child of the emitter's scene node so it inherits
+   * position, orientation, and animation transforms automatically.
+   */
+  _buildPlaceholder() {
+    const nodeObj = nodeObjects[this.node.name];
+    if (!nodeObj) return;
+
+    // Derive marker colour from colorStart (same logic as scene_build.js emitColor)
+    const cs  = this.node.colorStart || [1, 0.6, 0.1];
+    const lum = cs[0] * 0.299 + cs[1] * 0.587 + cs[2] * 0.114;
+    const color = lum < 0.05
+      ? new THREE.Color(0xf0a030)
+      : new THREE.Color(cs[0], cs[1], cs[2]);
+
+    const grp = new THREE.Group();
+    grp.userData.isEmitterPlaceholder = true;
+
+    // Tiny centre sphere — marks the exact emitter origin
+    const sGeo = new THREE.SphereGeometry(0.015, 6, 4);
+    const sMat = new THREE.MeshBasicMaterial({ color });
+    grp.add(new THREE.Mesh(sGeo, sMat));
+
+    // Small halo ring — gives size reference and makes the marker recognisable
+    // rotation.x = π/2 matches the ring orientation used in scene_build.js
+    const rGeo = new THREE.TorusGeometry(0.05, 0.003, 6, 16);
+    const rMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 });
+    const ring = new THREE.Mesh(rGeo, rMat);
+    ring.rotation.x = Math.PI / 2;
+    grp.add(ring);
+
+    nodeObj.add(grp);
+    this._placeholder = grp;
   }
 
   /** Query world position of the emitter node */
@@ -456,6 +517,16 @@ class NWNEmitter {
   /** Release all GPU resources and remove sprites from the scene */
   dispose() {
     this._disposeParticles();
+    // Remove placeholder marker from its parent node and free GPU resources
+    if (this._placeholder) {
+      const nodeObj = nodeObjects[this.node.name];
+      if (nodeObj) nodeObj.remove(this._placeholder);
+      this._placeholder.traverse(child => {
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) child.material.dispose();
+      });
+      this._placeholder = null;
+    }
     this.baseTex = null;
   }
 }
