@@ -717,16 +717,15 @@ function buildScene(model) {
 
       // Decoration visibility strategy:
       //   markerActive + texture already in cache → particles start immediately
-      //     → hide decoration so nothing obscures the effect
-      //   markerActive + texture not yet loaded   → show at 50% as position placeholder;
-      //     session.js hides them once the texture arrives (applyTexturesToScene)
+      //     → hide decoration and quad (particles take over)
+      //   markerActive + texture not yet loaded   → show decoration at full opacity +
+      //     colored placeholder quad; both hidden once texture arrives (session.js)
       //   !markerActive (no birthrate / no texture) → show at full opacity
-      const decorVisible = !markerActive || emTex === null;
-      const decorOpacity = markerActive ? 0.5 : 1.0;
+      const decorVisible = !markerActive;
 
       // Center: Sphere — r reduced from 0.06 → 0.04
       const sGeo = new THREE.SphereGeometry(0.04, 8, 6);
-      const sMat = new THREE.MeshBasicMaterial({ color: emitColor, transparent: markerActive, opacity: decorOpacity });
+      const sMat = new THREE.MeshBasicMaterial({ color: emitColor });
       const sphereMesh = new THREE.Mesh(sGeo, sMat);
       sphereMesh.userData.isEmitterDecoration = true;
       sphereMesh.visible = decorVisible;
@@ -734,7 +733,7 @@ function buildScene(model) {
 
       // Ring in XZ plane — r reduced 0.15 → 0.10, tube 0.012 → 0.008
       const rGeo = new THREE.TorusGeometry(0.10, 0.008, 6, 20);
-      const rMat = new THREE.MeshBasicMaterial({ color: emitColor, transparent: true, opacity: 0.75 * decorOpacity });
+      const rMat = new THREE.MeshBasicMaterial({ color: emitColor, transparent: true, opacity: 0.75 });
       const ring = new THREE.Mesh(rGeo, rMat);
       ring.rotation.x = Math.PI / 2;
       ring.userData.isEmitterDecoration = true;
@@ -754,7 +753,7 @@ function buildScene(model) {
       ]);
       const aGeo = new THREE.BufferGeometry();
       aGeo.setAttribute('position', new THREE.Float32BufferAttribute(arrowPts, 3));
-      const aMat = new THREE.LineBasicMaterial({ color: emitColor, transparent: true, opacity: 0.85 * decorOpacity });
+      const aMat = new THREE.LineBasicMaterial({ color: emitColor, transparent: true, opacity: 0.85 });
       const arrowLines = new THREE.LineSegments(aGeo, aMat);
       arrowLines.userData.isEmitterDecoration = true;
       arrowLines.visible = decorVisible;
@@ -774,10 +773,10 @@ function buildScene(model) {
         alphaTest:   0.05,
         color:       emTex ? 0xffffff : emitColor,
         map:         emTex || null,
-        opacity:     emTex ? 1.0 : 0.0,   // invisible until texture arrives
+        opacity:     emTex ? 1.0 : 0.0,
       });
       if ((node.blend || '').toLowerCase() === 'additive') {
-        qMat.blending = THREE.AdditiveBlending;
+        qMat.blending  = THREE.AdditiveBlending;
         qMat.alphaTest = 0;
       }
       const quad = new THREE.Mesh(qGeo, qMat);
@@ -785,14 +784,15 @@ function buildScene(model) {
       quad.userData.isEmitterPreview  = true;
       quad.userData.emitterTexName    = emTexName;
       quad.userData.emitterBlend      = (node.blend || '').toLowerCase();
-      // Hide preview quad when the particle emitter is active —
-      // emitter.js will take over the display then.
+      // Active emitter + texture already loaded → hide quad (particles take over).
+      // Active emitter + texture missing        → hide quad (emitter.js shows placeholder).
+      // Inactive emitter                        → show quad (texture preview or empty).
       quad.visible = !markerActive;
       group.add(quad);
 
       // userData on the group object for applyTexturesToScene
-      group.userData.hasEmitterPreview = true;
-      group.userData.emitterTexName    = emTexName;
+      group.userData.hasEmitterPreview    = true;
+      group.userData.emitterTexName       = emTexName;
 
       obj = group;
 

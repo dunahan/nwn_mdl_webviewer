@@ -446,14 +446,13 @@ function applyTexturesToScene() {
     const tex = textureCache[texName];
     // Update preview quad and hide decoration markers now that particles take over.
     obj.traverse(child => {
-      // FIX: Decoration (sphere / ring / arrows) was shown at 50% as placeholder
-      // while the texture was still missing. Now that the texture has arrived,
-      // hide it completely so it doesn't obscure the particle effect.
+      // Decoration (sphere / ring / arrows) was shown as placeholder while the
+      // texture was missing. Hide it now that particles have taken over.
       if (child.userData.isEmitterDecoration) {
         child.visible = false;
       }
       if (child.userData.isEmitterPreview && child.material) {
-        child.material.map     = tex;
+        child.material.map   = tex;
         child.material.color.set(0xffffff);
         child.material.opacity = 1.0;
         if (child.userData.emitterBlend === 'additive') {
