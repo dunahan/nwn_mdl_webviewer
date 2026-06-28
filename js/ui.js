@@ -28,6 +28,12 @@ function buildNodeList(model) {
     item.className = 'node-item';
     item.dataset.name = node.name;
 
+    // FIX: Direct Three.js object reference for collision-safe visibility toggling.
+    // nodeObjects[node.name] only holds the *last* writer when multiple tiles share
+    // the same node name (e.g. "walkmesh").  _nwnObj always points to *this* node's
+    // specific object regardless of name collisions in the group scene.
+    item._nwnObj = node._threeObj || null;
+
     const typeClass = ['trimesh','skin','dummy','emitter','aabb','danglymesh'].includes(node.type) ? node.type : 'other';
     const dot = document.createElement('div');
     dot.className = `node-dot dot-${typeClass}`;
@@ -50,8 +56,10 @@ function buildNodeList(model) {
       vis.title = L('vis_toggle_title');
       vis.onclick = (e) => { e.stopPropagation(); toggleNodeVisibility(node.name, item, vis); };
       item.appendChild(vis);
-    } else if (nodeObjects[node.name]) {
-      // All other visible nodes (dummy, emitter, light …) are also toggleable
+    } else if (node._threeObj || nodeObjects[node.name]) {
+      // All other visible nodes (dummy, emitter, light …) are also toggleable.
+      // Use node._threeObj as the primary check so that nodes from non-last tiles
+      // (whose nodeObjects entry was overwritten) still receive a toggle button.
       const vis = document.createElement('span');
       vis.className = 'vis-toggle';
       vis.textContent = '●';
@@ -66,7 +74,10 @@ function buildNodeList(model) {
 }
 
 function toggleNodeVisibility(name, item, btn, visibleIcon) {
-  const obj = nodeObjects[name];
+  // FIX: Prefer the direct Three.js reference stored on the DOM element.
+  // nodeObjects[name] only holds the last tile's object when multiple tiles share
+  // the same node name.  item._nwnObj always points to the correct specific object.
+  const obj = item._nwnObj || nodeObjects[name];
   if (!obj) return;
   obj.visible = !obj.visible;
   item.classList.toggle('hidden', !obj.visible);
@@ -84,7 +95,7 @@ function toggleNodeVisibility(name, item, btn, visibleIcon) {
 function nodeVisAll(show) {
   document.querySelectorAll('.node-item').forEach(item => {
     const name = item.dataset.name;
-    const obj  = nodeObjects[name];
+    const obj  = item._nwnObj || nodeObjects[name];
     if (!obj) return;
     obj.visible = show;
     item.classList.toggle('hidden', !show);
@@ -101,8 +112,7 @@ function nodeVisAll(show) {
 // If all are visible → hide all; otherwise → show all
 function nodeVisToggleType(type) {
   const items = [...document.querySelectorAll(`.node-item`)].filter(el => {
-    const name = el.dataset.name;
-    const obj  = nodeObjects[name];
+    const obj  = el._nwnObj || nodeObjects[el.dataset.name];
     // Type via userData.nodeData.type, fallback via badge text
     if (!obj) return false;
     const nodeType = (obj.userData.nodeData?.type || '').toLowerCase();
@@ -111,14 +121,13 @@ function nodeVisToggleType(type) {
   if (items.length === 0) return;
 
   const allVisible = items.every(el => {
-    const obj = nodeObjects[el.dataset.name];
+    const obj = el._nwnObj || nodeObjects[el.dataset.name];
     return obj && obj.visible;
   });
   const show = !allVisible;   // if all visible → hide, otherwise → show
 
   items.forEach(item => {
-    const name = item.dataset.name;
-    const obj  = nodeObjects[name];
+    const obj  = item._nwnObj || nodeObjects[item.dataset.name];
     if (!obj) return;
     obj.visible = show;
     item.classList.toggle('hidden', !show);
@@ -140,7 +149,7 @@ function nodeVisUpdateTypeButtons() {
     if (btn.disabled) return;
     const type = btn.dataset.type;
     const anyVisible = [...document.querySelectorAll('.node-item')].some(el => {
-      const obj = nodeObjects[el.dataset.name];
+      const obj = el._nwnObj || nodeObjects[el.dataset.name];
       const nodeType = (obj?.userData.nodeData?.type || '').toLowerCase();
       return nodeType === type && obj?.visible;
     });

@@ -871,6 +871,14 @@ function buildScene(model) {
     obj.userData.nodeData = node;
     obj.isBone = true; // NEW: Strictly required for the SkeletonHelper to recognize the hierarchy
 
+    // FIX (AABB / duplicate-name collision):
+    // Store a direct back-reference on the parsed node data so that buildNodeList()
+    // can attach it to each .node-item element as _nwnObj.  This allows visibility
+    // toggles and type-filter buttons to resolve the *specific* Three.js object for
+    // this node without relying on nodeObjects[node.name], which only keeps the last
+    // writer when multiple tiles share the same node name (e.g. "walkmesh" in AABB).
+    node._threeObj = obj;
+
     objects[node.name] = obj;
     nodeObjects[node.name] = obj;
   }
