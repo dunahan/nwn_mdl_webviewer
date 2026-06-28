@@ -70,6 +70,7 @@ No installation, no server — just open `index.html` locally or use it directly
 - **Sprite-sheet UV animation** — UV tiling and orientation (TGA flip-Y / `flipY=false` compatible); `xgrid`/`ygrid` support
 - **Keyframe-driven birthrate** — Emitter birthrate follows animation keyframe curves (`birthratekey`)
 - **Billboard modes** — Standard camera-facing sprites and `Billboard_to_World_Z` flat-ground particles
+- **Smart decoration visibility** — The in-scene emitter marker (sphere, ring, directional arrows) is automatically hidden once the emitter is active and its texture is loaded; visible only as a placeholder when the texture has not yet arrived or the emitter has no birthrate
 
 ### Textures & Materials
 - **Texture formats** — TGA (Types 2, 3, 10, 11 — 16/24/32-bit), DDS (DXT1, DXT3, DXT5, Bioware custom, standard), PNG, JPG; ATI1/BC4 and ATI2/BC5 for NWN:EE specular and normal maps
@@ -94,13 +95,14 @@ No installation, no server — just open `index.html` locally or use it directly
 - **Tileset (.set) parser** — Reads NWN INI-format `.set` files (tile definitions, group layouts, terrain corners)
 - **Tile browser** — Searchable, filterable floating panel (grid and list view); free-text and group filter
 - **Click-to-load** — Clicking an available tile loads its MDL instantly via the watch folder handle
-- **Group view** — Loads all tiles of a group side-by-side in a NWN-standard 10 m × 10 m grid
+- **Group view** — Loads all tiles of a group side-by-side in a NWN-standard 10 m × 10 m grid; the scene graph and model-info panel reflect all tiles combined (aggregate node list, total vertex/face counts)
 - **Change indicator** — Active tile gets a ↻ badge when its MDL changes on disk
 
 ### Scene Graph & Inspection
 - **Node hierarchy** — Scene graph in the sidebar, collapsible
 - **Per-node visibility** — Toggle individual nodes via ⬡ / ● icon
 - **Type filter toolbar** — One-click bulk toggle for MESH / SKIN / DUMMY / EMIT / LIGHT / AABB / DANG
+- **Collision-safe visibility** — In group-loaded tileset scenes, multiple tiles may share identical node names (e.g. `walkmesh` on AABB nodes, or generic mesh names like `ground01`). Each scene graph entry correctly controls its own specific Three.js object regardless of name collisions — visibility toggles and type-filter buttons all resolve to the right tile.
 - **Node Inspector** — Draggable floating panel with zoom controls (−/○/＋); shows: type, parent, vertices, faces, bitmap, position, diffuse, alpha, plus type-specific sections for emitter nodes (all parameters), light nodes (color, radius, multiplier, shadow, etc.), and MTR nodes (slot status, renderhint, tangent status, shader parameters)
 - **Skeleton Helper** — Three.js SkeletonHelper overlay for skinned models; toggled via the Skeleton button
 
@@ -404,6 +406,14 @@ Multi-part character models (chest, head, legs, …) require all body parts **an
 ### Set Browser / Hot-Reload button is greyed out
 
 These features rely on the [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API), which is currently only available in **Chrome and Edge**. Firefox does not support this API. The rest of the viewer (MDL rendering, textures, animations, PLT) works in all modern browsers.
+
+---
+
+### Set Browser group view: toggling a node only affects one tile
+
+**Symptom:** In a group scene, multiple tiles share the same node name (e.g. `walkmesh` on AABB nodes, or generic mesh names like `ground01`). Clicking the visibility toggle in the scene graph appears to only affect one tile.
+
+**Status: fixed.** The viewer stores a direct Three.js object reference on each scene graph entry at load time, so visibility controls always resolve to the correct per-tile object regardless of name collisions. If you encounter this with an older build, update to the latest release.
 
 ---
 
