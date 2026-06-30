@@ -63,6 +63,7 @@ function loadFiles(fileList) {
     if (!isSupermodelLoad) {
       clearSession();
       clearLog();
+    //console.clear();  // do I want a complete cleanup, even if errors occurred?
       // Model name hint for collapsed sidebar
       const baseName = mdlFiles[0].name.replace(/\.[^.]+$/, '');
       const hint = document.getElementById('model-name-hint');
