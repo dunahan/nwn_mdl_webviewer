@@ -460,6 +460,11 @@ function resetCamera() {
   orbit.radius = orbit.initRadius;
   orbit.theta  = orbit.initTheta;
   orbit.phi    = orbit.initPhi;
+  // FIX: also clear the screen-space pan offset (see scene.js) — otherwise
+  // "↺ Cam" would re-center theta/phi/radius but leave the model visually
+  // shifted from a previous deliberate pan.
+  orbit.panX = 0;
+  orbit.panY = 0;
   updateCamera();
 }
 
