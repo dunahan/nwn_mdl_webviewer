@@ -207,13 +207,31 @@ function resetToPose() {
 // All matrices and positions in NWN space (before modelGroup -90° X rotation).
 // The modelGroup rotation is applied to the skin mesh automatically by Three.js.
 const _sk = {
-  mgInv:    new THREE.Matrix4(),
-  boneMat:  new THREE.Matrix4(),
-  skinMat:  new THREE.Matrix4(),
-  vBind:    new THREE.Vector3(),
-  vTmp:     new THREE.Vector3(),
-  vFinal:   new THREE.Vector3(),
+  mgInv:   new THREE.Matrix4(),
+  boneMat: new THREE.Matrix4(),
+  vBind:   new THREE.Vector3(),
+  vTmp:    new THREE.Vector3(),
+  vFinal:  new THREE.Vector3(),
 };
+
+// Bone-Name → finale Skin-Matrix (NWN-Space), pro Frame neu befüllt.
+// ponytail: Map wird jeden Frame neu angelegt statt gepoolt — bei ~30-60
+// Bones ist die Allokation vernachlässigbar gegen die eingesparten
+// Matrix-Multiplikationen. Falls GC-Druck je messbar wird: persistenten
+// Matrix4-Pool pro Bone anlegen statt Map.clear() pro Frame.
+const _skinMatCache = new Map();
+
+function _getSkinMat(bone, bindInv) {
+  let m = _skinMatCache.get(bone);
+  if (m) return m;
+  const boneObj = nodeObjects[bone];
+  if (!boneObj || !bindInv[bone]) return null;
+  m = new THREE.Matrix4();
+  _sk.boneMat.multiplyMatrices(_sk.mgInv, boneObj.matrixWorld);
+  m.multiplyMatrices(_sk.boneMat, bindInv[bone]);
+  _skinMatCache.set(bone, m);
+  return m;
+}
 
 function applySkinning() {
   if (!currentModel || !window._nwnBindInvMatrices || !window._nwnModelGroup) return;
@@ -223,6 +241,10 @@ function applySkinning() {
   // Compute mg_inv once per frame: transforms bone.matrixWorld into NWN space
   mg.updateMatrixWorld(true);
   _sk.mgInv.copy(mg.matrixWorld).invert();
+
+  // Eine Skin-Matrix pro Bone für diesen Frame — wird beim ersten
+  // Vertex, der den Bone nutzt, berechnet und danach wiederverwendet.
+  _skinMatCache.clear();
 
   for (const node of currentModel.nodes) {
     if (node.type !== 'skin') continue;
@@ -243,14 +265,10 @@ function applySkinning() {
 
       let totalW = 0;
       for (const { bone, weight } of pairs) {
-        const boneObj = nodeObjects[bone];
-        if (!boneObj || !bindInv[bone]) continue;
+        const skinMat = _getSkinMat(bone, bindInv);
+        if (!skinMat) continue;
 
-        // Current bone in NWN space
-        _sk.boneMat.multiplyMatrices(_sk.mgInv, boneObj.matrixWorld);
-        _sk.skinMat.multiplyMatrices(_sk.boneMat, bindInv[bone]);
-
-        _sk.vTmp.copy(_sk.vBind).applyMatrix4(_sk.skinMat);
+        _sk.vTmp.copy(_sk.vBind).applyMatrix4(skinMat);
         _sk.vFinal.addScaledVector(_sk.vTmp, weight);
         totalW += weight;
       }
