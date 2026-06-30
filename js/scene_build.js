@@ -638,8 +638,6 @@ function buildScene(model) {
         obj.add(backMesh);
       }
 
-      totalVerts += node.verts.length;   // ← already present 
-      
       totalVerts += node.verts.length;
       totalFaces += node.faces.length;
     } else if (node.type === 'aabb' && node.faces.length > 0 && node.verts.length > 0) {
