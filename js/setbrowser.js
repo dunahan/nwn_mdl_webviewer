@@ -753,6 +753,7 @@ const SetBrowser = (() => {
   }
 
   function _renderGrid(container, tiles) {
+    const frag = document.createDocumentFragment();   // ←
     for (const tile of tiles) {
       const el = document.createElement('div');
       el.className       = 'sb-tile';
@@ -763,11 +764,13 @@ const SetBrowser = (() => {
       el.innerHTML =
         `<span class="sb-tile-nr">#${String(tile.nr).padStart(3, '0')}</span>` +
         `<span class="sb-tile-model">${tile.model || '—'}</span>`;
-      container.appendChild(el);
+      frag.appendChild(el);
     }
+    container.appendChild(frag);
   }
 
   function _renderList(container, tiles) {
+    const frag = document.createDocumentFragment();   // ←
     for (const tile of tiles) {
       const el = document.createElement('div');
       el.className      = 'sb-tile sb-tile-row';
@@ -784,10 +787,10 @@ const SetBrowser = (() => {
         `<span class="sb-col-nr">#${String(tile.nr).padStart(3, '0')}</span>` +
         `<span class="sb-col-model">${tile.model || '—'}</span>` +
         `<span class="sb-col-terrain">${terrainStr}</span>`;
-      container.appendChild(el);
+      frag.appendChild(el);
     }
+    container.appendChild(frag);
   }
-
 
   // ════════════════════════════════════════════════════════════
   //  ZOOM  (font size in tile container)

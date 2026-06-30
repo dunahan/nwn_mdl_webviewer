@@ -23,6 +23,12 @@ function buildNodeList(model) {
     // Initialize type button state (all visible → all active)
     nodeVisUpdateTypeButtons();
   }
+  
+  // Items are collected in a fragment instead of being appended to the
+  // live DOM individually — for large tilesets (set browser groups), this
+  // prevents hundreds of individual reflows.
+  const frag = document.createDocumentFragment();
+  
   for (const node of model.nodes) {
     const item = document.createElement('div');
     item.className = 'node-item';
@@ -69,8 +75,10 @@ function buildNodeList(model) {
     }
 
     item.onclick = () => selectNode(node.name);
-    list.appendChild(item);
+    frag.appendChild(item);
   }
+  
+  list.appendChild(frag);
 }
 
 function toggleNodeVisibility(name, item, btn, visibleIcon) {
