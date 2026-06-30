@@ -88,7 +88,28 @@ const orbit = {
   dragging: false, panning: false,
   lastX: 0, lastY: 0,
   panStart: null,
+  // FIX: Screen-space pan offset, decoupled from orbit.target.
+  // Panning used to permanently shift orbit.target (the rotation pivot) in
+  // world space — once Auto-Rotate was enabled afterwards, the camera then
+  // orbited around that shifted point instead of the model's real center,
+  // causing the model to swing out of view and back during rotation.
+  // panX/panY instead store a screen-space offset (right/up in camera basis,
+  // world units) that is re-applied every frame in updateCamera() using the
+  // *current* view direction. orbit.target itself always stays the model's
+  // true center (set on load, see scene_build.js), so rotation is always
+  // clean — and the user's deliberate "push it aside" pan is preserved as a
+  // constant on-screen position throughout the rotation.
+  panX: 0, panY: 0,
 };
+
+// Scratch objects for updateCamera() — avoids per-frame allocation during
+// Auto-Rotate (called every animation frame in that mode).
+const _camBasePos  = new THREE.Vector3();
+const _camDir      = new THREE.Vector3();
+const _camRight    = new THREE.Vector3();
+const _camUp       = new THREE.Vector3();
+const _camOffset   = new THREE.Vector3();
+const _camLookAt   = new THREE.Vector3();
 
 function updateCamera() {
   orbit.phi = Math.max(0.05, Math.min(Math.PI - 0.05, orbit.phi));
@@ -96,12 +117,35 @@ function updateCamera() {
   const x = orbit.radius * Math.sin(orbit.phi) * Math.sin(orbit.theta);
   const y = orbit.radius * Math.cos(orbit.phi);
   const z = orbit.radius * Math.sin(orbit.phi) * Math.cos(orbit.theta);
-  camera.position.set(
+
+  // Base camera position, orbiting the true rotation center (orbit.target).
+  _camBasePos.set(
     orbit.target.x + x,
     orbit.target.y + y,
     orbit.target.z + z
   );
-  camera.lookAt(orbit.target);
+
+  if (orbit.panX === 0 && orbit.panY === 0) {
+    camera.position.copy(_camBasePos);
+    camera.lookAt(orbit.target);
+    return;
+  }
+
+  // FIX: Re-derive right/up from the current view direction every call
+  // (not from camera.getWorldDirection(), which lags one frame behind)
+  // so the pan offset always reads as the same screen-space position,
+  // regardless of how theta/phi have rotated since the pan was applied.
+  _camDir.subVectors(orbit.target, _camBasePos).normalize();
+  _camRight.crossVectors(_camDir, camera.up).normalize();
+  _camUp.crossVectors(_camRight, _camDir).normalize();
+
+  _camOffset.set(0, 0, 0)
+    .addScaledVector(_camRight, orbit.panX)
+    .addScaledVector(_camUp, orbit.panY);
+
+  camera.position.copy(_camBasePos).add(_camOffset);
+  _camLookAt.copy(orbit.target).add(_camOffset);
+  camera.lookAt(_camLookAt);
 }
 
 canvas.addEventListener('mousedown', e => {
@@ -121,14 +165,12 @@ window.addEventListener('mousemove', e => {
     updateCamera();
   }
   if (orbit.panning) {
-    const right = new THREE.Vector3();
-    const up = new THREE.Vector3();
-    camera.getWorldDirection(new THREE.Vector3());
-    right.crossVectors(camera.getWorldDirection(new THREE.Vector3()), camera.up).normalize();
-    up.copy(camera.up);
+    // FIX: accumulate into the screen-space pan offset instead of moving
+    // orbit.target — keeps the rotation pivot at the model's true center.
+    // Sign convention matches the previous target-shift behaviour exactly.
     const speed = orbit.radius * 0.001;
-    orbit.target.addScaledVector(right, -dx * speed);
-    orbit.target.addScaledVector(up, dy * speed);
+    orbit.panX += -dx * speed;
+    orbit.panY +=  dy * speed;
     updateCamera();
   }
 });
@@ -204,13 +246,13 @@ canvas.addEventListener('touchmove', e => {
     const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
     const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
     if (_pinchMidX !== null) {
+      // FIX: same screen-space offset accumulation as the mouse pan above,
+      // instead of permanently shifting orbit.target.
       const pdx   = midX - _pinchMidX;
       const pdy   = midY - _pinchMidY;
-      const right = new THREE.Vector3();
-      right.crossVectors(camera.getWorldDirection(new THREE.Vector3()), camera.up).normalize();
       const speed = orbit.radius * 0.001;
-      orbit.target.addScaledVector(right, -pdx * speed);
-      orbit.target.addScaledVector(camera.up,  pdy * speed);
+      orbit.panX += -pdx * speed;
+      orbit.panY +=  pdy * speed;
       updateCamera();
     }
     _pinchMidX = midX;

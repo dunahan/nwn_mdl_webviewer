@@ -93,34 +93,47 @@ function computeSGNormals(node) {
         }
       }
     }
+    
+    // Map → typed arrays. Cluster keys fall within a known, small
+    // value range (n is typically 2–6)—an array index is cheaper
+    // here than a hash lookup. Group IDs: cluster roots (sg≠0) lie
+    // in [0, n) via _find(i); isolated sg=0 faces are assigned
+    // n+i e [n, 2n) so that the two ranges never collide.
+    const groupCount = n * 2;
+    const clNX = new Float64Array(groupCount);
+    const clNY = new Float64Array(groupCount);
+    const clNZ = new Float64Array(groupCount);
+    const groupOf = new Int32Array(n);
 
-    // Accumulate cluster normals
-    const clNX = new Map(), clNY = new Map(), clNZ = new Map();
     for (let i = 0; i < n; i++) {
-      // sg=0: each face gets a unique key → no merge
-      const key = (faces[fList[i]].sg === 0) ? ~i : _find(i);
-      clNX.set(key, (clNX.get(key) || 0) + faceNX[fList[i]]);
-      clNY.set(key, (clNY.get(key) || 0) + faceNY[fList[i]]);
-      clNZ.set(key, (clNZ.get(key) || 0) + faceNZ[fList[i]]);
+      const key = (faces[fList[i]].sg === 0) ? (n + i) : _find(i);
+      groupOf[i] = key;
+      clNX[key] += faceNX[fList[i]];
+      clNY[key] += faceNY[fList[i]];
+      clNZ[key] += faceNZ[fList[i]];
     }
 
-    // Normalize
-    const nrmX = new Map(), nrmY = new Map(), nrmZ = new Map();
-    for (const [key, nx] of clNX) {
-      const ny = clNY.get(key), nz = clNZ.get(key);
-      const len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
-      nrmX.set(key, nx / len); nrmY.set(key, ny / len); nrmZ.set(key, nz / len);
+    // Normalize every used group slot in place (n is small, so
+    // negligibly cheap, even if a few slots remain unused)
+    for (let g = 0; g < groupCount; g++) {
+      const nx = clNX[g], ny = clNY[g], nz = clNZ[g];
+    //const len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;  // until changes in v184
+      const len = Math.sqrt(nx * nx + ny * ny + nz * nz);
+      if (len > 1e-8) {
+        clNX[g] = nx / len; clNY[g] = ny / len; clNZ[g] = nz / len;
+      }
     }
 
-    // Write to exploded buffer
+    // Write to exploded buffer — groupOf[i] wiederverwendet den bereits
+    // berechneten Schlüssel statt _find(i) ein zweites Mal aufzurufen.
     for (let i = 0; i < n; i++) {
       const fi  = fList[i];
-      const key = (faces[fi].sg === 0) ? ~i : _find(i);
+      const key = groupOf[i];
       for (let k = 0; k < 3; k++) {
         if (faces[fi].v[k] === vi) {
-          out[fi * 9 + k * 3 + 0] = nrmX.get(key);
-          out[fi * 9 + k * 3 + 1] = nrmY.get(key);
-          out[fi * 9 + k * 3 + 2] = nrmZ.get(key);
+          out[fi * 9 + k * 3 + 0] = clNX[key];
+          out[fi * 9 + k * 3 + 1] = clNY[key];
+          out[fi * 9 + k * 3 + 2] = clNZ[key];
           break;
         }
       }
@@ -638,8 +651,6 @@ function buildScene(model) {
         obj.add(backMesh);
       }
 
-      totalVerts += node.verts.length;   // ← already present 
-      
       totalVerts += node.verts.length;
       totalFaces += node.faces.length;
     } else if (node.type === 'aabb' && node.faces.length > 0 && node.verts.length > 0) {
