@@ -4,6 +4,39 @@
 
 //  Multi-File Loader  (MDL + textures simultaneously)
 // ─────────────────────────────────────────────
+
+  const NWN_BONE_MAP = {
+      'chest':  'torso_g',
+      'pelvis': 'pelvis_g',
+      'belt':   'belt_g1',
+      'neck':   'neck_g',
+      'head':   'head_g',
+      'shol':   'lbicep_g',    // shoulder plate: left shoulder joint
+      'shor':   'rbicep_g',    //                 right shoulder joint
+      'bicepl': 'lbicep_g',    // upper arm left
+      'bicepr': 'rbicep_g',    // upper arm right
+      'forel':  'lforearm_g',  // forearm left
+      'forer':  'rforearm_g',  // forearm right
+      'handl':  'lhand_g',     // hand left
+      'handr':  'rhand_g',     // hand right
+      'legl':   'lthigh_g',    // thigh left
+      'legr':   'rthigh_g',    // thigh right
+      'shinl':  'lshin_g',     // shin left
+      'shinr':  'rshin_g',     // shin right
+      'footl':  'lfoot_g',     // foot left
+      'footr':  'rfoot_g',     // foot right*/
+  };
+  
+  const NWN_ARM_CHAINS = [
+    ['shol', 'bicepl', 'forel', 'handl'],
+    ['shor', 'bicepr', 'forer', 'handr'],
+  ];
+
+  const NWN_SPINE_GROUPS = [
+    ['footl', 'footr'], ['shinl', 'shinr'], ['legl', 'legr'],
+    ['pelvis'], ['belt'], ['chest'], ['neck'], ['head'],
+  ];
+
 function loadFiles(fileList) {
   if (!fileList || fileList.length === 0) return;
 
@@ -489,7 +522,7 @@ function mergeAnimationsFromSupermodel(mainModel, superModel) {
 
   // FIX: NWN node names are inconsistently cased across different files
   // (e.g., "Lbicep_g" vs. "lbicep_g") — the same issue already handled
-  // during the BONE_MAP lookup in character part assembly.
+  // during the NWN_BONE_MAP lookup in character part assembly.
   // Lowercase → original-casing map, ensuring animation keys match
   // the mainModel node names (and thus nodeObjects) exactly.
   const mainNodeNamesLC = new Map();
@@ -709,7 +742,7 @@ function positionCharacterParts(charParts, skeletonModel) {
 
     // NWN part abbreviation → attachment node name in skeleton
     // Source: pmh0.mdl analysis (applies to all pm[mf][0-9].mdl base skeletons)
-    const BONE_MAP = {
+/*  const BONE_MAP = {
       'chest':  'torso_g',
       'pelvis': 'pelvis_g',
       'belt':   'belt_g1',
@@ -729,7 +762,7 @@ function positionCharacterParts(charParts, skeletonModel) {
       'shinr':  'rshin_g',     // shin right
       'footl':  'lfoot_g',     // foot left
       'footr':  'rfoot_g',     // foot right
-    };
+    };*/
 
     // World positions of all skeleton nodes via hierarchy traversal
     const nodeMap = {};
@@ -760,7 +793,7 @@ function positionCharacterParts(charParts, skeletonModel) {
 
     // Place each part at its attachment node
     for (const part of charParts) {
-      const bone = BONE_MAP[partKey(part.name.toLowerCase())];
+      const bone = NWN_BONE_MAP[partKey(part.name.toLowerCase())];
       if (!bone) continue;
       const wp = worldPos[bone];
       if (!wp) continue;
@@ -787,14 +820,9 @@ function positionCharacterParts(charParts, skeletonModel) {
   }
 
   // Phase 2a: spine + legs along Z axis (NWN: Z = up)
-  const SPINE_GROUPS = [
-    ['footl', 'footr'], ['shinl', 'shinr'], ['legl', 'legr'],
-    ['pelvis'], ['belt'], ['chest'], ['neck'], ['head'],
-  ];
-
   let floorZ = 0, chestTopZ = 0;
 
-  for (const keys of SPINE_GROUPS) {
+  for (const keys of NWN_SPINE_GROUPS) {
     const parts = keys.map(findPart).filter(Boolean);
     if (!parts.length) continue;
     let gMinZ = Infinity, gMaxZ = -Infinity;
@@ -816,11 +844,7 @@ function positionCharacterParts(charParts, skeletonModel) {
   if (chestTopZ === 0) chestTopZ = floorZ;
 
   // Phase 2b: arms hang downward from the chest top edge
-  const ARM_CHAINS = [
-    ['shol', 'bicepl', 'forel', 'handl'],
-    ['shor', 'bicepr', 'forer', 'handr'],
-  ];
-  for (const chain of ARM_CHAINS) {
+  for (const chain of NWN_ARM_CHAINS) {
     let armTopZ = chestTopZ;
     for (const key of chain) {
       const part = findPart(key);
@@ -948,7 +972,7 @@ function loadAllMDLFiles(mdlFiles) {
           // in space by Three.js (including parent rotations).
           // → boneObj.add(partRoot) + position (0,0,0): part lands exactly at bone origin.
           if (skeletonModel) {
-            const BONE_MAP = {
+/*          const BONE_MAP = {
               'chest':  'torso_g',    'pelvis': 'pelvis_g',   'belt':   'belt_g1',
               'neck':   'neck_g',     'head':   'head_g',
               'shol':   'lbicep_g',   'shor':   'rbicep_g',
@@ -958,11 +982,11 @@ function loadAllMDLFiles(mdlFiles) {
               'legl':   'lthigh_g',   'legr':   'rthigh_g',
               'shinl':  'lshin_g',    'shinr':  'rshin_g',
               'footl':  'lfoot_g',    'footr':  'rfoot_g',
-            };
+            };*/
 
             // Case-insensitive bone lookup: skeletons of different models
             // use different capitalisations (e.g. Lbicep_g vs lbicep_g).
-            // BONE_MAP values are always lowercase → build LC map once.
+            // NWN_BONE_MAP values are always lowercase → build LC map once.
             const nodeObjLC = {};
             for (const [k, v] of Object.entries(nodeObjects)) {
               if (k) nodeObjLC[k.toLowerCase()] = v;
@@ -972,7 +996,7 @@ function loadAllMDLFiles(mdlFiles) {
             for (const part of charParts) {
               if (part === base) continue;
               const m = part.name.match(/^p[mf][a-z]\d_([a-z]+)\d+$/i);
-              const boneName = BONE_MAP[m ? m[1].toLowerCase() : ''];
+              const boneName = NWN_BONE_MAP[m ? m[1].toLowerCase() : ''];
               if (!boneName) continue;
               const partRoot = nodeObjects[part.name];
               const boneObj  = nodeObjLC[boneName];
@@ -986,7 +1010,7 @@ function loadAllMDLFiles(mdlFiles) {
             // The base root itself cannot be moved (all bones hang from it).
             // Its geometry meshes (non-skeleton nodes) are attached directly
             // under their bone attachment node, like all other parts.
-            const pelvisGObj   = nodeObjLC[BONE_MAP['pelvis']];
+            const pelvisGObj   = nodeObjLC[NWN_BONE_MAP['pelvis']];
             const baseRootObj  = nodeObjects[base.name];
             if (pelvisGObj && baseRootObj) {
               const skelNodeNames = new Set(
