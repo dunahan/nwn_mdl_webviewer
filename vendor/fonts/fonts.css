@@ -1,0 +1,42 @@
+/* ═══════════════════════════════════════════════
+   NWN MDL Viewer — Vendored Fonts
+   ═══════════════════════════════════════════════
+   Self-hosted replacement for the previous Google Fonts CDN link
+   (fonts.googleapis.com / fonts.gstatic.com). Required for a strict
+   Tauri CSP (no third-party font-src) and for offline use.
+
+   Source: @fontsource/cinzel@5.2.8, @fontsource/share-tech-mono@5.2.7
+   (npm), "latin" subset only — matches the languages currently shipped
+   in lang/ (en, de). Weights: Cinzel 400+600 (the only weights actually
+   used, see css/viewer.css), Share Tech Mono 400 (its only weight).
+
+   Licenses: SIL Open Font License 1.1 — see LICENSE-cinzel and
+   LICENSE-share-tech-mono in this directory.
+   ═══════════════════════════════════════════════ */
+
+@font-face {
+  font-family: 'Cinzel';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url('./cinzel-latin-400-normal.woff2') format('woff2'),
+       url('./cinzel-latin-400-normal.woff')  format('woff');
+}
+
+@font-face {
+  font-family: 'Cinzel';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url('./cinzel-latin-600-normal.woff2') format('woff2'),
+       url('./cinzel-latin-600-normal.woff')  format('woff');
+}
+
+@font-face {
+  font-family: 'Share Tech Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url('./share-tech-mono-latin-400-normal.woff2') format('woff2'),
+       url('./share-tech-mono-latin-400-normal.woff')  format('woff');
+}
