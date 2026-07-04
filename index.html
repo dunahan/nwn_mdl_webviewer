@@ -4,8 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NWN MDL Viewer</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Share+Tech+Mono&display=swap">
+  <link rel="stylesheet" href="vendor/fonts/fonts.css">
   <link rel="stylesheet" href="css/viewer.css">
 </head>
 <body>
@@ -175,7 +174,7 @@
   <div id="viewport">
     <canvas id="canvas"></canvas>
 
-    <!-- ── Viewport Drag-Highlight (bei ausgeblendeter Sidebar) ── -->
+    <!-- ── Viewport Drag-Highlight (when sidebar is hidden) ── -->
     <div id="viewport-drag-overlay">
       <span id="viewport-drag-label" data-i18n="drop_title">Drop MDL + Textures here</span>
     </div>
@@ -271,11 +270,8 @@
   </div>
 </div>
 
-<!-- Three.js r150 -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.152.0/three.min.js"
-  integrity="sha512-Xr/WOAkCSWjhjwU5imbX1t2vZA4mDHqQJkuXOgzWH28GNXC9BfzuO54z3Byhb1xYGedSGlDMqFaoAI6DtOtC2g=="
-  crossorigin="anonymous"
-  referrerpolicy="no-referrer"></script>
+<!-- Three.js r152 (vendored locally - see vendor/README.md for provenance / hash verification) -->
+<script src="vendor/three/three.min.js"></script>
   
 <!-- NWN MDL Viewer — Module -->
 <script src="js/i18n.js"></script>        <!-- Translation --!>

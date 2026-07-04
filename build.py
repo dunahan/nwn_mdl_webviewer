@@ -71,9 +71,8 @@ def build(version: str = ''):
     print(f'  JS files ({len(js_order)}): {", ".join(js_order)}')
 
     # ── 0.5. Inject version string ────────────────────────────────────────────
-    # index.html enthält den Platzhalter {{APP_VERSION}}.
-    # Bei lokalem Build ohne --version bleibt das Element leer (CSS: display:none).
-    html = html.replace('{{APP_VERSION}}', version)
+    # index.html contains the placeholder {{APP_VERSION}}.
+    # For a local build without --version, the element remains empty (CSS: display:none).    html = html.replace('{{APP_VERSION}}', version)
     if version:
         print(f'  Version: {version}')
 
@@ -146,11 +145,28 @@ def build(version: str = ''):
     else:
         print(f'  WARNING: wasm/ directory not found — HTTP mode will not work.')
 
+    # ── 7. Copy vendor/ (Three.js + fonts) ───────────────────────────────────
+    # index.html references these via relative paths (vendor/three/three.min.js,
+    # vendor/fonts/fonts.css) — NOT inlined by step 3 above, since that step only
+    # touches <script src="js/..."> tags inside the module marker section, and
+    # the Three.js <script> / fonts <link> both sit outside of it (by design —
+    # inlining a 634 KB minified vendor lib into a single index.html would only
+    # bloat the file for no benefit, unlike the project's own JS modules).
+    vendor_src = ROOT / 'vendor'
+    vendor_dst = DIST / 'vendor'
+    if vendor_dst.exists():
+        shutil.rmtree(vendor_dst)
+    if vendor_src.exists():
+        shutil.copytree(vendor_src, vendor_dst)
+        print(f'✓  Copied: vendor/ → dist/vendor/')
+    else:
+        print(f'  WARNING: vendor/ directory not found — Three.js/fonts will fail to load in dist/index.html.')
+
     return out
 
 
 if __name__ == '__main__':
-    # --version vX.Y.Z  → wird in den HTML-Platzhalter {{APP_VERSION}} eingesetzt
+    # --version vX.Y.Z  → inserted into the HTML placeholder {{APP_VERSION}}
     version = ''
     argv = sys.argv[1:]
     if '--version' in argv:
@@ -166,8 +182,8 @@ if __name__ == '__main__':
 
             class Handler(FileSystemEventHandler):
                 def on_modified(self, event):
-                    # Änderungen im dist/-Ausgabeverzeichnis ignorieren,
-                    # sonst löst jeder Build einen weiteren Build aus.
+                    # Ignore changes in the dist/ output directory,
+                    # otherwise, every build triggers another build.
                     if str(Path(event.src_path)).startswith(str(DIST)):
                         return
                     if event.src_path.endswith(('.html', '.css', '.js', '.json')):
