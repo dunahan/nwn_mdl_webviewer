@@ -770,6 +770,20 @@ function applyTheme(theme) {
     root.style.setProperty(key, value);
     _currentThemeVars[key] = value;
   }
+  // FIX: Native OS controls (e.g., <select> dropdowns in Tauri/WebView2/WebKitGTK)
+  // ignore our CSS theme and follow the color-scheme instead. Without this
+  // line, they remain light even when --bg is dark (Tauri bug report).
+  root.style.colorScheme = _isDarkBg(theme.variables['--bg-rgb']) ? 'dark' : 'light';
+}
+
+// --bg-rgb is "r, g, b" (see themes/README.md). If the value is missing
+// (e.g., a minimalist custom theme without --bg-rgb) → assume dark,
+// since both built-in themes are dark.
+function _isDarkBg(rgbStr) {
+  if (!rgbStr) return true;
+  const [r, g, b] = rgbStr.split(',').map(Number);
+  if ([r, g, b].some(Number.isNaN)) return true;
+  return (r * 299 + g * 587 + b * 114) / 1000 < 128;   // ITU-R BT.601 Luminanz
 }
 
 // ─────────────────────────────────────────────
