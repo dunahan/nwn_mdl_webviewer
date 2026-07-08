@@ -304,11 +304,11 @@ function selectNode(name) {
       '<span class="nd-title">' + n.name + '</span>' +
       '<span id="node-detail-drag-strip" class="nd-drag-strip" title="' + L('nd_drag_title') + '">⠿ ⠿ ⠿</span>' +
       '<span class="nd-zoom-btns">' +
-        '<button class="nd-zoom-btn" onclick="nodeDetailZoom(-1)" title="Smaller">−</button>' +
-        '<button class="nd-zoom-btn" onclick="nodeDetailZoom(0)"  title="Reset">○</button>' +
-        '<button class="nd-zoom-btn" onclick="nodeDetailZoom(1)"  title="Larger">＋</button>' +
+        '<button class="nd-zoom-btn" data-zoom="-1" title="Smaller">−</button>' +
+        '<button class="nd-zoom-btn" data-zoom="0"  title="Reset">○</button>' +
+        '<button class="nd-zoom-btn" data-zoom="1"  title="Larger">＋</button>' +
       '</span>' +
-      '<button class="nd-close-btn" onclick="closeNodeDetail()" title="' + L('nd_close_title') + '">×</button>' +
+      '<button class="nd-close-btn" title="' + L('nd_close_title') + '">×</button>' +
     '</div>' +
     '<div id="node-detail-body">' +
     '<div class="nd-row"><span>' + L('nd_type')     + '</span><span class="nd-val">' + n.type + '</span></div>' +
@@ -322,6 +322,14 @@ function selectNode(name) {
     extraRows +
     mtrSection +
     '</div>';
+  // CSP: keine inline onclick-Attribute — Zoom-/Close-Buttons per addEventListener
+  // verkabeln (innerHTML ersetzt bei jedem Aufruf den kompletten DOM-Teilbaum,
+  // deshalb muss das bei jedem selectNode()-Aufruf neu passieren, analog zu
+  // initNodeDetailDrag() direkt darunter).
+  detail.querySelectorAll('.nd-zoom-btn').forEach(btn => {
+    btn.addEventListener('click', () => nodeDetailZoom(parseInt(btn.dataset.zoom, 10)));
+  });
+  detail.querySelector('.nd-close-btn').addEventListener('click', closeNodeDetail);
   // Bind drag logic to the new handle (innerHTML replaces DOM → re-register)
   initNodeDetailDrag();
 }

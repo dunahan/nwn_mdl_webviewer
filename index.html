@@ -10,7 +10,7 @@
 <body>
 <div id="app">
   <!-- ── Sidebar Toggle Button ── -->
-  <button id="sidebar-toggle" onclick="toggleSidebar()" title="Sidebar ein-/ausblenden" aria-label="Toggle Sidebar">
+  <button id="sidebar-toggle" title="Sidebar ein-/ausblenden" aria-label="Toggle Sidebar">
     <span class="tog-icon">◀</span>
   </button>
 
@@ -21,21 +21,20 @@
       <small id="app-version">{{APP_VERSION}}</small>
       <p data-i18n="logo_subtitle">Neverwinter Nights 1 · Enhanced Edition</p>
       <div id="lang-switcher">
-        <select id="lang-select" onchange="switchLanguage(this.value)" title="Language / Sprache">
+        <select id="lang-select" title="Language / Sprache">
           <option value="en">English</option>
           <option value="de">Deutsch</option>
         </select>
-        <select id="theme-select" onchange="onThemeSelect(this.value)" title="Theme">
+        <select id="theme-select" title="Theme">
           <option value="default">◑ Default</option>
           <option value="high-contrast">◐ High Contrast</option>
           <option value="__custom__">📂 Custom…</option>
         </select>
-        <input type="file" id="theme-file-input" accept=".json" style="display:none"
-               onchange="loadCustomThemeFile(this.files[0]); this.value=''">
+        <input type="file" id="theme-file-input" accept=".json" style="display:none">
       </div>
     </div>
 
-    <div id="drop-zone" onclick="document.getElementById('file-input').click()">
+    <div id="drop-zone">
       <span class="icon">⬡</span>
       <strong data-i18n="drop_title">Drop MDL + Textures here</strong><br>
       <span data-i18n="drop_or">or click to open</span><br>
@@ -44,7 +43,7 @@
     <input type="file" id="file-input" accept=".mdl,.tga,.dds,.plt,.mtr,.txi,.wok,.pwk,.dwk,.set,.png,.jpg,.txt" multiple>
 
     <div id="texture-status" style="margin:0 12px 8px;display:none;">
-      <div id="texture-header" onclick="toggleTextureList()">
+      <div id="texture-header">
         <span data-i18n="textures_heading" class="section-heading">Textures</span>
         <span class="tex-arrow open">▶</span>
       </div>
@@ -53,7 +52,7 @@
 
     <div id="model-info"></div>
 
-    <div id="section-title" onclick="toggleSceneGraph()">
+    <div id="section-title">
       <span class="section-heading" data-i18n="scene_graph">Scene Graph</span>
       <span class="tex-arrow open">▶</span>
     </div>
@@ -62,46 +61,45 @@
 
     <!-- ── Node-Visibility-Toolbar ── -->
     <div id="node-toolbar">
-      <button class="ntb-btn" id="ntb-all"  onclick="nodeVisAll(true)"  data-i18n="ntb_all">All</button>
-      <button class="ntb-btn" id="ntb-none" onclick="nodeVisAll(false)" data-i18n="ntb_none">None</button>
+      <button class="ntb-btn" id="ntb-all"  data-i18n="ntb_all">All</button>
+      <button class="ntb-btn" id="ntb-none" data-i18n="ntb_none">None</button>
       <div class="ntb-sep"></div>
-      <button class="ntb-btn ntb-type" data-type="trimesh"   onclick="nodeVisToggleType('trimesh')">MESH</button>
-      <button class="ntb-btn ntb-type" data-type="skin"      onclick="nodeVisToggleType('skin')">SKIN</button>
-      <button class="ntb-btn ntb-type" data-type="dummy"     onclick="nodeVisToggleType('dummy')">DUMMY</button>
-      <button class="ntb-btn ntb-type" data-type="emitter"   onclick="nodeVisToggleType('emitter')">EMIT</button>
-      <button class="ntb-btn ntb-type" data-type="light"     onclick="nodeVisToggleType('light')">LIGHT</button>
-      <button class="ntb-btn ntb-type" data-type="aabb"      onclick="nodeVisToggleType('aabb')">AABB</button>
-      <button class="ntb-btn ntb-type" data-type="danglymesh" onclick="nodeVisToggleType('danglymesh')">DANG</button>
+      <button class="ntb-btn ntb-type" data-type="trimesh">MESH</button>
+      <button class="ntb-btn ntb-type" data-type="skin">SKIN</button>
+      <button class="ntb-btn ntb-type" data-type="dummy">DUMMY</button>
+      <button class="ntb-btn ntb-type" data-type="emitter">EMIT</button>
+      <button class="ntb-btn ntb-type" data-type="light">LIGHT</button>
+      <button class="ntb-btn ntb-type" data-type="aabb">AABB</button>
+      <button class="ntb-btn ntb-type" data-type="danglymesh">DANG</button>
     </div>
     </div> <!-- /#scene-graph-body -->
 
     <!-- ── Animations-Panel ── -->
     <div id="anim-panel" data-floatable>
-      <div id="anim-header" onclick="toggleAnimPanel()">
+      <div id="anim-header">
         <span class="section-heading" data-i18n="anim_heading">Animations</span>
         <span class="tex-arrow open">▶</span>
       </div>
       <div id="anim-body">
-        <select id="anim-select" onchange="onAnimSelect(this.value)"></select>
+        <select id="anim-select"></select>
         <div id="anim-controls">
-          <button id="btn-anim-play" onclick="toggleAnimPlay()" title="Play/Pause">▶</button>
-          <input type="range" id="anim-scrubber" min="0" max="1000" value="0"
-                 oninput="onScrub(this.value)" onchange="onScrub(this.value)">
+          <button id="btn-anim-play" title="Play/Pause">▶</button>
+          <input type="range" id="anim-scrubber" min="0" max="1000" value="0">
           <span id="anim-time-display">0.00 / 0.00</span>
         </div>
         <div id="anim-speed-row">
           <span style="font-size:10px;color:var(--muted);margin-right:2px" data-i18n="anim_speed">Speed:</span>
-          <button class="speed-btn" onclick="setAnimSpeed(0.25)">¼×</button>
-          <button class="speed-btn" onclick="setAnimSpeed(0.5)">½×</button>
-          <button class="speed-btn active" onclick="setAnimSpeed(1)">1×</button>
-          <button class="speed-btn" onclick="setAnimSpeed(2)">2×</button>
+          <button class="speed-btn" data-speed="0.25" title="0.25x">¼×</button>
+          <button class="speed-btn" data-speed="0.5" title="0.5x">½×</button>
+          <button class="speed-btn active" data-speed="1" title="1x">1×</button>
+          <button class="speed-btn" data-speed="2" title="2x">2×</button>
         </div>
       </div>
     </div>
 
     <!-- ── PLT Layer-Panel ── -->
     <div id="plt-panel" data-floatable>
-      <div id="plt-header" onclick="togglePLTPanel()">
+      <div id="plt-header">
         <span class="section-heading" data-i18n="plt_heading">PLT Layers</span>
         <span class="tex-arrow open">▶</span>
       </div>
@@ -114,7 +112,6 @@
     <div id="hot-reload-panel">
       <div class="ctrl-row" style="gap:6px">
         <button class="toggle-btn" id="btn-hot-reload"
-                onclick="HotReload.toggle()"
                 data-i18n="hr_btn_watch">Watch Folder</button>
         <span id="hot-reload-status"></span>
       </div>
@@ -123,49 +120,46 @@
     <div id="controls-panel">
       <div class="ctrl-row">
         <span class="ctrl-label" data-i18n="ctrl_wireframe">Wireframe</span>
-        <input type="range"  id="wire-opacity"   min="0" max="100" value="0"   oninput="updateWireframe(this.value)">
-        <input type="number" id="wire-val"   class="ctrl-val" min="0" max="100" value="0"
-               oninput="syncSlider('wire-opacity',this,'updateWireframe')" onblur="clampValInput(this,0,100)">
+        <input type="range"  id="wire-opacity"   min="0" max="100" value="0">
+        <input type="number" id="wire-val"   class="ctrl-val" min="0" max="100" value="0">
       </div>
       <div class="ctrl-row">
         <span class="ctrl-label" data-i18n="ctrl_lighting">Lighting</span>
-        <input type="range"  id="light-intensity" min="0" max="200" value="100" oninput="updateLight(this.value)">
-        <input type="number" id="light-val"  class="ctrl-val" min="0" max="200" value="100"
-               oninput="syncSlider('light-intensity',this,'updateLight')" onblur="clampValInput(this,0,200)">
+        <input type="range"  id="light-intensity" min="0" max="200" value="100">
+        <input type="number" id="light-val"  class="ctrl-val" min="0" max="200" value="100">
       </div>
       <div class="ctrl-row">
         <span class="ctrl-label" data-i18n="ctrl_mesh_opacity">Mesh</span>
-        <input type="range"  id="mesh-opacity"    min="0" max="100" value="100" oninput="updateMeshOpacity(this.value)">
-        <input type="number" id="mesh-val"   class="ctrl-val" min="0" max="100" value="100"
-               oninput="syncSlider('mesh-opacity',this,'updateMeshOpacity')" onblur="clampValInput(this,0,100)">
+        <input type="range"  id="mesh-opacity"    min="0" max="100" value="100">
+        <input type="number" id="mesh-val"   class="ctrl-val" min="0" max="100" value="100">
       </div>
       <div class="ctrl-row" style="gap:6px">
-        <button class="toggle-btn active"   id="btn-normals"  onclick="toggleNormals()"   data-i18n="btn_normals">Smoothing</button>
-        <button class="toggle-btn active"   id="btn-grid"     onclick="toggleGrid()"      data-i18n="btn_grid">Grid</button>
-        <button class="toggle-btn"          id="btn-floor"    onclick="toggleFloor()"     data-i18n="btn_floor">Floor</button>
-        <button class="toggle-btn active"   id="btn-axes"     onclick="toggleAxes()"      data-i18n="btn_axes">Axes</button>
+        <button class="toggle-btn active"   id="btn-normals"   data-i18n="btn_normals">Smoothing</button>
+        <button class="toggle-btn active"   id="btn-grid"      data-i18n="btn_grid">Grid</button>
+        <button class="toggle-btn"          id="btn-floor"     data-i18n="btn_floor">Floor</button>
+        <button class="toggle-btn active"   id="btn-axes"      data-i18n="btn_axes">Axes</button>
       </div>
       <div class="ctrl-row" style="gap:6px">
-        <button class="toggle-btn"        id="btn-bbox"     onclick="toggleBBox()"       data-i18n="btn_bbox">BBox</button>
-        <button class="toggle-btn"        id="btn-rotate"   onclick="toggleAutoRotate()" data-i18n="btn_rotate">Rotate</button>
-        <button class="toggle-btn"        id="btn-resetcam" onclick="resetCamera()"      data-i18n="btn_resetcam">↺ Cam</button>
-        <button class="toggle-btn"        id="btn-skeleton" onclick="toggleSkeleton()"   data-i18n="btn_skeleton">Skeleton</button>
+        <button class="toggle-btn"        id="btn-bbox"       data-i18n="btn_bbox">BBox</button>
+        <button class="toggle-btn"        id="btn-rotate" data-i18n="btn_rotate">Rotate</button>
+        <button class="toggle-btn"        id="btn-resetcam"      data-i18n="btn_resetcam">↺ Cam</button>
+        <button class="toggle-btn"        id="btn-skeleton"   data-i18n="btn_skeleton">Skeleton</button>
       </div>
       <div class="ctrl-row" style="gap:6px">
-        <button class="toggle-btn" id="btn-pwk"          onclick="togglePWK()"       data-i18n="btn_pwk"        disabled>PWK</button>
-        <button class="pin-btn"    id="btn-pwk-pin"       onclick="togglePwkPin()"   data-i18n-title="pwk_pin_title" title="Fix PWK when loading next model">📌</button>
-        <button class="toggle-btn" id="btn-walkmesh"      onclick="toggleWalkMesh()" data-i18n="btn_walkmesh"   disabled>Walkmesh</button>
-        <button class="pin-btn"    id="btn-walkmesh-pin"  onclick="toggleWokPin()"   data-i18n-title="wok_pin_title" title="Fix WOK when loading next model">📌</button>
+        <button class="toggle-btn" id="btn-pwk"       data-i18n="btn_pwk"        disabled>PWK</button>
+        <button class="pin-btn"    id="btn-pwk-pin"   data-i18n-title="pwk_pin_title" title="Fix PWK when loading next model">📌</button>
+        <button class="toggle-btn" id="btn-walkmesh" data-i18n="btn_walkmesh"   disabled>Walkmesh</button>
+        <button class="pin-btn"    id="btn-walkmesh-pin"   data-i18n-title="wok_pin_title" title="Fix WOK when loading next model">📌</button>
       </div>
       <div class="ctrl-row" style="gap:6px">
-        <button class="toggle-btn" id="btn-dwk"     onclick="toggleDWK()"          data-i18n="btn_dwk" disabled>DWK</button>
-        <button class="pin-btn"    id="btn-dwk-pin" onclick="toggleDwkPin()"       data-i18n-title="dwk_pin_title" title="Fix DWK when loading next model">📌</button>
-        <button class="speed-btn active" id="dwk-state-closed" onclick="setDWKState('closed')" data-i18n="dwk_state_closed">Closed</button>
-        <button class="speed-btn"        id="dwk-state-open1"  onclick="setDWKState('open1')"  data-i18n="dwk_state_open1">Open 1</button>
-        <button class="speed-btn"        id="dwk-state-open2"  onclick="setDWKState('open2')"  data-i18n="dwk_state_open2">Open 2</button>
+        <button class="toggle-btn" id="btn-dwk"          data-i18n="btn_dwk" disabled>DWK</button>
+        <button class="pin-btn"    id="btn-dwk-pin"       data-i18n-title="dwk_pin_title" title="Fix DWK when loading next model">📌</button>
+        <button class="speed-btn active" id="dwk-state-closed" data-i18n="dwk_state_closed">Closed</button>
+        <button class="speed-btn"        id="dwk-state-open1"  data-i18n="dwk_state_open1">Open 1</button>
+        <button class="speed-btn"        id="dwk-state-open2"  data-i18n="dwk_state_open2">Open 2</button>
       </div>
       <div class="ctrl-row" style="gap:6px">
-        <button class="toggle-btn" id="btn-set-browser" onclick="SetBrowser.open()" data-i18n="btn_set_browser">🗃 Set Browser</button>
+        <button class="toggle-btn" id="btn-set-browser" data-i18n="btn_set_browser">🗃 Set Browser</button>
       </div>
     </div>
   </div>
@@ -188,7 +182,7 @@
       <div class="dcmp-progress-wrap">
         <div class="dcmp-progress-bar indeterminate" id="dcmp-progress-bar"></div>
       </div>
-      <button class="dcmp-cancel-btn" onclick="cancelDecompile()" data-i18n="dcmp_cancel">Cancel</button>
+      <button class="dcmp-cancel-btn" id="dcmp-cancel-btn" data-i18n="dcmp_cancel">Cancel</button>
     </div>
 
     <div id="empty-state">
@@ -208,7 +202,7 @@
 
     <!-- ── Mesh-Farben Dropdown (top-center im Viewport) ── -->
     <div id="color-dropdown">
-      <button id="color-dropdown-toggle" onclick="toggleColorDropdown()" title="WOK/PWK Mesh-Colors">
+      <button id="color-dropdown-toggle" title="WOK/PWK Mesh-Colors">
         <span id="color-dropdown-arrow">🎨</span>
       </button>
       <div id="color-dropdown-body">
@@ -222,11 +216,11 @@
           <div class="cdrop-heading" data-i18n="colordrop_pwk">PWK regions</div>
           <div class="cdrop-row">
             <label data-i18n="colordrop_pwk_wg">Walk Geometry</label>
-            <input type="color" id="cpwk-wg"  value="#8833ff" oninput="updatePwkColor('wg',  this.value)">
+            <input type="color" id="cpwk-wg"  value="#8833ff">
           </div>
           <div class="cdrop-row">
             <label data-i18n="colordrop_pwk_iop">Interaction Point</label>
-            <input type="color" id="cpwk-iop" value="#ffcc00" oninput="updatePwkColor('iop', this.value)">
+            <input type="color" id="cpwk-iop" value="#ffcc00">
           </div>
         </div>
 
@@ -234,11 +228,11 @@
           <div class="cdrop-heading" data-i18n="colordrop_dwk">DWK door geometry</div>
           <div class="cdrop-row">
             <label data-i18n="colordrop_dwk_wg">Walk Geometry</label>
-            <input type="color" id="cdwk-wg"  value="#00aacc" oninput="updateDwkColor('wg', this.value)">
+            <input type="color" id="cdwk-wg"  value="#00aacc">
           </div>
           <div class="cdrop-row">
             <label data-i18n="colordrop_dwk_dp">Door Position</label>
-            <input type="color" id="cdwk-dp"  value="#ffaa00" oninput="updateDwkColor('dp', this.value)">
+            <input type="color" id="cdwk-dp"  value="#ffaa00">
           </div>
         </div>
 
@@ -258,7 +252,7 @@
 
     <div id="statusbar">
       <span data-i18n="status_prefix">Status</span>:&nbsp;<span id="status-msg" data-i18n="status_ready">Ready — drop or open a file</span>
-      <div id="log-toggle" onclick="toggleLogPanel()" title="Toggle log">
+      <div id="log-toggle" title="Toggle log">
         <span id="log-icon-sym">▲</span>
         <span id="log-count-badge" class="log-count"></span>
       </div>
@@ -298,5 +292,6 @@
 <script src="js/hot_reload.js"></script>  <!-- Texture Hot-Reload --!>
 <script src="js/setbrowser.js"></script>  <!-- Set Browser --!>
 <script src="js/floating_panel.js"></script> <!-- Floating Panel Manager --!>
+<script src="js/ui_bindings.js"></script>    <!-- Static UI Event Bindings (CSP: replaces inline onclick/onchange/oninput) --!>
 </body>
 </html>
