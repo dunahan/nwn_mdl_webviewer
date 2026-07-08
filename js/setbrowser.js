@@ -571,15 +571,25 @@ const SetBrowser = (() => {
       `<span class="sb-title" id="sb-title">${L('sb_panel_title')}</span>` +
       `<span class="sb-drag-strip" id="sb-drag-strip" title="${L('nd_drag_title')}">⠿ ⠿ ⠿</span>` +
       `<div class="sb-handle-btns">` +
-        `<button class="sb-hbtn" id="sb-btn-grid" title="Grid" onclick="SetBrowser.setViewMode('grid')">⊞</button>` +
-        `<button class="sb-hbtn" id="sb-btn-list" title="List" onclick="SetBrowser.setViewMode('list')">≡</button>` +
-        `<button class="sb-hbtn sb-zoom-btn" onclick="SetBrowser.zoom(-1)" title="Decrease font size">−</button>` +
-        `<button class="sb-hbtn sb-zoom-btn" id="sb-btn-zoom-reset" onclick="SetBrowser.zoom(0)" title="Reset font size">o</button>` +
-        `<button class="sb-hbtn sb-zoom-btn" onclick="SetBrowser.zoom(1)"  title="Increase font size">+</button>` +
-        `<button class="sb-hbtn" id="sb-btn-collapse" onclick="SetBrowser.toggleCollapse()" title="Collapse / Expand">▾</button>` +
-        `<button class="sb-hbtn sb-hbtn-close" id="sb-btn-close" title="${L('nd_close_title')}" onclick="SetBrowser.close()">×</button>` +
+        `<button class="sb-hbtn" id="sb-btn-grid" title="Grid">⊞</button>` +
+        `<button class="sb-hbtn" id="sb-btn-list" title="List">≡</button>` +
+        `<button class="sb-hbtn sb-zoom-btn" id="sb-btn-zoom-out" title="Decrease font size">−</button>` +
+        `<button class="sb-hbtn sb-zoom-btn" id="sb-btn-zoom-reset" title="Reset font size">o</button>` +
+        `<button class="sb-hbtn sb-zoom-btn" id="sb-btn-zoom-in" title="Increase font size">+</button>` +
+        `<button class="sb-hbtn" id="sb-btn-collapse" title="Collapse / Expand">▾</button>` +
+        `<button class="sb-hbtn sb-hbtn-close" id="sb-btn-close" title="${L('nd_close_title')}">×</button>` +
       `</div>`;
     panel.appendChild(handle);
+    // CSP: keine inline onclick-Attribute — Handle-Buttons per addEventListener
+    // verkabeln (id="sb-btn-zoom-out"/"sb-btn-zoom-in" neu ergänzt, vorher nur
+    // über den onclick-Aufruf identifizierbar).
+    handle.querySelector('#sb-btn-grid').addEventListener('click', () => SetBrowser.setViewMode('grid'));
+    handle.querySelector('#sb-btn-list').addEventListener('click', () => SetBrowser.setViewMode('list'));
+    handle.querySelector('#sb-btn-zoom-out').addEventListener('click', () => SetBrowser.zoom(-1));
+    handle.querySelector('#sb-btn-zoom-reset').addEventListener('click', () => SetBrowser.zoom(0));
+    handle.querySelector('#sb-btn-zoom-in').addEventListener('click', () => SetBrowser.zoom(1));
+    handle.querySelector('#sb-btn-collapse').addEventListener('click', () => SetBrowser.toggleCollapse());
+    handle.querySelector('#sb-btn-close').addEventListener('click', () => SetBrowser.close());
 
     // ── Toolbar (load file + filter + group dropdown) ─────────
     const toolbar = document.createElement('div');

@@ -88,7 +88,9 @@ function buildWokColorPanel() {
     row.className = 'cdrop-row';
     row.innerHTML =
       `<label>${surf.name}</label>` +
-      `<input type="color" value="${hex}" oninput="updateWokColor(${matId}, this.value)">`;
+      `<input type="color" value="${hex}">`;
+    // CSP: kein inline oninput-Attribut — matId wird per Closure erfasst.
+    row.querySelector('input[type="color"]').addEventListener('input', e => updateWokColor(matId, e.target.value));
     list.appendChild(row);
   }
   section.style.display = 'block';
