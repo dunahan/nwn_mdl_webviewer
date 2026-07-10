@@ -3,6 +3,9 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [ "main", "master" ]
+    paths-ignore:
+      - 'wasm/**'
+      - 'js/cleanmodels_wasm.js'
   workflow_dispatch:
     inputs:
       version:
@@ -47,11 +50,18 @@ jobs:
       - name: Determine version
         id: ver
         run: |
-          # Priorität: workflow_call/dispatch-Input → neuester Git-Tag → leer
+          # Priority: workflow_call/dispatch input → latest Git tag → empty
           VERSION="${{ inputs.version }}"
           if [ -z "$VERSION" ]; then
-            # Sucht alle Tags, sortiert sie absteigend nach semantischer Versionierung und nimmt den ersten
+            # Searches all tags, sorts them in descending order according to semantic versioning, and takes the first one.
             VERSION=$(git tag --sort=-v:refname | head -n 1 || echo "")
+          fi
+          if [ -z "$VERSION" ]; then
+            # Fallback if no tag was found (e.g., push-deploy without
+            # tag context or a race condition with a parallel trigger): returns the exact
+            # tag, "vX.Y.Z-N-gSHA" (based on the tag), or—as a last resort—the
+            # short SHA; practically never empty.
+            VERSION=$(git describe --tags --always 2>/dev/null || echo "")
           fi
           echo "name=$VERSION" >> $GITHUB_OUTPUT
           echo "Version: $VERSION"
