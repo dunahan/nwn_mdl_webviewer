@@ -3,7 +3,7 @@
 #
 #  Workflow:
 #    1. update-wasm   → Ensures cleanmodels.wasm is up to date
-#    2. release        → Builds standalone HTML + source ZIP and publishes
+#    2. release       → Builds standalone HTML + source ZIP and publishes
 #
 #  Triggers:
 #    - Push of a version tag:  git tag v1.2.3 && git push --tags
@@ -79,6 +79,7 @@ jobs:
             css/ \
             js/ \
             lang/ \
+            vendor/ \
             wasm/ \
             scripts/ \
             themes/ \
@@ -158,8 +159,8 @@ jobs:
             dist/nwn-mdl-webviewer-src.zip
 
   # ── Job 3: Deploy to GitHub Pages ──────────────────────────────────────────
-  # Ruft pages.yml als reusable workflow auf und übergibt die bekannte Version.
-  # So landet immer die korrekte Versionsnummer auch auf GitHub Pages.
+  # Calls pages.yml as a reusable workflow and passes the known version.
+  # This ensures the correct version number always ends up on GitHub Pages.
   deploy-pages:
     needs: release
     uses: ./.github/workflows/pages.yml

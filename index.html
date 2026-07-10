@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NWN MDL Viewer</title>
-  <link rel="stylesheet" href="vendor/fonts/fonts.css">
+  <link rel="stylesheet" href="vendor/fonts/fonts.css"
+      onerror="this.onerror=null;this.href='https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Share+Tech+Mono&display=swap';">
   <link rel="stylesheet" href="css/viewer.css">
 </head>
 <body>
@@ -264,8 +265,15 @@
   </div>
 </div>
 
-<!-- Three.js r152 (vendored locally - see vendor/README.md for provenance / hash verification) -->
+<!-- Three.js r152 (vendored locally - see vendor/README.md for provenance / hash verification).
+     Falls back to the CDN build if vendor/ was not shipped alongside this HTML file
+     (e.g. the standalone single-file release opened on its own). -->
 <script src="vendor/three/three.min.js"></script>
+<script>
+  if (typeof THREE === 'undefined') {
+    document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.152.0/three.min.js" integrity="sha512-Xr/WOAkCSWjhjwU5imbX1t2vZA4mDHqQJkuXOgzWH28GNXC9BfzuO54z3Byhb1xYGedSGlDMqFaoAI6DtOtC2g==" crossorigin="anonymous" referrerpolicy="no-referrer"><\/script>');
+  }
+</script>
   
 <!-- NWN MDL Viewer — Module -->
 <script src="js/i18n.js"></script>        <!-- Translation --!>
