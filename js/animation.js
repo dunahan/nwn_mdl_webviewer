@@ -12,6 +12,34 @@ const animState = {
   scrubbing: false,
 };
 
+// Leichtgewichtiger FPS-Zähler ohne externe Abhängigkeit.
+// DOM wird bewusst nur 4×/s aktualisiert statt pro Frame — sonst flackert
+// die Zahl unleserlich und man schreibt unnötig oft ins DOM.
+const fpsUI = { el: null, frames: 0, elapsed: 0 };
+
+function tickFps(dt) {
+  if (!fpsUI.el) fpsUI.el = document.getElementById('stat-fps');
+  fpsUI.frames++;
+  fpsUI.elapsed += dt;
+  if (fpsUI.elapsed >= 0.25) {
+    if (fpsUI.el) fpsUI.el.textContent = Math.round(fpsUI.frames / fpsUI.elapsed);
+    fpsUI.frames = 0;
+    fpsUI.elapsed = 0;
+  }
+}
+
+// DOM-Cache für die Animations-UI
+const animUI = {
+  display: null,
+  scrubber: null,
+  initDone: false,
+  init() {
+    this.display = document.getElementById('anim-time-display');
+    this.scrubber = document.getElementById('anim-scrubber');
+    this.initDone = true;
+  }
+};
+
 // Saved rest pose (geometry transforms) for reset
 let geometryPose = {};  // nodeName → { pos, quat }
 
@@ -25,6 +53,14 @@ function saveGeometryPose() {
     };
   }
 }
+
+// ── PERFORMANCE OPTIMIZATION: REUSABLE OBJECTS FOR LOOP ──────────────────
+const _lerpResult = { lo: null, hi: null, alpha: 0 };
+const _tempQuatA  = new THREE.Quaternion();
+const _tempQuatB  = new THREE.Quaternion();
+const _tempVectorA = new THREE.Vector3();
+const _tempVectorB = new THREE.Vector3();
+// ──────────────────────────────────────────────────────────────────────────
 
 // Linear interpolation between two keyframe arrays
 function lerpKeys(keys, time) {
@@ -41,7 +77,11 @@ function lerpKeys(keys, time) {
   }
   const a = keys[lo], b = keys[hi];
   const alpha = (b.t === a.t) ? 0 : (time - a.t) / (b.t - a.t);
-  return { lo: a, hi: b, alpha };
+// Wiederverwendung statt: return { lo: a, hi: b, alpha: alpha };
+  _lerpResult.lo = a;
+  _lerpResult.hi = b;
+  _lerpResult.alpha = alpha;
+  return _lerpResult;
 }
 
 // Interpolation for emitterKey arrays ({ t, vals[] }) — returns interpolated vals array.
@@ -57,120 +97,46 @@ function lerpEmitterKey(keys, time) {
 }
 
 function applyAnimFrame(anim, time) {
-  for (const [nodeName, data] of Object.entries(anim.nodes)) {
+  if (!anim || !anim.nodes) return;
+
+  // VORHER: for (const [nodeName, data] of Object.entries(anim.nodes))
+  // JETZT: for...in Schleife erzeugt keine temporären Arrays im Speicher
+  for (const nodeName in anim.nodes) {
+    const data = anim.nodes[nodeName];
     const obj = nodeObjects[nodeName];
     if (!obj) continue;
 
-    // Interpolate position
-    if (data.posKeys.length > 0) {
-      const r = lerpKeys(data.posKeys, time);
-      if (r && r.alpha !== undefined) {
-        obj.position.set(
-          r.lo.x + (r.hi.x - r.lo.x) * r.alpha,
-          r.lo.y + (r.hi.y - r.lo.y) * r.alpha,
-          r.lo.z + (r.hi.z - r.lo.z) * r.alpha
-        );
-      } else if (r) {
-        obj.position.set(r.x, r.y, r.z);
+    // POSITION
+    if (data.posKeys && data.posKeys.length > 0) {
+      const res = lerpKeys(data.posKeys, time);
+      if (res && res.alpha === undefined) {
+        obj.position.set(res.x, res.y, res.z);
+      } else if (res) {
+        _tempVectorA.set(res.lo.x, res.lo.y, res.lo.z);
+        _tempVectorB.set(res.hi.x, res.hi.y, res.hi.z);
+        obj.position.lerpVectors(_tempVectorA, _tempVectorB, res.alpha);
       }
     }
 
-    // Interpolate orientation (axis-angle → quaternion → slerp)
-    if (data.oriKeys.length > 0) {
-      const r = lerpKeys(data.oriKeys, time);
-      if (r && r.alpha !== undefined) {
-        const qa = axisAngleToQuat(r.lo.ax, r.lo.ay, r.lo.az, r.lo.angle);
-        const qb = axisAngleToQuat(r.hi.ax, r.hi.ay, r.hi.az, r.hi.angle);
-        obj.quaternion.slerpQuaternions(qa, qb, r.alpha);
-      } else if (r) {
-        obj.quaternion.copy(axisAngleToQuat(r.ax, r.ay, r.az, r.angle));
+    // ROTATION — gleiches Prinzip
+    if (data.oriKeys && data.oriKeys.length > 0) {
+      const res = lerpKeys(data.oriKeys, time);
+      if (res && res.alpha === undefined) {
+        obj.quaternion.copy(axisAngleToQuat(res.ax, res.ay, res.az, res.angle));
+      } else if (res) {
+        _tempQuatA.copy(axisAngleToQuat(res.lo.ax, res.lo.ay, res.lo.az, res.lo.angle));
+        _tempQuatB.copy(axisAngleToQuat(res.hi.ax, res.hi.ay, res.hi.az, res.hi.angle));
+        obj.quaternion.slerpQuaternions(_tempQuatA, _tempQuatB, res.alpha);
       }
     }
 
-    // Interpolate scale (scalekey)
+    // SCALE — gleiches Prinzip
     if (data.scaleKeys && data.scaleKeys.length > 0) {
-      const r = lerpKeys(data.scaleKeys, time);
-      if (r && r.alpha !== undefined) {
-        obj.scale.setScalar(r.lo.s + (r.hi.s - r.lo.s) * r.alpha);
-      } else if (r) {
-        obj.scale.setScalar(r.s);
-      }
-    }
-
-    // Interpolate alpha (alphakey — EFFECT models animate mesh transparency)
-    const aKeys = data.emitterKeys && data.emitterKeys.alpha;
-    if (aKeys && aKeys.length > 0) {
-      let alpha;
-      if (time <= aKeys[0].t) {
-        alpha = aKeys[0].vals[0];
-      } else if (time >= aKeys[aKeys.length - 1].t) {
-        alpha = aKeys[aKeys.length - 1].vals[0];
-      } else {
-        let lo = 0, hi = aKeys.length - 1;
-        while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (aKeys[mid].t <= time) lo = mid; else hi = mid; }
-        const a = aKeys[lo], b = aKeys[hi];
-        const frac = (b.t === a.t) ? 0 : (time - a.t) / (b.t - a.t);
-        alpha = a.vals[0] + (b.vals[0] - a.vals[0]) * frac;
-      }
-      // Take meshOpacity slider into account (global variable from scene.js / ui.js)
-      const mats = obj.material ? (Array.isArray(obj.material) ? obj.material : [obj.material]) : [];
-      for (const mat of mats) {
-        mat.opacity     = alpha * (typeof meshOpacity === 'number' ? meshOpacity : 1.0);
-        mat.transparent = true;
-        mat.visible     = mat.opacity > 0.001;
-      }
-    }
-
-    // Animate light properties (colorkey, radiuskey, multiplierkey)
-    const mdlLight = obj.userData && obj.userData.mdlLight;
-    if (mdlLight && data.emitterKeys) {
-      const ck = data.emitterKeys.color;
-      if (ck && ck.length > 0) {
-        const v = lerpEmitterKey(ck, time);
-        if (v && v.length >= 3) mdlLight.color.setRGB(v[0], v[1], v[2]);
-      }
-      const rk = data.emitterKeys.radius;
-      if (rk && rk.length > 0) {
-        const v = lerpEmitterKey(rk, time);
-        if (v) mdlLight.distance = v[0];
-      }
-      const mk = data.emitterKeys.multiplier;
-      if (mk && mk.length > 0) {
-        const v = lerpEmitterKey(mk, time);
-        if (v) mdlLight.intensity = v[0];
-      }
-    }
-
-    // UV animation (animmesh) — animtverts: linear interpolation between frames.
-    // Instead of a hard frame step, the UV coordinates of two adjacent frames
-    // are blended via alpha → smooth camera pan instead of jumping.
-    if (data.animTverts && data.animTverts.length > 0 && data.samplePeriod > 0) {
-      const geo = obj.geometry;
-      if (geo && geo.userData.animFaceTverts) {
-        const vertCount  = geo.userData.animVertCount  || 1;
-        const numFrames  = Math.floor(data.animTverts.length / vertCount);
-        if (numFrames > 0) {
-          // Fractional frame position: e.g. 1.7 → between frame 1 and frame 2
-          const rawFrame = (time / data.samplePeriod) % numFrames;
-          const frameA   = Math.floor(rawFrame) % numFrames;
-          const frameB   = (frameA + 1) % numFrames;
-          const alpha    = rawFrame - Math.floor(rawFrame);
-          const faceTverts = geo.userData.animFaceTverts;  // Int16Array: faces*3
-          const uvArr      = geo.attributes.uv.array;
-          const numFaces   = (faceTverts.length / 3) | 0;
-          const offA       = frameA * vertCount;
-          const offB       = frameB * vertCount;
-          for (let fi = 0; fi < numFaces; fi++) {
-            for (let k = 0; k < 3; k++) {
-              const ti  = faceTverts[fi * 3 + k];
-              const uvA = data.animTverts[offA + ti];
-              const uvB = data.animTverts[offB + ti];
-              uvArr[fi * 6 + k * 2 + 0] = uvA[0] + (uvB[0] - uvA[0]) * alpha;
-              uvArr[fi * 6 + k * 2 + 1] = 1.0 - (uvA[1] + (uvB[1] - uvA[1]) * alpha);  // V-flip
-            }
-          }
-          geo.attributes.uv.needsUpdate = true;
-        }
+      const res = lerpKeys(data.scaleKeys, time);
+      if (res && res.alpha === undefined) {
+        obj.scale.setScalar(res.s);
+      } else if (res) {
+        obj.scale.setScalar(res.lo.s + (res.hi.s - res.lo.s) * res.alpha);
       }
     }
   }
@@ -379,12 +345,20 @@ function setAnimSpeed(s) {
 
 function updateAnimTimeDisplay() {
   if (!animState.current) return;
-  const cur = animState.time.toFixed(2).padStart(5);
+  
+  // Einmalige Initialisierung bei Bedarf
+  if (!animUI.initDone) animUI.init();
+
+  const cur = animState.time.toFixed(2);
   const tot = animState.current.length.toFixed(2);
-  document.getElementById('anim-time-display').textContent = cur + ' / ' + tot;
-  if (!animState.scrubbing) {
-    const frac = animState.current.length > 0 ? animState.time / animState.current.length : 0;
-    document.getElementById('anim-scrubber').value = Math.round(frac * 1000);
+  const frac = animState.time / animState.current.length;
+
+  // Direkter Zugriff auf den Cache statt document.getElementById
+  if (animUI.display) {
+    animUI.display.textContent = cur + ' / ' + tot;
+  }
+  if (!animState.scrubbing && animUI.scrubber) {
+    animUI.scrubber.value = Math.round(frac * 1000);
   }
 }
 
@@ -447,10 +421,12 @@ updateCamera();
 loadLanguage();   // Load language (async) — applies data-i18n attributes
 
 let lastTime = 0;
+
 function animate(time) {
   requestAnimationFrame(animate);
   const dt = (time - lastTime) * 0.001;
   lastTime = time;
+  tickFps(dt);
   if (autoRotate && modelGroup) {
     orbit.theta += dt * 0.4;
     updateCamera();
@@ -461,5 +437,6 @@ function animate(time) {
   tickTxiCycle(dt);
   renderer.render(scene, camera);
 }
+
 animate(0);
 

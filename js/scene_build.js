@@ -1002,7 +1002,7 @@ function buildScene(model) {
 
   // Per skin node: Bind positions in NWN model space and weights per exploded vertex
   for (const node of model.nodes) {
-    if (node.type !== 'skin' || !node.vertexWeights) continue;
+    if (node.type !== 'skin' || !node.vertexWeights?.length) continue;
     const obj = objects[node.name];
     if (!obj || !(obj instanceof THREE.Mesh)) continue;
     const geo = obj.geometry;

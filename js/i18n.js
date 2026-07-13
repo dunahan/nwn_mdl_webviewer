@@ -31,7 +31,7 @@ const I18N_BUNDLE = {
     empty_hint:'Drag & Drop · ASCII Format · Compiled',
     hud_camera:'Camera', hud_orbit:'LMB Orbit', hud_zoom:'RMB/Wheel Zoom',
     hud_pan:'MMB Pan', hud_vertices:'Vertices', hud_faces:'Faces',
-    hud_nodes:'Nodes', axis_up:'Y (up)',
+    hud_nodes:'Nodes', axis_up:'Y (up)', hud_fps: 'FPS',
     sidebar_toggle_title:'Toggle sidebar', log_toggle_title:'Toggle log',
     // nodes scene graph
     nd_type:'Type', nd_parent:'Parent', nd_vertices:'Vertices',
@@ -247,7 +247,7 @@ const I18N_BUNDLE = {
     empty_hint:'Drag & Drop · ASCII-Format · Compiliert',
     hud_camera:'Kamera', hud_orbit:'LMB Orbit', hud_zoom:'RMB/Rad Zoom',
     hud_pan:'MMB Pan', hud_vertices:'Vertices', hud_faces:'Faces',
-    hud_nodes:'Nodes', axis_up:'Y (oben)',
+    hud_nodes:'Nodes', axis_up:'Y (oben)', hud_fps: 'FPS',
     sidebar_toggle_title:'Sidebar ein-/ausblenden', log_toggle_title:'Log ein-/ausblenden',
     // nodes scene graph
     nd_type:'Typ', nd_parent:'Eltern', nd_vertices:'Vertices',

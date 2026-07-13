@@ -54,6 +54,7 @@
   "hud_vertices": "Vertices",
   "hud_faces": "Faces",
   "hud_nodes": "Nodes",
+  "hud_fps": "FPS",
   "axis_up": "Y (oben)",
   "status_ready": "Bereit — Datei ablegen oder öffnen",
   "status_prefix": "Status",
