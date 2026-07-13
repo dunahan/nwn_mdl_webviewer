@@ -145,7 +145,15 @@ def build(version: str = ''):
     else:
         print(f'  WARNING: wasm/ directory not found — HTTP mode will not work.')
 
-    # ── 7. Copy vendor/ (Three.js + fonts) ───────────────────────────────────
+    # ── 7. Copy favicon ──────────────────────────────────────────────────────
+    favicon_src = ROOT / 'favicon.png'
+    if favicon_src.exists():
+        shutil.copy(favicon_src, DIST / 'favicon.png')
+        print(f'✓  Copied: favicon.png → dist/favicon.png')
+    else:
+        print(f'  WARNING: favicon.png not found — skipping.')
+  
+    # ── 8. Copy vendor/ (Three.js + fonts) ───────────────────────────────────
     # index.html references these via relative paths (vendor/three/three.min.js,
     # vendor/fonts/fonts.css) — NOT inlined by step 3 above, since that step only
     # touches <script src="js/..."> tags inside the module marker section, and
