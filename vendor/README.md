@@ -9,17 +9,18 @@ for the full reasoning.
 
 ## `three/three.min.js`
 
-- Source: npm `three@0.152.0`, `build/three.min.js` (same version the
-  CDN link previously pinned).
-- **Verified byte-identical** to the previously CDN-hosted file: SHA-512
-  of this file matches the `integrity="sha512-..."` attribute that was on
-  the old `<script>` tag exactly
-  (`Xr/WOAkCSWjhjwU5imbX1t2vZA4mDHqQJkuXOgzWH28GNXC9BfzuO54z3Byhb1xYGedSGlDMqFaoAI6DtOtC2g==`).
+- Source: npm `three@0.158.0`, `build/three.min.js`.
+- **Verified byte-identical** to the CDN-hosted file used as fallback in
+  `index.html`: SHA-512 of this file matches the `integrity="sha512-..."`
+  attribute on the `<script>` tag exactly
+  (`/WaZCC76Yn6MLEoK6b9np9yiLBet/RngBS33X1P0SHuag6j2E0e5rT7jbA2CvXCydN6+FkDYNx8FBM+vkzsthw==`).
   Re-verify after any future version bump:
   ```bash
   openssl dgst -sha512 -binary vendor/three/three.min.js | openssl base64 -A
   ```
 - License: MIT — see `three/LICENSE`.
+- Previous version: r152 (upgraded 2024, see `docs/THREEJS_UPGRADE.md` /
+  update-three-vendor.yml workflow run history for provenance).
 
 ## `fonts/`
 
