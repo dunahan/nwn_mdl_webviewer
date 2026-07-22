@@ -72,7 +72,8 @@ def build(version: str = ''):
 
     # ── 0.5. Inject version string ────────────────────────────────────────────
     # index.html contains the placeholder {{APP_VERSION}}.
-    # For a local build without --version, the element remains empty (CSS: display:none).    html = html.replace('{{APP_VERSION}}', version)
+    # For a local build without --version, the element remains empty (CSS: display:none).
+    html = html.replace('{{APP_VERSION}}', version)
     if version:
         print(f'  Version: {version}')
 
