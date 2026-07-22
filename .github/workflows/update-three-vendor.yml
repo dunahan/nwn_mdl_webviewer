@@ -1,0 +1,177 @@
+name: Update vendored Three.js
+
+# ── Triggers ────────────────────────────────────────────────────────────────
+# Mirrors update-wasm.yml's trigger shape (nightly + manual + composable).
+on:
+  # 1. Weekly check — Three.js releases roughly monthly, no need for daily polling
+  schedule:
+    - cron: '0 4 * * 1'   # Monday 04:00 UTC
+
+  # 2. Manually triggerable (with optional pinned version + force flag)
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Pin an exact three version (e.g. 0.160.0). Empty = latest.'
+        required: false
+        default: ''
+      force:
+        description: 'Replace vendor file even if the version is unchanged'
+        required: false
+        default: false
+        type: boolean
+
+  # 3. Callable from other workflows (e.g. a future release.yml step)
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: false
+        default: ''
+      force:
+        type: boolean
+        required: false
+        default: false
+    outputs:
+      updated:
+        description: 'true if a new version was vendored'
+        value: ${{ jobs.update-three.outputs.updated }}
+      version:
+        description: 'Vendored three version'
+        value: ${{ jobs.update-three.outputs.version }}
+
+permissions:
+  contents: write
+
+jobs:
+  update-three:
+    outputs:
+      updated: ${{ steps.check.outputs.update }}
+      version: ${{ steps.resolve.outputs.version }}
+    runs-on: ubuntu-latest
+    env:
+      VENDOR_DIR: vendor/three
+      VERSION_FILE: vendor/three/three.version
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      # ── 1. Resolve target version ────────────────────────────────────────
+      # npm registry is queried directly (no npm install needed) — same
+      # trust-anchor reasoning as vendor/README.md: npm is the source of
+      # truth cdnjs itself builds from.
+      - name: Resolve target version
+        id: resolve
+        run: |
+          INPUT_VERSION="${{ inputs.version }}"
+          if [ -n "$INPUT_VERSION" ]; then
+            VERSION="$INPUT_VERSION"
+          else
+            VERSION=$(curl -sSf https://registry.npmjs.org/three/latest | jq -r '.version')
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Resolved target version: $VERSION"
+
+      # ── 2. Check current local version ───────────────────────────────────
+      - name: Check local version
+        id: check
+        run: |
+          LOCAL="(none)"
+          [ -f "${{ env.VERSION_FILE }}" ] && LOCAL=$(cat "${{ env.VERSION_FILE }}")
+          TARGET="${{ steps.resolve.outputs.version }}"
+          FORCE="${{ inputs.force }}"
+          echo "Local: $LOCAL  |  Target: $TARGET  |  Force: $FORCE"
+          if [ "$LOCAL" = "$TARGET" ] && [ "$FORCE" != "true" ]; then
+            echo "update=false" >> "$GITHUB_OUTPUT"
+            echo "Already up to date — no update required."
+          else
+            echo "update=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ── 3. Download the npm tarball and extract the vendored builds ─────
+      # Deliberately NOT `npm install three` (would need a lockfile/package.json
+      # entry and pulls in npm's own resolution machinery for a single file).
+      # The tarball URL is deterministic from the registry metadata.
+      - name: Download and extract three.js build
+        if: steps.check.outputs.update == 'true'
+        run: |
+          VERSION="${{ steps.resolve.outputs.version }}"
+          TARBALL_URL=$(curl -sSf "https://registry.npmjs.org/three/$VERSION" | jq -r '.dist.tarball')
+          echo "Tarball: $TARBALL_URL"
+          mkdir -p tmp_three && curl -sSfL "$TARBALL_URL" -o tmp_three/three.tgz
+          tar xzf tmp_three/three.tgz -C tmp_three
+
+          mkdir -p "${{ env.VENDOR_DIR }}"
+          cp tmp_three/package/build/three.min.js "${{ env.VENDOR_DIR }}/three.min.js"
+          # Phase-2 prep (ES modules for the eventual r160+ / Tauri-ESM migration,
+          # see docs — NOT wired into index.html yet, vendored ahead of time so
+          # the switch itself is a smaller, isolated PR):
+          cp tmp_three/package/build/three.module.min.js "${{ env.VENDOR_DIR }}/three.module.min.js"
+          cp tmp_three/package/LICENSE "${{ env.VENDOR_DIR }}/LICENSE"
+
+          echo "$VERSION" > "${{ env.VERSION_FILE }}"
+          rm -rf tmp_three
+
+      # ── 4. Compute + store SHA-512 (mirrors wasm/cleanmodels.wasm.sha256) ─
+      - name: Compute checksums
+        if: steps.check.outputs.update == 'true'
+        run: |
+          for f in three.min.js three.module.min.js; do
+            SHA=$(openssl dgst -sha512 -binary "${{ env.VENDOR_DIR }}/$f" | openssl base64 -A)
+            echo "sha512-$SHA" > "${{ env.VENDOR_DIR }}/$f.sha512"
+            echo "$f: sha512-$SHA"
+          done
+
+      # ── 5. Update the CDN-fallback integrity hash + version in index.html ─
+      # Matches the two-line pattern already in index.html (version comment
+      # + integrity attribute on the same <script> tag).
+      - name: Patch CDN fallback in index.html
+        if: steps.check.outputs.update == 'true'
+        run: |
+          VERSION="${{ steps.resolve.outputs.version }}"
+          SHA=$(cat "${{ env.VENDOR_DIR }}/three.min.js.sha512")
+          sed -i \
+            -e "s#cdnjs\.cloudflare\.com/ajax/libs/three\.js/[0-9.]*\/three\.min\.js#cdnjs.cloudflare.com/ajax/libs/three.js/${VERSION}/three.min.js#" \
+            -e "s#integrity=\"sha512-[^\"]*\"#integrity=\"${SHA}\"#" \
+            index.html
+          grep -n "cdnjs.cloudflare.com/ajax/libs/three.js" index.html
+
+      # ── 6. Commit ─────────────────────────────────────────────────────────
+      - name: Commit and Push
+        if: steps.check.outputs.update == 'true'
+        run: |
+          VERSION="${{ steps.resolve.outputs.version }}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add \
+            "${{ env.VENDOR_DIR }}/three.min.js" \
+            "${{ env.VENDOR_DIR }}/three.module.min.js" \
+            "${{ env.VENDOR_DIR }}/three.min.js.sha512" \
+            "${{ env.VENDOR_DIR }}/three.module.min.js.sha512" \
+            "${{ env.VENDOR_DIR }}/LICENSE" \
+            "${{ env.VERSION_FILE }}" \
+            index.html
+          git commit -m "chore: vendor Three.js → r${VERSION}
+
+          Source: https://registry.npmjs.org/three/${VERSION}
+          SHA-512 (three.min.js): $(cat ${{ env.VENDOR_DIR }}/three.min.js.sha512)
+          Trigger: ${{ github.event_name }}
+
+          Note: three.module.min.js is vendored ahead of need for the planned
+          ES-module migration (r160+ drops the global build) — not yet wired
+          into index.html."
+          git push
+
+      - name: Write job summary
+        if: always()
+        run: |
+          {
+            echo "## Three.js Vendor Update"
+            if [ "${{ steps.check.outputs.update }}" = "true" ]; then
+              echo "✅ **Vendored r${{ steps.resolve.outputs.version }}**"
+            else
+              echo "ℹ️ Already up to date at r${{ steps.resolve.outputs.version }}."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
