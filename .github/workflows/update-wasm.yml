@@ -252,7 +252,7 @@ jobs:
           SHA-256 : $(cat wasm/cleanmodels.wasm.sha256 | cut -d' ' -f1)
           Trigger : ${{ github.event_name }}"
 
-          git push
+          git push origin HEAD:main
 
       # ── 9. Attach release asset (only for local release event) ───────
       - name: Upload WASM as release asset
