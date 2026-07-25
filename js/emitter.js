@@ -93,6 +93,9 @@ class NWNParticle {
     // Movement vectors (world space)
     this.vx = 0; this.vy = 0; this.vz = 0;
 
+    // Point-to-point destination (space), set by spawn(); null = normal flight
+    this.p2pTarget = null;
+
     // Sprite rotation (cumulative, rad) — for particleRot
     this.rotation = 0;
 
@@ -109,11 +112,12 @@ class NWNParticle {
    * @param {THREE.Vector3} localY    – Local +Y axis in world space (for ysize spread)
    */
   spawn(worldPos, node, emitDir, localX, localY) {
-    this.node       = node;
-    this.age        = 0;
-    this.alive      = true;
-    this.rotation   = 0;
+    this.node        = node;
+    this.age         = 0;
+    this.alive       = true;
+    this.rotation    = 0;
     this.obj.visible = true;
+    this.p2pTarget   = p2pTarget;
 
     // ── Emitter direction ────────────────────────────────────────────
     const dir = (emitDir && emitDir.lengthSq() > 0.01)
@@ -193,23 +197,64 @@ class NWNParticle {
     this.obj.position.y += this.vy * dt;
     this.obj.position.z += this.vz * dt;
 
-    // NWN gravity: the Aurora engine scales 'mass' by gravitational acceleration.
-    // mass=1.0 → particle falls at ~9.81 NWN units/s² (Earth gravity).
-    // mass=0.32 → eff. 3.14/s² → apex at t≈0.23s, particle reaches
-    // ground (Δy≈−3.9) after t≈1.7s — produces the visible arc. ✓
-    const NWN_G = 9.81;
-    if (node.mass) {
-      this.vy -= node.mass * NWN_G * dt;
-    }
+    if (this.p2pTarget) {
+      // ── Point-to-Point (Gravity) physics ──────────────────────────────
+      // p2p_sel=0: Instead of normal gravity, the particle is pulled toward
+      // the target point (Reference Node). According to NWN documentation,
+      // 'grav' is a direct acceleration (m/s²) toward the target, and
+      // 'threshold' is the deletion radius around the target ("Event
+      // Horizon"). 'drag' is documented only qualitatively ("overshoots
+      // the target, then turns back — higher value = greater overshoot"),
+      // with no published formula; here, it is approximated as a velocity
+      // boost that produces exactly this overshoot behavior.
+      // ponytail: p2p_sel=1 (Bezier path) uses the same approximation;
+      // true Bezier tangents (p2p_bezier2/3) are not evaluated — this is
+      // the place to implement them if needed (e.g., for lightning emitters).
+      const dx = this.p2pTarget.x - this.obj.position.x;
+      const dy = this.p2pTarget.y - this.obj.position.y;
+      const dz = this.p2pTarget.z - this.obj.position.z;
+      const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
 
-    // Drag: exponential deceleration — simulates air resistance
-    // Formula: v *= (1 - drag)^dt  ≈  v * e^(-drag * dt)
-    const drag = node.drag || 0;
-    if (drag > 0) {
-      const damping = Math.pow(Math.max(1 - drag, 0), dt);
-      this.vx *= damping;
-      this.vy *= damping;
-      this.vz *= damping;
+      if (node.threshold > 0 && dist < node.threshold) {
+        this.alive = false;
+        this.obj.visible = false;
+        return false;
+      }
+
+      if (dist > 1e-5) {
+        const grav = node.grav || 0;
+        const invDist = 1 / dist;
+        this.vx += dx * invDist * grav * dt;
+        this.vy += dy * invDist * grav * dt;
+        this.vz += dz * invDist * grav * dt;
+      }
+
+      const drag = node.drag || 0;
+      if (drag > 0) {
+        const boost = 1 + drag * dt;
+        this.vx *= boost;
+        this.vy *= boost;
+        this.vz *= boost;
+      }
+    } else {
+      // NWN gravity: the Aurora engine scales 'mass' by gravitational acceleration.
+      // mass=1.0 → particle falls at ~9.81 NWN units/s² (Earth gravity).
+      // mass=0.32 → eff. 3.14/s² → apex at t≈0.23s, particle reaches
+      // ground (Δy≈−3.9) after t≈1.7s — produces the visible arc. ✓
+      const NWN_G = 9.81;
+      if (node.mass) {
+        this.vy -= node.mass * NWN_G * dt;
+      }
+
+      // Drag: exponential deceleration — simulates air resistance
+      // Formula: v *= (1 - drag)^dt  ≈  v * e^(-drag * dt)
+      const drag = node.drag || 0;
+      if (drag > 0) {
+        const damping = Math.pow(Math.max(1 - drag, 0), dt);
+        this.vx *= damping;
+        this.vy *= damping;
+        this.vz *= damping;
+      }
     }
 
     // Sprite rotation: particleRot = angular velocity in rad/s
@@ -454,6 +499,16 @@ class NWNEmitter {
     };
   }
 
+  /** World position of the P2P target reference node, or null if not configured. */
+  _getP2PTargetWorldPos() {
+    if (!this.node._p2pTargetName) return null;
+    const obj = nodeObjects[this.node._p2pTargetName];
+    if (!obj) return null;
+    const pos = new THREE.Vector3();
+    obj.getWorldPosition(pos);
+    return pos;
+  }
+
   /** Call once per frame */
   update(dt) {
     if (!this.baseTex) return;
@@ -501,7 +556,8 @@ class NWNEmitter {
       scene.add(p.obj);
     }
     const { emitDir, localX, localY } = this._getWorldAxes();
-    p.spawn(this._getWorldPos(), this.node, emitDir, localX, localY);
+    const p2pTarget = this.node.p2p ? this._getP2PTargetWorldPos() : null;
+    p.spawn(this._getWorldPos(), this.node, emitDir, localX, localY, p2pTarget);
     this.active.push(p);
   }
 

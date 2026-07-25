@@ -293,6 +293,9 @@ function parseNode(lines, start) {
     spread:     0,
     grav:       0,
     drag:       0,
+    p2p:        0,     // NEW — 1 = Point-to-Point-Emitter (drags particles to a reference node)
+    p2pSel:     0,     // NEW — 0 = Gravity, 1 = Bezier (Bezier falls back on Gravity for the time being)
+    threshold:  0,     // NEW — P2P: Deletion radius around the target point ("Event Horizon")
     fps:        0,
     frameStart: 0,
     frameEnd:   0,
@@ -382,6 +385,9 @@ function parseNode(lines, start) {
     else if (k === 'spread')            node.spread     = num(t[1]);
     else if (k === 'grav')              node.grav       = num(t[1]);
     else if (k === 'drag')              node.drag       = num(t[1]);
+    else if (k === 'p2p')               node.p2p        = parseInt(t[1]) || 0;
+    else if (k === 'p2p_sel')           node.p2pSel     = parseInt(t[1]) || 0;
+    else if (k === 'threshold')         node.threshold  = num(t[1]);
     else if (k === 'fps')               node.fps        = num(t[1]);
     else if (k === 'framestart')        node.frameStart = parseInt(t[1]) || 0;
     else if (k === 'frameend')          node.frameEnd   = parseInt(t[1]) || 0;
