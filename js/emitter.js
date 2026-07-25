@@ -111,7 +111,8 @@ class NWNParticle {
    * @param {THREE.Vector3} localX    – Local +X axis in world space (for xsize spread)
    * @param {THREE.Vector3} localY    – Local +Y axis in world space (for ysize spread)
    */
-  spawn(worldPos, node, emitDir, localX, localY) {
+   
+spawn(worldPos, node, emitDir, localX, localY, p2pTarget = null) {
     this.node        = node;
     this.age         = 0;
     this.alive       = true;
