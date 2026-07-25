@@ -112,6 +112,7 @@ function parseFullAnimNode(lines, start) {
     alphastart: 1, alphamid: 1, alphaend: 1,
     sizestart: 1, sizemid: 0, sizeend: 1,
     colorstart: 3, colormid: 3, colorend: 3,
+    selfillumcolor: 3,   // NEW — für selfillumcolorkey / selfillumcolorbezierkey
   };
 
   // Every keyword (non-numeric token) ends the current data block.
@@ -157,6 +158,33 @@ function parseFullAnimNode(lines, start) {
       const count = (t.length > 1 && !isNaN(parseInt(t[1]))) ? parseInt(t[1]) : 0;
       const res = readAllKeys(i + 1, 1, count);
       data.scaleKeys = res.keys.map(k => ({ t: k.t, s: k.vals[0] }));
+      i = res.next;
+      continue;
+    } else if (k === 'positionbezierkey') {
+      // value(3) + tangentIn(3) + tangentOut(3) = 9 Floats/Key
+      const count = (t.length > 1 && !isNaN(parseInt(t[1]))) ? parseInt(t[1]) : 0;
+      const res = readAllKeys(i + 1, 9, count);
+      data.posKeys = res.keys.map(k => ({ t: k.t, x: k.vals[0], y: k.vals[1], z: k.vals[2] }));
+      i = res.next;
+      continue;
+    } else if (k === 'scalebezierkey') {
+      // value(1) + tangentIn(1) + tangentOut(1) = 3 Floats/Key
+      const count = (t.length > 1 && !isNaN(parseInt(t[1]))) ? parseInt(t[1]) : 0;
+      const res = readAllKeys(i + 1, 3, count);
+      data.scaleKeys = res.keys.map(k => ({ t: k.t, s: k.vals[0] }));
+      i = res.next;
+      continue;
+    } else if (k.endsWith('bezierkey')) {
+      // ── Generic Bezier Controller Key (alphabezierkey, selfillumcolorbezierkey, …) ──
+      // Format: <baseName>bezierkey <count>
+      //           <time> <value...> <tangentIn...> <tangentOut...>
+      // Only the value portion is adopted — the viewer interpolates linearly,
+      // not cubic; therefore, the tangents are discarded rather than misinterpreted.
+      const baseName = k.slice(0, -9);   // 'alphabezierkey' → 'alpha'
+      const baseCols = EMITTER_KEY_COLS[baseName] ?? 1;
+      const count = (t.length > 1 && !isNaN(parseInt(t[1]))) ? parseInt(t[1]) : 0;
+      const res = readAllKeys(i + 1, baseCols * 3, count);
+      data.emitterKeys[baseName] = res.keys.map(kk => ({ t: kk.t, vals: kk.vals.slice(0, baseCols) }));
       i = res.next;
       continue;
     } else if (k.endsWith('key')) {

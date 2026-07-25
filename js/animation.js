@@ -121,6 +121,19 @@ function applyAnimFrame(anim, time) {
       }
     }
 
+    // Interpolate selfillumcolor (selfillumcolorkey / selfillumcolorbezierkey —
+    // animated emissive color for EFFECT-class nodes)
+    const sicKeys = data.emitterKeys && data.emitterKeys.selfillumcolor;
+    if (sicKeys && sicKeys.length > 0) {
+      const v = lerpEmitterKey(sicKeys, time);
+      if (v && v.length >= 3) {
+        const mats = obj.material ? (Array.isArray(obj.material) ? obj.material : [obj.material]) : [];
+        for (const mat of mats) {
+          if (mat.emissiveMap) mat.emissive.setRGB(v[0], v[1], v[2]);
+        }
+      }
+    }
+
     // Animate light properties (colorkey, radiuskey, multiplierkey)
     const mdlLight = obj.userData && obj.userData.mdlLight;
     if (mdlLight && data.emitterKeys) {
