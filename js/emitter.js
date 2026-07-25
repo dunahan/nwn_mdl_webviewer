@@ -111,8 +111,7 @@ class NWNParticle {
    * @param {THREE.Vector3} localX    – Local +X axis in world space (for xsize spread)
    * @param {THREE.Vector3} localY    – Local +Y axis in world space (for ysize spread)
    */
-   
-spawn(worldPos, node, emitDir, localX, localY, p2pTarget = null) {
+  spawn(worldPos, node, emitDir, localX, localY, p2pTarget = null) {
     this.node        = node;
     this.age         = 0;
     this.alive       = true;
@@ -588,6 +587,58 @@ class NWNEmitter {
   }
 }
 
+// ─────────────────────────────────────────────
+//  NWNLightningBolt  —  static beam between emitter and reference node
+//  (minimal lightning representation; see update=Lightning in initAllEmitters)
+// ─────────────────────────────────────────────
+class NWNLightningBolt {
+  constructor(node) {
+    this.node = node;
+    this.obj  = null;
+    this._build();
+  }
+
+  _build() {
+    const emitterObj = nodeObjects[this.node.name];
+    const targetObj  = nodeObjects[this.node._p2pTargetName];
+    if (!emitterObj || !targetObj) return;
+
+    const from = new THREE.Vector3();
+    const to   = new THREE.Vector3();
+    emitterObj.getWorldPosition(from);
+    targetObj.getWorldPosition(to);
+
+    // Use the same color as the emitter markers in scene_build.js (colorStart);
+    // switch to an electric blue if the value is too dark.
+    const cs  = this.node.colorStart || [0.6, 0.8, 1.0];
+    const lum = cs[0] * 0.299 + cs[1] * 0.587 + cs[2] * 0.114;
+    const color = lum < 0.05 ? new THREE.Color(0x88ccff) : new THREE.Color(cs[0], cs[1], cs[2]);
+
+    const geo = new THREE.BufferGeometry().setFromPoints([from, to]);
+    const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.85 });
+    this.obj = new THREE.Line(geo, mat);
+    this.obj.userData.isLightningBolt = true;
+    scene.add(this.obj);
+  }
+
+  /** Reflects the visibility of the emitter node (scene graph toggle). */
+  update(dt) {
+    const emitterObj = nodeObjects[this.node.name];
+    if (this.obj && emitterObj) this.obj.visible = emitterObj.visible;
+  }
+
+  /** No texture state — no-op for the shared refreshEmitterTextures() loop. */
+  refreshTexture() {}
+
+  dispose() {
+    if (this.obj) {
+      scene.remove(this.obj);
+      this.obj.geometry.dispose();
+      this.obj.material.dispose();
+      this.obj = null;
+    }
+  }
+}
 
 // ─────────────────────────────────────────────
 //  Global API  —  used by other modules
@@ -603,7 +654,32 @@ function initAllEmitters(model) {
   if (!model) return;
   for (const node of model.nodes) {
     if (node.type !== 'emitter') continue;
-    if (!node.emitterTexture)    continue;
+
+    // ── Resolve P2P target point ────────────────────────────────────────────
+    // A reference node as a child node is mandatory for p2p=1 AND for
+    // update=Lightning (according to NWN documentation, Lightning is a specialized
+    // p2p emitter) — therefore, resolve it here for both cases.
+    const isLightning = (node.update || '').toLowerCase() === 'lightning';
+    node._p2pTargetName = (node.p2p || isLightning)
+      ? (model.nodes.find(n => n.parent === node.name && n.type === 'reference')?.name || null)
+      : null;
+
+    // ── Lightning: static beam instead of particle sprites ────────────────
+    // ponytail: no fractal/flickering (subdivision/lightningRadius/lightningScale
+    // unused), fixed static beam upon model load. Upgrade path if
+    // needed: periodic midpoint displacement recalculation in update().
+    if (isLightning) {
+      if (!node._p2pTargetName) continue;   // keine Reference-Node → nichts zu zeichnen
+      try {
+        emitterInstances[node.name] = new NWNLightningBolt(node);
+        logInfo(fmt('log_em_init', { name: node.name }) + L('log_em_lightning_static'));
+      } catch (err) {
+        logWarn(fmt('log_em_error', { name: node.name, msg: err.message }));
+      }
+      continue;
+    }
+
+    if (!node.emitterTexture) continue;
 
     // ── Search for birthratekey in animation data ────────────────────────
     // NWN effect models often have birthrate=0 in the geometry block and control
