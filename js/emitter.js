@@ -30,12 +30,13 @@ const emitterInstances = {};
 // ─────────────────────────────────────────────
 class NWNParticle {
   /**
-   * @param {THREE.Texture} baseTex    – Shared canvas texture (textureCache entry)
-   * @param {number}        xgrid      – Sprite-sheet columns
-   * @param {number}        ygrid      – Sprite-sheet rows
-   * @param {string}        renderMode – NWN render mode of the emitter (e.g. 'Billboard_to_World_Z')
+   * @param {THREE.Texture} baseTex      – Shared canvas texture (textureCache entry)
+   * @param {number}        xgrid        – Sprite-sheet columns
+   * @param {number}        ygrid        – Sprite-sheet rows
+   * @param {string}        renderMode   – NWN render mode of the emitter (e.g. 'Billboard_to_World_Z')
+   * @param {boolean}       isLinkedP2P  – true for p2p=1 + render=Linked (beam/bolt quad)
    */
-  constructor(baseTex, xgrid, ygrid, renderMode) {
+  constructor(baseTex, xgrid, ygrid, renderMode, isLinkedP2P) {
     this.xgrid = xgrid;
     this.ygrid = ygrid;
 
@@ -43,6 +44,11 @@ class NWNParticle {
     // not camera-facing. For all other modes: standard THREE.Sprite.
     this.isFlatBillboard =
       (renderMode || '').toLowerCase() === 'billboard_to_world_z';
+
+    // p2p=1 + render=Linked (e.g. lightning bolts): NWN renders these as a
+    // single quad stretched between the emitter and its P2P target, not as
+    // independent moving billboards. See _updateBeamTransform().
+    this.isLinkedP2P = !!isLinkedP2P;
 
     // Clone texture: shares canvas pixel data but has its own offset/repeat vectors.
     // THREE.Texture.clone() → new THREE.CanvasTexture with the same .image (canvas).
@@ -55,7 +61,27 @@ class NWNParticle {
     // (visually top) lands at WebGL v=0 (sprite bottom) — without correction
     // every frame would be upside down. repeat.y < 0 inverts the v direction.
 
-    if (this.isFlatBillboard) {
+    if (this.isLinkedP2P) {
+      // ── Beam quad: stretched between emitter origin and P2P target ────
+      // Rebuilt every frame in _updateBeamTransform() (camera-billboarded
+      // around its own long axis — the classic "laser beam" technique).
+      // ponytail: single flat quad, not a fractal/jittered bolt shape — the
+      // short lifeExp + fast birthrate + random sprite-sheet frame already
+      // reproduce the flickering jagged look closely enough. Upgrade path:
+      // multi-segment jitter along the beam if a truer zig-zag is needed.
+      this.mat = new THREE.MeshBasicMaterial({
+        map:         this.tex,
+        blending:    THREE.AdditiveBlending,
+        depthWrite:  false,
+        transparent: true,
+        side:        THREE.DoubleSide,
+        fog:         false,
+      });
+      const geo = new THREE.PlaneGeometry(1, 1);
+      this.obj = new THREE.Mesh(geo, this.mat);
+      this.obj.matrixAutoUpdate = false;   // matrix is fully hand-built per frame
+      this.p2pOrigin = new THREE.Vector3();
+    } else if (this.isFlatBillboard) {
       // ── Billboard_to_World_Z: flat quad horizontal in the XZ plane ──
       // PlaneGeometry is by default in the XY plane (normal = +Z).
       // Rotation −90° around X rotates it into the XZ plane (normal = +Y = upward).
@@ -118,6 +144,17 @@ class NWNParticle {
     this.rotation    = 0;
     this.obj.visible = true;
     this.p2pTarget   = p2pTarget;
+
+    if (this.isLinkedP2P) {
+      // Beam particles ignore spawn-area jitter and velocity entirely —
+      // the quad's transform is fully rebuilt from origin → target every
+      // frame in _updateBeamTransform(). Without a target, there's nothing
+      // to draw (matches the ordinary emitter's silent no-op elsewhere).
+      this.p2pOrigin.copy(worldPos);
+      const totalFrames = node.frameEnd - node.frameStart + 1;
+      this.startFrame   = node.frameStart + Math.floor(Math.random() * totalFrames);
+      return;
+    }
 
     // ── Emitter direction ────────────────────────────────────────────
     const dir = (emitDir && emitDir.lengthSq() > 0.01)
@@ -193,11 +230,20 @@ class NWNParticle {
     const t = this.age / node.lifeExp;   // normalised lifetime 0..1
 
     // ── Position (Euler integration) ──────────────────────────────
-    this.obj.position.x += this.vx * dt;
-    this.obj.position.y += this.vy * dt;
-    this.obj.position.z += this.vz * dt;
+    // Beam mode (isLinkedP2P) skips velocity/gravity entirely — grav is
+    // often 0 on these emitters (the bolt spans the gap via the beam's
+    // geometry in _updateBeamTransform() below, not by a particle
+    // traveling there over its short lifeExp).
+    if (!this.isLinkedP2P) {
+      this.obj.position.x += this.vx * dt;
+      this.obj.position.y += this.vy * dt;
+      this.obj.position.z += this.vz * dt;
+    }
 
-    if (this.p2pTarget) {
+    if (this.isLinkedP2P) {
+      // Beam mode has no velocity to advance — skip gravity/drag/rotation
+      // entirely; only the size/alpha/color/frame curves below still apply.
+    } else if (this.p2pTarget) {
       // ── Point-to-Point (Gravity) physics ──────────────────────────────
       // p2p_sel=0: Instead of normal gravity, the particle is pulled toward
       // the target point (Reference Node). According to NWN documentation,
@@ -282,7 +328,11 @@ class NWNParticle {
         ? sS + (sM - sS) * (t * 2)
         : sM + (sE - sM) * ((t - 0.5) * 2);
     }
-    this.obj.scale.setScalar(Math.max(size, 0.001));
+    if (this.isLinkedP2P) {
+      this._updateBeamTransform(Math.max(size, 0.001));
+    } else {
+      this.obj.scale.setScalar(Math.max(size, 0.001));
+    }
 
     // ── Alpha: alphaStart → alphaMid → alphaEnd ───────────────────
     const aS = node.alphaStart, aM = node.alphaMid, aE = node.alphaEnd;
@@ -324,13 +374,64 @@ class NWNParticle {
     return true;
   }
 
+  /**
+   * Rebuilds this particle's quad so it spans from the emitter origin to the
+   * P2P target (the reference node), billboarded around its own long axis —
+   * i.e. it always faces the camera as closely as possible while its length
+   * stays pinned to the two 3D endpoints ("laser beam" technique). Called
+   * every frame instead of position/velocity integration.
+   * @param {number} width – current beam width from the size curve
+   */
+  _updateBeamTransform(width) {
+    if (!this.p2pTarget) { this.obj.visible = false; return; }
+
+    _beamDir.subVectors(this.p2pTarget, this.p2pOrigin);
+    const length = _beamDir.length();
+    if (length < 1e-4) { this.obj.visible = false; return; }
+    _beamDir.multiplyScalar(1 / length);
+
+    // Camera-facing normal, perpendicular to the beam.
+    _beamToCam.subVectors(camera.position, this.p2pOrigin).normalize();
+    _beamRight.crossVectors(_beamDir, _beamToCam);
+    if (_beamRight.lengthSq() < 1e-6) {
+      // Camera nearly along the beam axis — fall back to world-up so the
+      // basis never degenerates (would otherwise collapse the quad to zero width).
+      _beamRight.crossVectors(_beamDir, _beamUp);
+    }
+    _beamRight.normalize();
+    _beamNormal.crossVectors(_beamRight, _beamDir).normalize();
+
+    // Local X = width (right), local Y = length (beam direction), local Z = normal.
+    _beamMat.makeBasis(_beamRight, _beamDir, _beamNormal);
+    _beamMat.scale(_beamScale.set(width, length, 1));
+    _beamMat.setPosition(
+      this.p2pOrigin.x + _beamDir.x * length * 0.5,
+      this.p2pOrigin.y + _beamDir.y * length * 0.5,
+      this.p2pOrigin.z + _beamDir.z * length * 0.5
+    );
+
+    this.obj.matrix.copy(_beamMat);
+    this.obj.matrixWorldNeedsUpdate = true;   // matrixAutoUpdate is off — flag it manually
+  }
+
   /** Release GPU resources */
   dispose() {
     this.tex.dispose();
     this.mat.dispose();
+    if (this.isLinkedP2P) this.obj.geometry.dispose();   // per-particle PlaneGeometry, not shared
     this.alive = false;
   }
 }
+
+// Scratch objects for _updateBeamTransform() — avoids per-frame/per-particle
+// allocation (same pattern as animation.js's CPU-skinning scratch objects).
+const _beamDir    = new THREE.Vector3();
+const _beamToCam  = new THREE.Vector3();
+const _beamRight  = new THREE.Vector3();
+const _beamNormal = new THREE.Vector3();
+const _beamUp     = new THREE.Vector3(0, 1, 0);
+const _beamScale  = new THREE.Vector3();
+const _beamMat    = new THREE.Matrix4();
 
 
 // ─────────────────────────────────────────────
@@ -355,6 +456,13 @@ function evalKey1D(keys, t) {
 // ─────────────────────────────────────────────
 //  NWNEmitter  —  particle pool and spawn logic
 // ─────────────────────────────────────────────
+// p2p=1 + render=Linked (e.g. lightning bolts) render as a single beam quad
+// stretched between the emitter and its P2P target — see NWNParticle's
+// isLinkedP2P branch and _updateBeamTransform().
+function _isLinkedP2P(node) {
+  return !!node.p2p && (node.renderMode || '').toLowerCase() === 'linked';
+}
+
 class NWNEmitter {
   /** @param {object} node – Parsed emitter node object */
   constructor(node) {
@@ -381,8 +489,9 @@ class NWNEmitter {
     }
     // Particle count = birthrate × lifeExp + buffer
     const maxAlive = Math.ceil(maxBirthrate * node.lifeExp) + 6;
+    const isLinkedP2P = _isLinkedP2P(node);
     for (let i = 0; i < maxAlive; i++) {
-      const p = new NWNParticle(this.baseTex, node.xgrid, node.ygrid, node.renderMode);
+      const p = new NWNParticle(this.baseTex, node.xgrid, node.ygrid, node.renderMode, isLinkedP2P);
       scene.add(p.obj);
       this.pool.push(p);
     }
@@ -552,7 +661,7 @@ class NWNEmitter {
     // Take from pool or create a new particle
     let p = this.pool.pop();
     if (!p) {
-      p = new NWNParticle(this.baseTex, this.node.xgrid, this.node.ygrid, this.node.renderMode);
+      p = new NWNParticle(this.baseTex, this.node.xgrid, this.node.ygrid, this.node.renderMode, _isLinkedP2P(this.node));
       scene.add(p.obj);
     }
     const { emitDir, localX, localY } = this._getWorldAxes();
