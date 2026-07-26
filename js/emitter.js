@@ -30,12 +30,13 @@ const emitterInstances = {};
 // ─────────────────────────────────────────────
 class NWNParticle {
   /**
-   * @param {THREE.Texture} baseTex    – Shared canvas texture (textureCache entry)
-   * @param {number}        xgrid      – Sprite-sheet columns
-   * @param {number}        ygrid      – Sprite-sheet rows
-   * @param {string}        renderMode – NWN render mode of the emitter (e.g. 'Billboard_to_World_Z')
+   * @param {THREE.Texture} baseTex      – Shared canvas texture (textureCache entry)
+   * @param {number}        xgrid        – Sprite-sheet columns
+   * @param {number}        ygrid        – Sprite-sheet rows
+   * @param {string}        renderMode   – NWN render mode of the emitter (e.g. 'Billboard_to_World_Z')
+   * @param {boolean}       isLinkedP2P  – true for p2p=1 + render=Linked (beam/bolt quad)
    */
-  constructor(baseTex, xgrid, ygrid, renderMode) {
+  constructor(baseTex, xgrid, ygrid, renderMode, isLinkedP2P) {
     this.xgrid = xgrid;
     this.ygrid = ygrid;
 
@@ -43,6 +44,11 @@ class NWNParticle {
     // not camera-facing. For all other modes: standard THREE.Sprite.
     this.isFlatBillboard =
       (renderMode || '').toLowerCase() === 'billboard_to_world_z';
+
+    // p2p=1 + render=Linked (e.g. lightning bolts): NWN renders these as a
+    // single quad stretched between the emitter and its P2P target, not as
+    // independent moving billboards. See _updateBeamTransform().
+    this.isLinkedP2P = !!isLinkedP2P;
 
     // Clone texture: shares canvas pixel data but has its own offset/repeat vectors.
     // THREE.Texture.clone() → new THREE.CanvasTexture with the same .image (canvas).
@@ -55,7 +61,27 @@ class NWNParticle {
     // (visually top) lands at WebGL v=0 (sprite bottom) — without correction
     // every frame would be upside down. repeat.y < 0 inverts the v direction.
 
-    if (this.isFlatBillboard) {
+    if (this.isLinkedP2P) {
+      // ── Beam quad: stretched between emitter origin and P2P target ────
+      // Rebuilt every frame in _updateBeamTransform() (camera-billboarded
+      // around its own long axis — the classic "laser beam" technique).
+      // ponytail: single flat quad, not a fractal/jittered bolt shape — the
+      // short lifeExp + fast birthrate + random sprite-sheet frame already
+      // reproduce the flickering jagged look closely enough. Upgrade path:
+      // multi-segment jitter along the beam if a truer zig-zag is needed.
+      this.mat = new THREE.MeshBasicMaterial({
+        map:         this.tex,
+        blending:    THREE.AdditiveBlending,
+        depthWrite:  false,
+        transparent: true,
+        side:        THREE.DoubleSide,
+        fog:         false,
+      });
+      const geo = new THREE.PlaneGeometry(1, 1);
+      this.obj = new THREE.Mesh(geo, this.mat);
+      this.obj.matrixAutoUpdate = false;   // matrix is fully hand-built per frame
+      this.p2pOrigin = new THREE.Vector3();
+    } else if (this.isFlatBillboard) {
       // ── Billboard_to_World_Z: flat quad horizontal in the XZ plane ──
       // PlaneGeometry is by default in the XY plane (normal = +Z).
       // Rotation −90° around X rotates it into the XZ plane (normal = +Y = upward).
@@ -93,6 +119,9 @@ class NWNParticle {
     // Movement vectors (world space)
     this.vx = 0; this.vy = 0; this.vz = 0;
 
+    // Point-to-point destination (space), set by spawn(); null = normal flight
+    this.p2pTarget = null;
+
     // Sprite rotation (cumulative, rad) — for particleRot
     this.rotation = 0;
 
@@ -108,12 +137,24 @@ class NWNParticle {
    * @param {THREE.Vector3} localX    – Local +X axis in world space (for xsize spread)
    * @param {THREE.Vector3} localY    – Local +Y axis in world space (for ysize spread)
    */
-  spawn(worldPos, node, emitDir, localX, localY) {
-    this.node       = node;
-    this.age        = 0;
-    this.alive      = true;
-    this.rotation   = 0;
+  spawn(worldPos, node, emitDir, localX, localY, p2pTarget = null) {
+    this.node        = node;
+    this.age         = 0;
+    this.alive       = true;
+    this.rotation    = 0;
     this.obj.visible = true;
+    this.p2pTarget   = p2pTarget;
+
+    if (this.isLinkedP2P) {
+      // Beam particles ignore spawn-area jitter and velocity entirely —
+      // the quad's transform is fully rebuilt from origin → target every
+      // frame in _updateBeamTransform(). Without a target, there's nothing
+      // to draw (matches the ordinary emitter's silent no-op elsewhere).
+      this.p2pOrigin.copy(worldPos);
+      const totalFrames = node.frameEnd - node.frameStart + 1;
+      this.startFrame   = node.frameStart + Math.floor(Math.random() * totalFrames);
+      return;
+    }
 
     // ── Emitter direction ────────────────────────────────────────────
     const dir = (emitDir && emitDir.lengthSq() > 0.01)
@@ -189,27 +230,77 @@ class NWNParticle {
     const t = this.age / node.lifeExp;   // normalised lifetime 0..1
 
     // ── Position (Euler integration) ──────────────────────────────
-    this.obj.position.x += this.vx * dt;
-    this.obj.position.y += this.vy * dt;
-    this.obj.position.z += this.vz * dt;
-
-    // NWN gravity: the Aurora engine scales 'mass' by gravitational acceleration.
-    // mass=1.0 → particle falls at ~9.81 NWN units/s² (Earth gravity).
-    // mass=0.32 → eff. 3.14/s² → apex at t≈0.23s, particle reaches
-    // ground (Δy≈−3.9) after t≈1.7s — produces the visible arc. ✓
-    const NWN_G = 9.81;
-    if (node.mass) {
-      this.vy -= node.mass * NWN_G * dt;
+    // Beam mode (isLinkedP2P) skips velocity/gravity entirely — grav is
+    // often 0 on these emitters (the bolt spans the gap via the beam's
+    // geometry in _updateBeamTransform() below, not by a particle
+    // traveling there over its short lifeExp).
+    if (!this.isLinkedP2P) {
+      this.obj.position.x += this.vx * dt;
+      this.obj.position.y += this.vy * dt;
+      this.obj.position.z += this.vz * dt;
     }
 
-    // Drag: exponential deceleration — simulates air resistance
-    // Formula: v *= (1 - drag)^dt  ≈  v * e^(-drag * dt)
-    const drag = node.drag || 0;
-    if (drag > 0) {
-      const damping = Math.pow(Math.max(1 - drag, 0), dt);
-      this.vx *= damping;
-      this.vy *= damping;
-      this.vz *= damping;
+    if (this.isLinkedP2P) {
+      // Beam mode has no velocity to advance — skip gravity/drag/rotation
+      // entirely; only the size/alpha/color/frame curves below still apply.
+    } else if (this.p2pTarget) {
+      // ── Point-to-Point (Gravity) physics ──────────────────────────────
+      // p2p_sel=0: Instead of normal gravity, the particle is pulled toward
+      // the target point (Reference Node). According to NWN documentation,
+      // 'grav' is a direct acceleration (m/s²) toward the target, and
+      // 'threshold' is the deletion radius around the target ("Event
+      // Horizon"). 'drag' is documented only qualitatively ("overshoots
+      // the target, then turns back — higher value = greater overshoot"),
+      // with no published formula; here, it is approximated as a velocity
+      // boost that produces exactly this overshoot behavior.
+      // ponytail: p2p_sel=1 (Bezier path) uses the same approximation;
+      // true Bezier tangents (p2p_bezier2/3) are not evaluated — this is
+      // the place to implement them if needed (e.g., for lightning emitters).
+      const dx = this.p2pTarget.x - this.obj.position.x;
+      const dy = this.p2pTarget.y - this.obj.position.y;
+      const dz = this.p2pTarget.z - this.obj.position.z;
+      const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+
+      if (node.threshold > 0 && dist < node.threshold) {
+        this.alive = false;
+        this.obj.visible = false;
+        return false;
+      }
+
+      if (dist > 1e-5) {
+        const grav = node.grav || 0;
+        const invDist = 1 / dist;
+        this.vx += dx * invDist * grav * dt;
+        this.vy += dy * invDist * grav * dt;
+        this.vz += dz * invDist * grav * dt;
+      }
+
+      const drag = node.drag || 0;
+      if (drag > 0) {
+        const boost = 1 + drag * dt;
+        this.vx *= boost;
+        this.vy *= boost;
+        this.vz *= boost;
+      }
+    } else {
+      // NWN gravity: the Aurora engine scales 'mass' by gravitational acceleration.
+      // mass=1.0 → particle falls at ~9.81 NWN units/s² (Earth gravity).
+      // mass=0.32 → eff. 3.14/s² → apex at t≈0.23s, particle reaches
+      // ground (Δy≈−3.9) after t≈1.7s — produces the visible arc. ✓
+      const NWN_G = 9.81;
+      if (node.mass) {
+        this.vy -= node.mass * NWN_G * dt;
+      }
+
+      // Drag: exponential deceleration — simulates air resistance
+      // Formula: v *= (1 - drag)^dt  ≈  v * e^(-drag * dt)
+      const drag = node.drag || 0;
+      if (drag > 0) {
+        const damping = Math.pow(Math.max(1 - drag, 0), dt);
+        this.vx *= damping;
+        this.vy *= damping;
+        this.vz *= damping;
+      }
     }
 
     // Sprite rotation: particleRot = angular velocity in rad/s
@@ -237,7 +328,11 @@ class NWNParticle {
         ? sS + (sM - sS) * (t * 2)
         : sM + (sE - sM) * ((t - 0.5) * 2);
     }
-    this.obj.scale.setScalar(Math.max(size, 0.001));
+    if (this.isLinkedP2P) {
+      this._updateBeamTransform(Math.max(size, 0.001));
+    } else {
+      this.obj.scale.setScalar(Math.max(size, 0.001));
+    }
 
     // ── Alpha: alphaStart → alphaMid → alphaEnd ───────────────────
     const aS = node.alphaStart, aM = node.alphaMid, aE = node.alphaEnd;
@@ -279,13 +374,64 @@ class NWNParticle {
     return true;
   }
 
+  /**
+   * Rebuilds this particle's quad so it spans from the emitter origin to the
+   * P2P target (the reference node), billboarded around its own long axis —
+   * i.e. it always faces the camera as closely as possible while its length
+   * stays pinned to the two 3D endpoints ("laser beam" technique). Called
+   * every frame instead of position/velocity integration.
+   * @param {number} width – current beam width from the size curve
+   */
+  _updateBeamTransform(width) {
+    if (!this.p2pTarget) { this.obj.visible = false; return; }
+
+    _beamDir.subVectors(this.p2pTarget, this.p2pOrigin);
+    const length = _beamDir.length();
+    if (length < 1e-4) { this.obj.visible = false; return; }
+    _beamDir.multiplyScalar(1 / length);
+
+    // Camera-facing normal, perpendicular to the beam.
+    _beamToCam.subVectors(camera.position, this.p2pOrigin).normalize();
+    _beamRight.crossVectors(_beamDir, _beamToCam);
+    if (_beamRight.lengthSq() < 1e-6) {
+      // Camera nearly along the beam axis — fall back to world-up so the
+      // basis never degenerates (would otherwise collapse the quad to zero width).
+      _beamRight.crossVectors(_beamDir, _beamUp);
+    }
+    _beamRight.normalize();
+    _beamNormal.crossVectors(_beamRight, _beamDir).normalize();
+
+    // Local X = width (right), local Y = length (beam direction), local Z = normal.
+    _beamMat.makeBasis(_beamRight, _beamDir, _beamNormal);
+    _beamMat.scale(_beamScale.set(width, length, 1));
+    _beamMat.setPosition(
+      this.p2pOrigin.x + _beamDir.x * length * 0.5,
+      this.p2pOrigin.y + _beamDir.y * length * 0.5,
+      this.p2pOrigin.z + _beamDir.z * length * 0.5
+    );
+
+    this.obj.matrix.copy(_beamMat);
+    this.obj.matrixWorldNeedsUpdate = true;   // matrixAutoUpdate is off — flag it manually
+  }
+
   /** Release GPU resources */
   dispose() {
     this.tex.dispose();
     this.mat.dispose();
+    if (this.isLinkedP2P) this.obj.geometry.dispose();   // per-particle PlaneGeometry, not shared
     this.alive = false;
   }
 }
+
+// Scratch objects for _updateBeamTransform() — avoids per-frame/per-particle
+// allocation (same pattern as animation.js's CPU-skinning scratch objects).
+const _beamDir    = new THREE.Vector3();
+const _beamToCam  = new THREE.Vector3();
+const _beamRight  = new THREE.Vector3();
+const _beamNormal = new THREE.Vector3();
+const _beamUp     = new THREE.Vector3(0, 1, 0);
+const _beamScale  = new THREE.Vector3();
+const _beamMat    = new THREE.Matrix4();
 
 
 // ─────────────────────────────────────────────
@@ -310,6 +456,13 @@ function evalKey1D(keys, t) {
 // ─────────────────────────────────────────────
 //  NWNEmitter  —  particle pool and spawn logic
 // ─────────────────────────────────────────────
+// p2p=1 + render=Linked (e.g. lightning bolts) render as a single beam quad
+// stretched between the emitter and its P2P target — see NWNParticle's
+// isLinkedP2P branch and _updateBeamTransform().
+function _isLinkedP2P(node) {
+  return !!node.p2p && (node.renderMode || '').toLowerCase() === 'linked';
+}
+
 class NWNEmitter {
   /** @param {object} node – Parsed emitter node object */
   constructor(node) {
@@ -336,8 +489,9 @@ class NWNEmitter {
     }
     // Particle count = birthrate × lifeExp + buffer
     const maxAlive = Math.ceil(maxBirthrate * node.lifeExp) + 6;
+    const isLinkedP2P = _isLinkedP2P(node);
     for (let i = 0; i < maxAlive; i++) {
-      const p = new NWNParticle(this.baseTex, node.xgrid, node.ygrid, node.renderMode);
+      const p = new NWNParticle(this.baseTex, node.xgrid, node.ygrid, node.renderMode, isLinkedP2P);
       scene.add(p.obj);
       this.pool.push(p);
     }
@@ -454,6 +608,16 @@ class NWNEmitter {
     };
   }
 
+  /** World position of the P2P target reference node, or null if not configured. */
+  _getP2PTargetWorldPos() {
+    if (!this.node._p2pTargetName) return null;
+    const obj = nodeObjects[this.node._p2pTargetName];
+    if (!obj) return null;
+    const pos = new THREE.Vector3();
+    obj.getWorldPosition(pos);
+    return pos;
+  }
+
   /** Call once per frame */
   update(dt) {
     if (!this.baseTex) return;
@@ -497,11 +661,12 @@ class NWNEmitter {
     // Take from pool or create a new particle
     let p = this.pool.pop();
     if (!p) {
-      p = new NWNParticle(this.baseTex, this.node.xgrid, this.node.ygrid, this.node.renderMode);
+      p = new NWNParticle(this.baseTex, this.node.xgrid, this.node.ygrid, this.node.renderMode, _isLinkedP2P(this.node));
       scene.add(p.obj);
     }
     const { emitDir, localX, localY } = this._getWorldAxes();
-    p.spawn(this._getWorldPos(), this.node, emitDir, localX, localY);
+    const p2pTarget = this.node.p2p ? this._getP2PTargetWorldPos() : null;
+    p.spawn(this._getWorldPos(), this.node, emitDir, localX, localY, p2pTarget);
     this.active.push(p);
   }
 
@@ -531,6 +696,58 @@ class NWNEmitter {
   }
 }
 
+// ─────────────────────────────────────────────
+//  NWNLightningBolt  —  static beam between emitter and reference node
+//  (minimal lightning representation; see update=Lightning in initAllEmitters)
+// ─────────────────────────────────────────────
+class NWNLightningBolt {
+  constructor(node) {
+    this.node = node;
+    this.obj  = null;
+    this._build();
+  }
+
+  _build() {
+    const emitterObj = nodeObjects[this.node.name];
+    const targetObj  = nodeObjects[this.node._p2pTargetName];
+    if (!emitterObj || !targetObj) return;
+
+    const from = new THREE.Vector3();
+    const to   = new THREE.Vector3();
+    emitterObj.getWorldPosition(from);
+    targetObj.getWorldPosition(to);
+
+    // Use the same color as the emitter markers in scene_build.js (colorStart);
+    // switch to an electric blue if the value is too dark.
+    const cs  = this.node.colorStart || [0.6, 0.8, 1.0];
+    const lum = cs[0] * 0.299 + cs[1] * 0.587 + cs[2] * 0.114;
+    const color = lum < 0.05 ? new THREE.Color(0x88ccff) : new THREE.Color(cs[0], cs[1], cs[2]);
+
+    const geo = new THREE.BufferGeometry().setFromPoints([from, to]);
+    const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.85 });
+    this.obj = new THREE.Line(geo, mat);
+    this.obj.userData.isLightningBolt = true;
+    scene.add(this.obj);
+  }
+
+  /** Reflects the visibility of the emitter node (scene graph toggle). */
+  update(dt) {
+    const emitterObj = nodeObjects[this.node.name];
+    if (this.obj && emitterObj) this.obj.visible = emitterObj.visible;
+  }
+
+  /** No texture state — no-op for the shared refreshEmitterTextures() loop. */
+  refreshTexture() {}
+
+  dispose() {
+    if (this.obj) {
+      scene.remove(this.obj);
+      this.obj.geometry.dispose();
+      this.obj.material.dispose();
+      this.obj = null;
+    }
+  }
+}
 
 // ─────────────────────────────────────────────
 //  Global API  —  used by other modules
@@ -546,7 +763,32 @@ function initAllEmitters(model) {
   if (!model) return;
   for (const node of model.nodes) {
     if (node.type !== 'emitter') continue;
-    if (!node.emitterTexture)    continue;
+
+    // ── Resolve P2P target point ────────────────────────────────────────────
+    // A reference node as a child node is mandatory for p2p=1 AND for
+    // update=Lightning (according to NWN documentation, Lightning is a specialized
+    // p2p emitter) — therefore, resolve it here for both cases.
+    const isLightning = (node.update || '').toLowerCase() === 'lightning';
+    node._p2pTargetName = (node.p2p || isLightning)
+      ? (model.nodes.find(n => n.parent === node.name && n.type === 'reference')?.name || null)
+      : null;
+
+    // ── Lightning: static beam instead of particle sprites ────────────────
+    // ponytail: no fractal/flickering (subdivision/lightningRadius/lightningScale
+    // unused), fixed static beam upon model load. Upgrade path if
+    // needed: periodic midpoint displacement recalculation in update().
+    if (isLightning) {
+      if (!node._p2pTargetName) continue;   // keine Reference-Node → nichts zu zeichnen
+      try {
+        emitterInstances[node.name] = new NWNLightningBolt(node);
+        logInfo(fmt('log_em_init', { name: node.name }) + L('log_em_lightning_static'));
+      } catch (err) {
+        logWarn(fmt('log_em_error', { name: node.name, msg: err.message }));
+      }
+      continue;
+    }
+
+    if (!node.emitterTexture) continue;
 
     // ── Search for birthratekey in animation data ────────────────────────
     // NWN effect models often have birthrate=0 in the geometry block and control

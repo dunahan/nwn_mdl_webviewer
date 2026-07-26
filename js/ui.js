@@ -165,14 +165,44 @@ function nodeVisUpdateTypeButtons() {
   });
 }
 
+// ─────────────────────────────────────────────
+//  Selection Highlight — static white Outline-Mesh
+// ─────────────────────────────────────────────
+function clearSelectionHighlight() {
+  if (!selectionHighlight) return;
+  if (selectionHighlight.parent) selectionHighlight.parent.remove(selectionHighlight);
+  selectionHighlight.material.dispose();
+  selectionHighlight = null;
+}
+
+function addSelectionHighlight(obj) {
+  clearSelectionHighlight();
+  if (!obj || !obj.isMesh || !obj.geometry) return;   // only Trimesh/Skin/Dangly/Animmesh
+  const mat = new THREE.MeshBasicMaterial({
+    color:       0xffffff,
+    side:        THREE.BackSide,
+    depthWrite:  false,
+    transparent: true,
+    opacity:     0.6,
+  });
+  // Same geometry reference as the original — thus follows automatically
+  // CPU skinning/dangly mesh deformation without custom update logic.
+  const mesh = new THREE.Mesh(obj.geometry, mat);
+  mesh.scale.setScalar(1.03);
+  mesh.userData.isSelectionHighlight = true;
+  obj.add(mesh);
+  selectionHighlight = mesh;
+}
+
 function selectNode(name) {
   selectedNodeName = name;
   document.querySelectorAll('.node-item').forEach(el => el.classList.remove('selected'));
   const el = document.querySelector(`.node-item[data-name="${CSS.escape(name)}"]`);
   if (el) { el.classList.add('selected'); el.scrollIntoView({ block: 'nearest' }); }
 
-  const obj = nodeObjects[name];
-  if (!obj || !obj.userData.nodeData) { document.getElementById('node-detail').style.display = 'none'; return; }
+const obj = nodeObjects[name];
+  if (!obj || !obj.userData.nodeData) { document.getElementById('node-detail').style.display = 'none'; clearSelectionHighlight(); return; }
+  addSelectionHighlight(obj);
   const n = obj.userData.nodeData;
 
   const detail = document.getElementById('node-detail');
@@ -987,6 +1017,7 @@ if (document.readyState === 'loading') {
     if (panel) panel.style.display = 'none';
     document.querySelectorAll('.node-item').forEach(el => el.classList.remove('selected'));
     if (typeof selectedNodeName !== 'undefined') selectedNodeName = null;
+    clearSelectionHighlight();
   }
   window.closeNodeDetail    = closeNodeDetail;
   window.initNodeDetailDrag = initNodeDetailDrag;

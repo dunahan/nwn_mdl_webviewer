@@ -72,6 +72,7 @@ let nodeObjects = {};    // name -> THREE.Object3D
 let selectedNodeName = null;
 let wireOpacity = 0;
 let meshOpacity = 1.0;
+let selectionHighlight = null;
 
 // Name of the supermodel still expected (null = none pending)
 let pendingSupermodel = null;
@@ -299,6 +300,9 @@ canvas.addEventListener('click', e => {
     selectNode(obj.name);
     return;
   }
+  
+  // Ctrl+Click hit nothing selectable → deselect (empty space, floor, grid, etc.)
+  if (typeof closeNodeDetail === 'function') closeNodeDetail();
 });
 
 // ─────────────────────────────────────────────

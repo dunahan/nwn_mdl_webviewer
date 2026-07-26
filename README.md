@@ -105,6 +105,9 @@ No installation, no server — just open `index.html` locally or use it directly
 - **Collision-safe visibility** — In group-loaded tileset scenes, multiple tiles may share identical node names (e.g. `walkmesh` on AABB nodes, or generic mesh names like `ground01`). Each scene graph entry correctly controls its own specific Three.js object regardless of name collisions — visibility toggles and type-filter buttons all resolve to the right tile.
 - **Node Inspector** — Draggable floating panel with zoom controls (−/○/＋); shows: type, parent, vertices, faces, bitmap, position, diffuse, alpha, plus type-specific sections for emitter nodes (all parameters), light nodes (color, radius, multiplier, shadow, etc.), and MTR nodes (slot status, renderhint, tangent status, shader parameters)
 - **Skeleton Helper** — Three.js SkeletonHelper overlay for skinned models; toggled via the Skeleton button
+- **Node selection** — Click a node in the Scene Graph sidebar, or **Ctrl+Click** (Cmd+Click on macOS) directly on a mesh in the 3D viewport, to select it and open the Node Inspector panel
+- **Selection highlight** — The selected mesh is outlined with a static white highlight (visible on trimesh, skin, danglymesh, and animmesh nodes); automatically follows CPU-skinning and danglymesh deformation, and clears when a different node is selected or the panel is closed
+- **Deselect** — Ctrl+Click (Cmd+Click on macOS) on empty space in the viewport closes the Node Inspector and clears the selection highlight
 
 ### Camera & Display Controls
 | Control | Description |

@@ -168,6 +168,7 @@ const I18N_BUNDLE = {
     log_em_init_pending:  ' (texture pending: "{tex}")',
     log_em_error:         '[Emitter] "{name}" error: {msg}',
     log_em_tex_pending:   '(texture pending: "{tex}")',
+    log_em_lightning_static: ' [lightning, static beam]',
     // multipart msg
     log_multi_part:       'Multi-Part assembly: "{part}" merged into "{base}"',
     log_char_part:        'Character assembly: "{part}" merged into "{base}"',
@@ -382,6 +383,7 @@ const I18N_BUNDLE = {
     // Log-Meldungen
     log_em_init:          '[Emitter] "{name}" initialisiert',
     log_em_init_pending:  ' (Textur ausstehend: "{tex}")',
+    log_em_lightning_static: ' [Lightning, statischer Strahl]',
     log_em_error:         '[Emitter] "{name}" Fehler: {msg}',
     log_em_tex_pending:   '(Textur ausstehend: "{tex}")',
     // multipart msg

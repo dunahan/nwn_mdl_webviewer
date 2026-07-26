@@ -193,6 +193,7 @@
   "log_em_init_pending": " (Textur ausstehend: \"{tex}\")",
   "log_em_tex_pending": "(Textur ausstehend: \"{tex}\")",
   "log_em_error": "[Emitter] \"{name}\" Fehler: {msg}",
+  "log_em_lightning_static": " [Lightning, statischer Strahl]",
   "log_multi_part": "Multi-Part-Assembly: \"{part}\" → \"{base}\" zusammengeführt",
   "log_char_part": "Charakter-Assembly: \"{part}\" → \"{base}\" zusammengeführt",
   "log_char_assembly": "Multi-Part Modell wird geladen...",

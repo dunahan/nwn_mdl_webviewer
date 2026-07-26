@@ -118,6 +118,7 @@ function clearSession(keepTextures = false) {
   // 3. Reset internal states
   nodeObjects        = {};
   selectedNodeName   = null;
+  selectionHighlight = null;
   currentModel       = null;
   pendingSupermodel  = null;
   animState.current  = null;
