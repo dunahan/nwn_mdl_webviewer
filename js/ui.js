@@ -47,7 +47,7 @@ function buildNodeList(model) {
 
     const name = document.createElement('span');
     name.className = 'node-name';
-    name.textContent = node.name;
+    name.textContent = node.displayName || node.name;
     item.appendChild(name);
 
     const badge = document.createElement('span');
@@ -331,7 +331,7 @@ const obj = nodeObjects[name];
 
   detail.innerHTML =
     '<div id="node-detail-handle">' +
-      '<span class="nd-title">' + n.name + '</span>' +
+      '<span class="nd-title">' + (n.displayName || n.name) + '</span>' +
       '<span id="node-detail-drag-strip" class="nd-drag-strip" title="' + L('nd_drag_title') + '">⠿ ⠿ ⠿</span>' +
       '<span class="nd-zoom-btns">' +
         '<button class="nd-zoom-btn" data-zoom="-1" title="Smaller">−</button>' +
