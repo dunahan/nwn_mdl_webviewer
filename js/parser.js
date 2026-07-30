@@ -79,6 +79,19 @@ function parseMDL(text) {
     }
     i++;
   }
+
+  const _nodeNameCounts = new Map();
+  for (const node of model.nodes) {
+    const orig = node.name;
+    const n = (_nodeNameCounts.get(orig) || 0) + 1;
+    _nodeNameCounts.set(orig, n);
+    node.displayName = orig;
+    if (n > 1) {
+      node.name = orig + '__dup' + n;
+      console.warn(`[parser] Duplicate node name "${orig}" — renamed to "${node.name}"`);
+    }
+  }
+
   if (!model.restPose) model.restPose = {};
   return model;
 }
