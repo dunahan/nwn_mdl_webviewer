@@ -179,6 +179,7 @@ const I18N_BUNDLE = {
     // missing texture report
     tex_missing_none:     'All referenced textures loaded ✓',
     tex_missing_header:   'Missing textures ({n}) — not yet loaded:',
+    extra_uv_stage_warn:  '{n} node(s) use a second UV stage (tverts1/2/3) — not rendered yet.',
     // walkmesh
     wok_loaded:           'Walkmesh loaded: {nodes} node(s), {faces} face(s).',
     // placeable walk geometry
@@ -396,6 +397,7 @@ const I18N_BUNDLE = {
     // Fehlende-Texturen-Report
     tex_missing_none:     'Alle referenzierten Texturen geladen ✓',
     tex_missing_header:   'Fehlende Texturen ({n}) — noch nicht geladen:',
+    extra_uv_stage_warn:  '{n} Node(s) nutzen eine zweite UV-Stage (tverts1/2/3) — wird noch nicht gerendert.',
     // Walkmesh
     wok_loaded:           'Walkmesh geladen: {nodes} Node(s), {faces} Face(s).',
     // Placeable Walk Geometry

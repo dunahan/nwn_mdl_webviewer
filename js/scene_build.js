@@ -1077,6 +1077,18 @@ function buildScene(model) {
   // Textures from textureCache are used directly — if they are not loaded yet,
   // refreshEmitterTextures() in applyTexturesToScene() will ensure they start.
   if (typeof initAllEmitters === 'function') initAllEmitters(model);
+
+  // NEW: tverts1/2/3 are parsed but not yet rendered (no second UV channel
+  // wired into scene_build.js materials) — surface a log hint so this isn't
+  // silently lost when a model actually carries a second UV stage.
+  const extraUvNodes = model.nodes.filter(n =>
+    (n.tverts1 && n.tverts1.length > 0) ||
+    (n.tverts2 && n.tverts2.length > 0) ||
+    (n.tverts3 && n.tverts3.length > 0)
+  );
+  if (extraUvNodes.length > 0) {
+    logWarnI18n('extra_uv_stage_warn', { n: extraUvNodes.length });
+  }
 }
 
 // ─────────────────────────────────────────────

@@ -279,6 +279,10 @@ function parseNode(lines, start) {
     textures: {},     // index → name (from MDL node, e.g., texture0, texture1 ...)
     renderhint: '',   // 'NormalAndSpecMapped' | 'NormalTangents' | ''
     verts: [], tverts: [], normals: [], tangents: [], faces: [],
+    // NEW: additional UV stages (lightmaps, detail texturing) — parsed for
+    // visibility only, not yet consumed by scene_build.js. See node-detail
+    // panel / log hint in ui.js.
+    tverts1: [], tverts2: [], tverts3: [],
     ambient: [0.2, 0.2, 0.2],
     diffuse: [0.8, 0.8, 0.8],
     specular: [0, 0, 0],
@@ -434,6 +438,17 @@ function parseNode(lines, start) {
         const vt = tok(i);
         if (vt.length >= 2) node.tverts.push([num(vt[0]), num(vt[1])]);
       }
+    } else if (k === 'tverts1' || k === 'tverts2' || k === 'tverts3') {
+      // NEW: parsed for visibility (log + node-detail hint) only — see
+      // ui.js/loader.js. Not yet wired into scene_build.js geometry/material.
+      const count  = parseInt(t[1]) || 0;
+      const target = node[k];
+      for (let j = 0; j < count; j++) {
+        i++;
+        if (i >= lines.length) break;
+        const vt = tok(i);
+        if (vt.length >= 2) target.push([num(vt[0]), num(vt[1])]);
+      }
     } else if (k === 'normals') {
       const count = parseInt(t[1]) || 0;
       for (let j = 0; j < count; j++) {
@@ -457,9 +472,15 @@ function parseNode(lines, start) {
       }
     } else if (k === 'faces') {
       const count = parseInt(t[1]) || 0;
+      // FIX: animmesh exporters sometimes write the faces block twice for the
+      // same node — only the first occurrence is valid, the rest is a known
+      // MAX exporter bug (see nwn-mdl-format.md, Subtlety #8). Skip parsing
+      // (but still advance the line index) if this animmesh already has faces.
+      const skipDup = node.type === 'animmesh' && node.faces.length > 0;
       for (let j = 0; j < count; j++) {
         i++;
         if (i >= lines.length) break;
+        if (skipDup) continue;
         const ft = tok(i);
         if (ft.length >= 7) {
           node.faces.push({
