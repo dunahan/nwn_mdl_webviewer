@@ -49,6 +49,7 @@ No installation, no server — just open `index.html` locally or use it directly
 - **Skinned meshes** — CPU Linear Blend Skinning in NWN Z-up space; skin node orientation (axis-angle) applied for accurate bind positions
 - **Normal & specular mapping** — `NormalAndSpecMapped` / `NormalTangents` renderhint support; tangent vectors read directly from MDL or computed as fallback; ATI2/BC5 DDS normal maps supported
 - **animmesh UV animation** — Smooth per-frame UV interpolation for scrolling textures (waterfalls, lava, etc.)
+- **Multi-UV stage detection** — Additional UV channels (`tverts1`/`tverts2`/`tverts3`, used by NWN for lightmapping/detail texturing) are parsed and surfaced as a log warning + Node Inspector hint when present; not yet rendered (no second UV channel wired into materials)
 - **Danglymesh simulation** — Procedural sine-wave physics for cloth, hair and chain nodes (`danglymesh`); constraint-weighted per-vertex displacement; per-animation `displacement`/`period` overrides honoured from animation blocks (e.g. wider swing during `run` animations); `displacement=0` in an animation block deactivates jitter for that clip, leaving only keyframe-driven rotation
 - **AABB walkmesh** — Interior walkmesh nodes rendered with per-surface-type coloring
 
@@ -326,6 +327,7 @@ nwn-mdl-webviewer/
 - Supermodel references that are not dropped together with the main model are noted in the log but not loaded automatically
 - Hot-Reload and Set Browser require Chrome or Edge (File System Access API); not available in Firefox
 - Export to glTF / OBJ is not yet implemented
+- Secondary UV stages (`tverts1`/`tverts2`/`tverts3`) are parsed but not rendered — lightmapped or detail-texture surfaces display using the primary UV layout only; the log panel and Node Inspector flag affected nodes
 
 ---
 
@@ -351,6 +353,7 @@ nwn-mdl-webviewer/
 - [x] `selfillumcolorkey` animation for EFFECT-class nodes (all 3 RGB channels, applied to emissiveMap)
 - [ ] Export to glTF / OBJ
 - [ ] Automatic supermodel chain loading
+- [ ] Render secondary UV stages (`tverts1`/`tverts2`/`tverts3`) for lightmapping/detail texturing
 
 ---
 

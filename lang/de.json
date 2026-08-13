@@ -202,6 +202,7 @@
   "log_char_bone": "Teil {part} → Knochen {bone} (Z: {z})",
   "tex_missing_none": "Alle referenzierten Texturen geladen ✓",
   "tex_missing_header": "Fehlende Texturen ({n}) — noch nicht geladen:",
+  "extra_uv_stage_warn": "{n} Node(s) nutzen eine zweite UV-Stage (tverts1/2/3) — wird noch nicht gerendert.",
   "wok_loaded": "Walkmesh geladen: {nodes} Node(s), {faces} Face(s).",
   "pwk_loaded": "PWK geladen: {nodes} Mesh(es), {faces} Face(s), {iop} Interaktionspunkt(e).",
   "pwk_no_geom": "PWK: keine Geometrie oder Interaktionspunkte gefunden.",

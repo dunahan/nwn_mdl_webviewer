@@ -41,6 +41,7 @@ Add `?lang=XX` to the URL, where `XX` is the filename without `.json`:
 | `anim_*` | Animation playback controls. |
 | `nd_*` | Node Detail panel (shows specific data for the selected node). |
 | `nd_em_*` | Particle Emitter specific properties in the Node Detail panel. |
+| `extra_uv_stage_warn` | Log warning (and Node Detail panel hint) when a model uses a second UV stage (`tverts1`/`tverts2`/`tverts3`) — parsed but not yet rendered. |
 | `nd_lt_*` | Light properties in the Node Detail panel. |
 | `info_*` | Model Info panel (general statistics like vertex count). |
 | `status_*` | Bottom status bar messages (supports placeholders). |
@@ -190,6 +191,11 @@ If a model references a Supermodel for animations, these strings guide the user 
 
 ### Particle Emitters (`nd_em_*`, `log_em_*`)
 NWN uses emitter nodes for particle effects. These keys cover the various physics, timing, and rendering properties (like birthrate, life expectancy, drag, gravity, etc.) displayed in the Node Detail panel when an emitter node is selected. `nd_em_birthrate_key` is a special label shown instead of a numeric birthrate when the birthrate is controlled by an animation keyframe curve rather than a static value.
+
+---
+
+### Multi-UV Support (`extra_uv_stage_warn`)
+The MDL format supports up to four UV stages (`tverts`, `tverts1`, `tverts2`, `tverts3`) — used by NWN for lightmapping and detail texturing on top of the primary diffuse UV layout. The viewer currently **parses** stages 1–3 but does not yet render them (no second UV channel is wired into the Three.js material). If a loaded model carries any of these extra stages, `extra_uv_stage_warn` fires once as a log warning, and affected nodes show an "UV1/2/3 (unused)" hint in the Node Detail panel.
 
 ---
 

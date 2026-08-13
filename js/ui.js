@@ -209,6 +209,16 @@ const obj = nodeObjects[name];
   detail.style.display = 'block';
 
   let extraRows = '';
+  // NEW: second UV stage present but not rendered — same signal as the
+  // buildScene() log hint, shown per-node in the inspector.
+  const extraUvCount = (n.tverts1?.length || 0) + (n.tverts2?.length || 0) + (n.tverts3?.length || 0);
+  if (extraUvCount > 0) {
+    extraRows += '<div class="nd-row"><span>UV1/2/3</span><span class="nd-val" style="color:var(--amber)">' +
+      (n.tverts1?.length ? 'tverts1 ' : '') +
+      (n.tverts2?.length ? 'tverts2 ' : '') +
+      (n.tverts3?.length ? 'tverts3' : '') +
+      ' (unused)</span></div>';
+  }
   if (n.type === 'danglymesh') {
     extraRows = '<div class="nd-row"><span>' + L('nd_dangle_info_label') + '</span><span class="nd-val">' + L('nd_dangle_info') + '</span></div>';
   } else if (n.type === 'light') {
