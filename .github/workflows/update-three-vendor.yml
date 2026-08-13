@@ -59,16 +59,23 @@ jobs:
           fetch-depth: 1
 
       # ── 1. Resolve target version ────────────────────────────────────────
-      # npm registry is queried directly (no npm install needed) — same
-      # trust-anchor reasoning as vendor/README.md: npm is the source of
-      # truth cdnjs itself builds from.
+      # No explicit version → stay on whatever is already vendored in the repo
+      # instead of npm's "latest" dist-tag. "latest" moves on its own schedule
+      # and can briefly point at a broken/unpublished release (e.g. the
+      # 2026-08-10 failure on a nonexistent 0.185.1); real upgrades are a
+      # deliberate workflow_dispatch with an explicit version, matching the
+      # staged Three.js upgrade plan (r152→r158→ES modules) instead of an
+      # unplanned jump to whatever npm currently calls latest.
       - name: Resolve target version
         id: resolve
         run: |
           INPUT_VERSION="${{ inputs.version }}"
           if [ -n "$INPUT_VERSION" ]; then
             VERSION="$INPUT_VERSION"
+          elif [ -f "${{ env.VERSION_FILE }}" ]; then
+            VERSION=$(cat "${{ env.VERSION_FILE }}")
           else
+            # First run ever, nothing vendored yet — fall back to latest.
             VERSION=$(curl -sSf https://registry.npmjs.org/three/latest | jq -r '.version')
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -98,7 +105,11 @@ jobs:
         if: steps.check.outputs.update == 'true'
         run: |
           VERSION="${{ steps.resolve.outputs.version }}"
-          TARBALL_URL=$(curl -sSf "https://registry.npmjs.org/three/$VERSION" | jq -r '.dist.tarball')
+          TARBALL_URL=$(curl -sSf "https://registry.npmjs.org/three/$VERSION" | jq -r '.dist.tarball // empty')
+          if [ -z "$TARBALL_URL" ]; then
+            echo "::error::three@$VERSION has no downloadable tarball on npm (typo, or a broken/unpublished release). Aborting."
+            exit 1
+          fi
           echo "Tarball: $TARBALL_URL"
           mkdir -p tmp_three && curl -sSfL "$TARBALL_URL" -o tmp_three/three.tgz
           tar xzf tmp_three/three.tgz -C tmp_three
