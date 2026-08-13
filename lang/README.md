@@ -42,6 +42,7 @@ Add `?lang=XX` to the URL, where `XX` is the filename without `.json`:
 | `nd_*` | Node Detail panel (shows specific data for the selected node). |
 | `nd_em_*` | Particle Emitter specific properties in the Node Detail panel. |
 | `extra_uv_stage_warn` | Log warning (and Node Detail panel hint) when a model uses a second UV stage (`tverts1`/`tverts2`/`tverts3`) — parsed but not yet rendered. |
+| `ref_model_not_loaded` | Log warning (and Node Detail panel hint) when a `reference` node's `refModel` is parsed but the referenced sub-model is not loaded/merged into the scene. |
 | `nd_lt_*` | Light properties in the Node Detail panel. |
 | `info_*` | Model Info panel (general statistics like vertex count). |
 | `status_*` | Bottom status bar messages (supports placeholders). |
@@ -76,6 +77,7 @@ These variables are replaced dynamically at runtime and must not be translated.
 | `{tex}` | Name of a texture file | "(texture pending: \"{tex}\")" |
 | `{base}` | Name of the base model in multi-part assembly | "Multi-Part: \"{part}\" merged into \"{base}\"" |
 | `{part}` | Name of a sub-part in multi-part assembly | "Multi-Part: \"{part}\" merged into \"{base}\"" |
+| `{ref}` | Name of a referenced sub-model (MDL `reference` node) | "Reference node \"tor_torch01\" points to \"{ref}\" — not loaded/merged into the scene." |
 | `{bone}` | Name of a skeleton bone | "Part {part} → bone {bone} (Z: {z})" |
 | `{z}` | Z-position of an attachment point | "Part {part} → bone {bone} (Z: {z})" |
 | `{dp}` | Number of door positions in a DWK mesh | "DWK loaded: {nodes} mesh(es), {faces} face(s), {dp} door position(s)." |
@@ -196,6 +198,9 @@ NWN uses emitter nodes for particle effects. These keys cover the various physic
 
 ### Multi-UV Support (`extra_uv_stage_warn`)
 The MDL format supports up to four UV stages (`tverts`, `tverts1`, `tverts2`, `tverts3`) — used by NWN for lightmapping and detail texturing on top of the primary diffuse UV layout. The viewer currently **parses** stages 1–3 but does not yet render them (no second UV channel is wired into the Three.js material). If a loaded model carries any of these extra stages, `extra_uv_stage_warn` fires once as a log warning, and affected nodes show an "UV1/2/3 (unused)" hint in the Node Detail panel.
+
+### Reference Nodes (`ref_model_not_loaded`)
+A `reference` node points at a separate sub-model via its `refModel` field, meant to be loaded and attached at that node's position at runtime. The viewer **parses** `refModel`/`reattachable` but does not load or merge the referenced sub-model into the scene — the node renders as a distinct wireframe marker instead of a solid dummy sphere. `ref_model_not_loaded` fires once per affected node as a log warning, and the Node Detail panel shows the referenced model name with a "(not loaded)" hint.
 
 ---
 

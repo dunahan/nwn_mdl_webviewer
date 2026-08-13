@@ -335,6 +335,12 @@ function parseNode(lines, start) {
     danglyTightness:     1.0,   // Return force (stored for reference, unused in sine-wave sim)
     danglyDisplacement:  0.5,   // Maximum vertex displacement in NWN units
     constraints:         [],    // Per-vertex weights [0–1], normalised from MDL's 0–255
+    // ── Reference-node properties ────────────────────────────────────────
+    // NEW: parsed for visibility only (log + node-detail hint) — the referenced
+    // sub-model is not actually loaded/merged into the scene. See scene_build.js
+    // and ui.js.
+    refModel:            '',   // name of the referenced model (no extension)
+    reattachable:        0,    // 1 = reference can be reattached at runtime
   };
 
   function tok(idx) { return lines[idx].trim().split(/\s+/).filter(x => x.length > 0); }
@@ -409,6 +415,8 @@ function parseNode(lines, start) {
     else if (k === 'framestart')        node.frameStart = parseInt(t[1]) || 0;
     else if (k === 'frameend')          node.frameEnd   = parseInt(t[1]) || 0;
     else if (k === 'chunkname')         node.chunkName  = (t[1]||'').toLowerCase();
+    else if (k === 'refmodel')          node.refModel   = t[1] || '';
+    else if (k === 'reattachable')      node.reattachable = parseInt(t[1]) || 0;
     // ── Light-Properties (only for node.type === 'light') ─────────────────────
     else if (k === 'color'         && node.type === 'light') node.lightColor        = [num(t[1]), num(t[2]), num(t[3])];
     else if (k === 'radius'        && node.type === 'light') node.lightRadius        = num(t[1]);

@@ -50,6 +50,7 @@ No installation, no server — just open `index.html` locally or use it directly
 - **Normal & specular mapping** — `NormalAndSpecMapped` / `NormalTangents` renderhint support; tangent vectors read directly from MDL or computed as fallback; ATI2/BC5 DDS normal maps supported
 - **animmesh UV animation** — Smooth per-frame UV interpolation for scrolling textures (waterfalls, lava, etc.)
 - **Multi-UV stage detection** — Additional UV channels (`tverts1`/`tverts2`/`tverts3`, used by NWN for lightmapping/detail texturing) are parsed and surfaced as a log warning + Node Inspector hint when present; not yet rendered (no second UV channel wired into materials)
+- **Reference node detection** — `reference` nodes (pointing at a separate sub-model via `refModel`) are parsed and surfaced as a log warning + Node Inspector hint, rendered as a distinct wireframe marker; the referenced sub-model itself is not loaded/merged into the scene
 - **Danglymesh simulation** — Procedural sine-wave physics for cloth, hair and chain nodes (`danglymesh`); constraint-weighted per-vertex displacement; per-animation `displacement`/`period` overrides honoured from animation blocks (e.g. wider swing during `run` animations); `displacement=0` in an animation block deactivates jitter for that clip, leaving only keyframe-driven rotation
 - **AABB walkmesh** — Interior walkmesh nodes rendered with per-surface-type coloring
 
@@ -328,6 +329,7 @@ nwn-mdl-webviewer/
 - Hot-Reload and Set Browser require Chrome or Edge (File System Access API); not available in Firefox
 - Export to glTF / OBJ is not yet implemented
 - Secondary UV stages (`tverts1`/`tverts2`/`tverts3`) are parsed but not rendered — lightmapped or detail-texture surfaces display using the primary UV layout only; the log panel and Node Inspector flag affected nodes
+- `reference` nodes are detected but the referenced sub-model is not loaded — the node shows as a wireframe marker instead of the actual referenced geometry; the log panel and Node Inspector flag affected nodes with the target model's name
 
 ---
 
@@ -354,6 +356,7 @@ nwn-mdl-webviewer/
 - [ ] Export to glTF / OBJ
 - [ ] Automatic supermodel chain loading
 - [ ] Render secondary UV stages (`tverts1`/`tverts2`/`tverts3`) for lightmapping/detail texturing
+- [ ] Load and merge referenced sub-models from `reference` nodes into the scene
 
 ---
 
