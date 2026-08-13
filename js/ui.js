@@ -219,6 +219,11 @@ const obj = nodeObjects[name];
       (n.tverts3?.length ? 'tverts3' : '') +
       ' (unused)</span></div>';
   }
+  if (n.type === 'reference' && n.refModel) {
+    // NEW: same "parsed but not loaded" signal as the UV-stage hint above.
+    extraRows += '<div class="nd-row"><span>refModel</span><span class="nd-val" style="color:var(--amber)">' +
+      n.refModel + ' (not loaded)</span></div>';
+  }
   if (n.type === 'danglymesh') {
     extraRows = '<div class="nd-row"><span>' + L('nd_dangle_info_label') + '</span><span class="nd-val">' + L('nd_dangle_info') + '</span></div>';
   } else if (n.type === 'light') {

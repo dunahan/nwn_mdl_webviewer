@@ -852,8 +852,18 @@ function buildScene(model) {
 
       obj = group;
 
+    } else if (node.type === 'reference') {
+      // NEW: reference nodes point at a separate sub-model (refModel) that
+      // the viewer does not load/merge — shown as a distinct marker so it
+      // isn't mistaken for an ordinary empty dummy. See parser.js/ui.js.
+      const geo = new THREE.SphereGeometry(0.04, 6, 6);
+      const mat = new THREE.MeshBasicMaterial({ color: nodeColor('reference'), wireframe: true });
+      obj = new THREE.Mesh(geo, mat);
+      if (node.refModel) {
+        logWarnI18n('ref_model_not_loaded', { name: node.name, ref: node.refModel });
+      }
     } else {
-      // Dummy / reference / unknown types → small sphere
+      // Dummy / unknown types → small sphere
       const geo = new THREE.SphereGeometry(0.04, 6, 6);
       const mat = new THREE.MeshBasicMaterial({ color: nodeColor(node.type) });
       obj = new THREE.Mesh(geo, mat);
