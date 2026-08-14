@@ -267,13 +267,15 @@
   </div>
 </div>
 
-<!-- Three.js r158 (vendored locally - see vendor/README.md for provenance / hash verification).
-     Falls back to the CDN build if vendor/ was not shipped alongside this HTML file
-     (e.g. the standalone single-file release opened on its own). -->
+<!--  Three.js r160 (vendored locally - see vendor/README.md for provenance / hash verification).
+      Last revision that still ships the classic/UMD build — r161 drops it,
+      see docs/THREEJS_UPGRADE.md for the ES-module migration plan.
+      Falls back to the CDN build if vendor/ was not shipped alongside this HTML file
+      (e.g. the standalone single-file release opened on its own). --> 
 <script src="vendor/three/three.min.js"></script>
 <script>
   if (typeof THREE === 'undefined') {
-    document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.158.0/three.min.js" integrity="sha512-/WaZCC76Yn6MLEoK6b9np9yiLBet/RngBS33X1P0SHuag6j2E0e5rT7jbA2CvXCydN6+FkDYNx8FBM+vkzsthw==" crossorigin="anonymous" referrerpolicy="no-referrer"><\/script>');
+    document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js" integrity="sha512-vnmn/Qqn6aG0POAc9mIGzjq0IybrvxJXYDafNvp9JSnDGxeF3pbkSqLvf+YGd5ku63pT7sa/jxHn7/d0mU8+tA==" crossorigin="anonymous" referrerpolicy="no-referrer"><\/script>');    
   }
 </script>
   
