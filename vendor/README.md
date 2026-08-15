@@ -7,20 +7,28 @@ third-party `script-src`/`style-src`/`font-src`) and offline use — see
 `TAURI_INTEGRATION_NOTES.md` (Phase 4) in the `nwn_mdl_viewer_tauri` repo
 for the full reasoning.
 
-## `three/three.min.js`
+## `three/three.min.js` + `three/three.module.min.js`
 
-- Source: npm `three@0.158.0`, `build/three.min.js`.
+- Source: npm `three@0.160.0`, `build/three.min.js` (classic/UMD build,
+  used directly by `index.html` today) and `build/three.module.min.js`
+  (ES module build, vendored ahead of need for the r161+ migration — see
+  `docs/THREEJS_UPGRADE.md`).
+- `three.min.js` is r160's **last** classic build. r161 removes it from
+  the npm package entirely — verified against the real npm tarballs
+  (not just registry metadata, which can list stale/inaccurate file
+  lists). No code changes are needed until we actually bump past r160.
 - **Verified byte-identical** to the CDN-hosted file used as fallback in
   `index.html`: SHA-512 of this file matches the `integrity="sha512-..."`
   attribute on the `<script>` tag exactly
-  (`/WaZCC76Yn6MLEoK6b9np9yiLBet/RngBS33X1P0SHuag6j2E0e5rT7jbA2CvXCydN6+FkDYNx8FBM+vkzsthw==`).
+  (`vnmn/Qqn6aG0POAc9mIGzjq0IybrvxJXYDafNvp9JSnDGxeF3pbkSqLvf+YGd5ku63pT7sa/jxHn7/d0mU8+tA==`).
   Re-verify after any future version bump:
   ```bash
   openssl dgst -sha512 -binary vendor/three/three.min.js | openssl base64 -A
   ```
 - License: MIT — see `three/LICENSE`.
-- Previous version: r152 (upgraded 2024, see `docs/THREEJS_UPGRADE.md` /
-  update-three-vendor.yml workflow run history for provenance).
+- Version history: r152 → r158 (2024) → r160 (2026). See
+  `docs/THREEJS_UPGRADE.md` and the `update-three-vendor.yml` workflow run
+  history for provenance.
 
 ## `fonts/`
 
@@ -49,3 +57,9 @@ confirm it still matches upstream's CDN build (optional once you trust
 npm as the source of truth going forward — the hash-matching exercise
 above was a one-time trust-establishing step for the initial migration
 off the CDN).
+
+For Three.js specifically, prefer triggering the `update-three-vendor.yml`
+GitHub Actions workflow (`workflow_dispatch`, pin the target version) over
+a manual `npm pack` — it downloads, hashes, and patches `index.html`
+automatically. See `docs/THREEJS_UPGRADE.md` for the current pinned
+version and the r161+ migration plan.
