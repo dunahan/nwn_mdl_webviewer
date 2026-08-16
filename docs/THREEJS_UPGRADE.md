@@ -1,127 +1,243 @@
-# Three.js Upgrade Notes
+# Three.js Upgrade & ES Module Migration Plan
 
-## Version history
+**Status:** planning only — nothing in this document has been implemented yet.
+Referenced from `vendor/README.md` (provenance note) and `vendor/three/three.module.min.js`
+(already vendored ahead of need by `update-three-vendor.yml`).
 
-| Version | Date | Notes |
-|---------|------|-------|
-| r152    | —    | pre-vendoring, loaded via CDN only |
-| r158    | 2024 | first vendored version, see `vendor/README.md` |
-| r160    | 2026 | last revision shipping the classic/UMD build (`three.min.js`) |
+## TL;DR
 
-## r158 → r160 (done / trivial)
+- Vendored today: **r158** (UMD global build, loaded via classic `<script>`).
+- Upstream `three` on npm is currently at **r185** (checked 2026-08-15) — three.js
+  dropped the UMD/global build (`build/three.min.js`) starting at **r161**
+  (verified in a previous session by inspecting the real npm tarballs for r160
+  and r161, not from changelog text).
+- That means: no future version of Three.js can be loaded with a plain
+  `<script src="three.min.js">` tag anymore. ES modules are not a nice-to-have,
+  they are the only path forward once we move past r160.
+- The one hard blocker is **`file://` support** for the standalone HTML
+  release: Chromium refuses both `<script type="module">` and dynamic
+  `import()` of `file:` URLs ("Cross origin requests are only supported for
+  HTTP"). `blob:` URLs are exempt from that restriction, so the plan mirrors
+  the existing `cleanmodels.js` WASM-under-`file://` trick: embed the module
+  source as text, wrap it in a `Blob`, `import()` the blob URL.
+- Everything else (25 classic script files, all reading the global `THREE`
+  object) stays untouched. A single new loader file bridges ES-module Three.js
+  back onto `window.THREE`.
 
-No code changes needed. r160's own migration guide (r159→r160) contains
-only internal fixes (BufferGeometry, texture filtering, degenerate
-triangle handling) — nothing this project touches. Bump via the
-`update-three-vendor.yml` workflow (`workflow_dispatch`, version
-`0.160.0`), or hand-patch `vendor/three/three.version` plus the two
-`three.min.js` references in `index.html` (vendored path stays the same;
-only the CDN-fallback version number and its `integrity=` SRI hash
-change).
+---
 
-Verified directly against the real npm tarballs (not just registry
-metadata, which can be stale): r160 still ships `build/three.js` and
-`build/three.min.js`, only printing a deprecation warning. r161 is where
-they're actually removed.
+## 1. Current state
 
-## r161+ (not yet done — required once we bump past r160)
+| Surface | How Three.js loads today |
+|---|---|
+| GitHub Pages (`index.html`, HTTP) | `vendor/three/three.min.js` (r158, vendored), falls back to cdnjs if missing |
+| Standalone HTML (`dist/index.html`, `file://`) | Same vendored file, inlined by `build.py`; no network needed |
+| Tauri desktop app | `frontendDist` points at raw `viewer/` (see `nwn_mdl_viewer_tauri`); served over `http://ipc.localhost`, **not** literal `file://` — this matters, see §7 |
 
-r161 removes `build/three.js` / `build/three.min.js` from the npm
-package — only `three.module.js` / `three.module.min.js` / `three.cjs`
-remain. The ~20 `js/*.js` files stay classic scripts sharing one global
-scope on purpose (rewriting them as ES modules would break every
-cross-file reference, e.g. `wokGroup` from `wok.js` read via `typeof` in
-`session.js`) — so we don't convert them, we bridge them:
+`build.py` parses the ordered list of `<script src="js/…">` tags between the
+`<!-- NWN MDL Viewer — Module -->` marker and `</body>` (`extract_js_order()`)
+and inlines all 25 files into one classic `<script>` block. Roughly half of
+them touch the global `THREE` object directly: `scene.js`, `scene_build.js`,
+`session.js`, `ui.js`, `loader.js`, `animation.js`, `emitter.js`, `parser.js`,
+`textures.js`, `txi.js`, `wok.js`, `pwk.js`, `dwk.js`. None of them contain an
+`import` statement anywhere — that's the surface this plan has to preserve.
 
-1. **`js/three-loader.js`** (`type="module"`) imports Three and sets
-   `window.THREE`. Same Base64+Blob-URL pattern as `cleanmodels.js` for
-   `file://` mode (module imports of local files are blocked there — same
-   constraint that already forced the WASM loader's Base64 path).
+`three.module.min.js` is **already** vendored (see `update-three-vendor.yml`
+step 3 — "Phase-2 prep... NOT wired into index.html yet") specifically so this
+migration doesn't need a separate download step later.
 
-   ```js
-   // js/three-loader.js
-   const isLocal = location.protocol === 'file:' || location.protocol === 'content:';
+## 2. Why this is forced, not optional
 
-   async function loadThree() {
-     if (!isLocal) {
-       try {
-         return await import('./vendor/three/three.module.min.js');
-       } catch (e) {
-         console.warn('[three-loader] vendor module missing, falling back to CDN', e);
-         return await import('https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js');
-       }
-     }
-     // file:// blocks module fetch() of local files — same constraint as
-     // the WASM loader in cleanmodels.js. Reuse the identical pattern.
-     if (typeof THREE_MODULE_B64 === 'undefined') {
-       await new Promise((resolve, reject) => {
-         const s = document.createElement('script');
-         s.src = 'vendor/three/three_module_b64.js';
-         s.onload = resolve;
-         s.onerror = reject;
-         document.head.appendChild(s);
-       });
-     }
-     const bin = atob(THREE_MODULE_B64);
-     const bytes = new Uint8Array(bin.length);
-     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-     const blobUrl = URL.createObjectURL(new Blob([bytes], { type: 'text/javascript' }));
-     const mod = await import(blobUrl);
-     URL.revokeObjectURL(blobUrl);
-     return mod;
-   }
+Three.js's own migration guidance is to upgrade in ~10-release increments, and
+the project already has an agreed incremental path:
 
-   window.THREE = await loadThree();
-   ```
+```
+r158 (current) → r160 (next, still ships UMD — drop-in, no loader changes)
+              → first post-r160 release that drops the UMD build → ES modules required
+```
 
-2. **`index.html`**: replace the `three.min.js` + CDN-fallback snippet
-   with `<script type="module" src="js/three-loader.js"></script>`, and
-   append `defer` to every `<script src="js/...">` tag — *after* `src=`,
-   not before, so build.py's script-order regex
-   (`<script\s+src="js/([^"]+\.js)"`) keeps matching.
+r160 is a safe, boring step: same `<script src>` loading mechanism, no
+architecture change. That step is tracked separately (see
+`update-three-vendor.yml`, `workflow_dispatch` with `version: 0.160.0`) and is
+**not** blocked on this document.
 
-   Why this is enough on its own (no manual sequential script injection
-   needed): per the HTML spec, `type="module"` scripts without `async`
-   and classic scripts with `defer` share one execution queue, in
-   document order. So `window.THREE` is guaranteed to be set before the
-   first `defer`-ed classic script runs.
+Everything from the first UMD-less release onward requires this plan.
 
-3. **Tauri needs no change.** It never hits the Blob/`file://` branch —
-   it serves the frontend via its own custom scheme (or
-   `http://localhost` in the dev server), never `file:`/`content:`, so it
-   always takes the plain `import()` branch. The `blob:` CSP question
-   (`script-src` in `src-tauri/tauri.conf.json`) is therefore moot in
-   practice — verify on the first real test before widening the CSP
-   pre-emptively.
+## 3. The `file://` problem (the actual hard part)
 
-4. **`build.py`**: the one real snag. `defer` has no effect on inline
-   `<script>` elements per spec, but that's exactly what build.py
-   produces today (`f'<script>\n{js_combined}\n</script>'`). Fix: keep
-   the combined script classic (not a module — cross-file globals must
-   stay intact), but reference it via a `data:` URI `src` instead of
-   inlining it, so `defer` actually applies:
+Chromium (and by extension Tauri's WebView on some platforms) treats `file:`
+as an opaque origin for module fetches — both of these fail under `file://`:
 
-   ```diff
-   -    replacement = f'<script>\n{js_combined}\n</script>'
-   +    b64 = base64.b64encode(js_combined.encode('utf-8')).decode('ascii')
-   +    replacement = f'<script defer src="data:text/javascript;charset=utf-8;base64,{b64}"></script>'
-   ```
+```html
+<script type="module" src="vendor/three/three.module.min.js"></script>
+```
+```js
+await import('./vendor/three/three.module.min.js');
+```
 
-   Keep `charset=utf-8` — otherwise the Unicode box-drawing characters
-   and arrows in the file header comments (`═══`, `→`, `✕`, …) get
-   mangled. Also add one `shutil.copy` for `js/three-loader.js` into
-   `dist/js/`, mirroring the existing favicon-copy step.
+`blob:` URLs do not have this restriction — the importing document's origin is
+irrelevant, the module is fetched from the blob's internal data. This is the
+same reasoning `cleanmodels.js` already uses for the WASM binary under
+`file://` (Base64 string → decode → `WebAssembly.compile()`, never `fetch()`).
 
-5. **`update-three-vendor.yml`**: add a Base64-encoding step for
-   `three.module.min.js` → `vendor/three/three_module_b64.js`, mirroring
-   the WASM Base64 step already in `update-wasm.yml`. Delete the
-   `Patch CDN fallback in index.html` step entirely — dynamic `import()`
-   has no `integrity=` equivalent, so there is nothing left to patch.
-   Net effect: one fewer workflow step than today.
+**Proposed mirror for JS modules:**
 
-### Explicitly out of scope for this migration
+1. A generator (parallel to `scripts/generate_wasm_b64.sh` /
+   `update-wasm.yml`'s Base64 step) produces `js/three_module_b64.js`
+   containing `three.module.min.js`'s source as a JS string constant, e.g.
+   `var THREE_MODULE_B64 = "...";`. Likely folded into
+   `update-three-vendor.yml` as an extra step rather than a new workflow.
+2. At runtime, `js/three-loader.js` detects the protocol
+   (`window.location.protocol === 'file:'`, same check `cleanmodels.js`
+   already does):
+   - **HTTP(S) / Tauri:** `const THREE = await import('./vendor/three/three.module.min.js')`
+   - **`file://`:** decode `THREE_MODULE_B64` → `new Blob([src], {type: 'text/javascript'})`
+     → `URL.createObjectURL(blob)` → `await import(blobUrl)` → `URL.revokeObjectURL(blobUrl)`
+3. Either path ends with `window.THREE = THREE;` — a namespace object from
+   `import * as THREE from 'three'` has the exact same shape as the current
+   global `THREE`, so no other file needs to change.
 
-- Converting any of the ~20 `js/*.js` files into ES modules themselves.
-- Any change to Tauri's CSP unless testing actually shows it's needed.
-- Keeping SRI/`integrity=` on the CDN fallback — not supported for
-  dynamic `import()`, and this fallback is rarely hit in practice.
+**Open technical risk, needs a throwaway proof-of-concept before committing
+to the full rewrite:** confirm `import()` of a `blob:` module URL actually
+resolves relative *nested* imports correctly (Three.js's ESM build is a
+single bundled file with no sub-imports, so this should be moot — but verify
+against the real vendored file, not assumption).
+
+## 4. Sequencing problem: async loader vs. synchronous classic scripts
+
+`scene.js` calls `new THREE.WebGLRenderer(...)` at top-level, at parse time —
+not inside a function. `animation.js` calls `animate(0)` at the bottom of the
+file, also at parse time. Every one of the 25 files assumes `THREE` already
+exists the moment it starts executing. A `Promise`-based loader can't just be
+dropped in as script #1 in the existing static list; the browser doesn't wait
+for it.
+
+**Plan:** replace the current static `<script src="js/…">` list in
+`index.html` with a small `type="module"` bootstrap that:
+
+1. `await`s `three-loader.js` until `window.THREE` is set.
+2. Appends the 25 classic `<script>` tags **in the existing order**, one at a
+   time, awaiting each `load` event before appending the next — the same
+   sequential-script-loading pattern `cleanmodels.js`'s `_loadScript()`
+   already uses, just looped over the existing list instead of one WASM
+   fallback script.
+
+The ordered file list itself doesn't need to be duplicated as a second source
+of truth: `build.py`'s `extract_js_order()` already parses it from the
+`<!-- NWN MDL Viewer — Module -->` marker block, so the same marker block
+(now containing the bootstrap `<script type="module">` instead of 25 static
+tags) stays the single place that list is defined, whether the caller is
+`build.py` or the runtime bootstrap itself.
+
+## 5. `build.py` impact
+
+Today: read all 25 files → concatenate into one classic `<script>` block →
+done. That still works for the standalone HTML case, **but** the concatenated
+block must not execute until `THREE` is ready. Planned change: `build.py`
+wraps the existing inlined block in a callback invoked by the loader
+(`threeLoader.ready().then(() => { <existing inlined code> })`) instead of
+relying on script-tag order. This is a `build.py` change only — no change to
+any of the 25 source files' contents.
+
+## 6. Tauri considerations
+
+`tauri.conf.json`'s CSP is `script-src 'self' 'wasm-unsafe-eval'`. Two notes:
+
+- Tauri's `frontendDist` serves the app over `http://ipc.localhost`
+  (confirmed via `tauri.conf.json` → `connect-src 'self' ipc: http://ipc.localhost`),
+  **not** literal `file://`. Static `import()` of a same-origin vendored file
+  works there without the `blob:` workaround — Tauri only ever needs the
+  "HTTP(S)" branch of the loader in §3, never the `file://` branch. That
+  branch exists purely for the standalone single-file HTML release opened
+  directly from disk.
+- `'self'` already covers `vendor/three/three.module.min.js` since it's
+  vendored, not CDN-fetched — no CSP changes needed.
+
+## 7. Phased rollout
+
+| Phase | Scope | Blocked on |
+|---|---|---|
+| 2a (done) | Vendor `three.module.min.js` ahead of need | — already shipped via `update-three-vendor.yml` |
+| 2b | r158 → r160, UMD stays, zero loader changes | Independent of this doc — tracked via `workflow_dispatch` |
+| 2c | Build `js/three-loader.js`, Base64/Blob generator, `build.py` callback wrap, `index.html` bootstrap rewrite | This plan, Tobias sign-off |
+| 2d | Pin the target post-UMD version and cut over | 2c merged + verified on all 3 surfaces |
+
+For 2d: upstream is currently ~25 releases past r161. Recommend landing on
+the **first UMD-less release** (r161, or whatever is closest at
+implementation time) rather than jumping straight to r185 — smaller diff,
+matches the project's own "~10 releases per hop" convention, and keeps the
+loader rewrite decoupled from unrelated breaking-change cleanup. Catching up
+further can be its own later phase once the loading mechanism itself is
+proven stable.
+
+**Do not treat the r162–r185 breaking-changes checklist that already exists
+in the `nwn-mdl-viewer-dev` skill file as current** — it predates this
+research and upstream has moved a long way since. Re-fetch
+`https://github.com/mrdoob/three.js/wiki/Migration-Guide` fresh at the start
+of Phase 2d and re-derive the checklist against whichever version is
+actually pinned.
+
+## 8. Immediate safety rail (independent of everything above)
+
+`update-three-vendor.yml`'s `workflow_dispatch.inputs.version` already
+supports pinning, which is good — but its **scheduled weekly run** has no
+version pin and no check for whether the downloaded tarball still contains
+`build/three.min.js`. Once upstream is UMD-less (already true today for
+"latest"), a routine cron run would silently vendor a broken file and break
+GitHub Pages + the standalone HTML release the next time someone rebuilds,
+with no error until a user's browser console shows `THREE is not defined`.
+
+**Cheap fix, worth landing now, decoupled from Phase 2c:** add a check step
+right after the tarball download that fails the job loudly if
+`package/build/three.min.js` is absent, with a message pointing at this
+document. Keeps automatic updates safe until the real loader lands.
+
+## 9. Testing checklist (for Phase 2c/2d)
+
+- [ ] GitHub Pages (HTTP): model loads, animations play, no console errors
+- [ ] Standalone HTML opened via `file://` directly (double-click, not a
+      local server): same, plus confirm the `blob:` import path is actually
+      taken (not silently falling through to the HTTP path)
+- [ ] Standalone HTML served via `python3 -m http.server` (regression check
+      against the HTTP path)
+- [ ] Tauri dev (`npm run tauri dev`)
+- [ ] Tauri built bundle, all three platforms per `release.yml`'s matrix
+- [ ] Hot-Reload texture watcher still works (touches `THREE.CanvasTexture`)
+- [ ] Skinned mesh + danglymesh + emitter smoke test (heaviest `THREE.*` users)
+- [ ] `build.py --watch` still rebuilds cleanly on file change
+
+## 10. Rollback plan
+
+Keep the r158 UMD vendor files in `vendor/three/` until 2d is verified on all
+three surfaces in production, not just locally — revert is "restore the two
+`<script>` tags in `index.html`, drop the bootstrap module," nothing about
+the 25 downstream files needs to change either direction.
+
+## 11. Open questions for Tobias
+
+1. Generator for `js/three_module_b64.js`: new step inside
+   `update-three-vendor.yml`, or a separate script mirroring
+   `scripts/generate_wasm_b64.sh`?
+2. Target version for 2d — first UMD-less release, or a specific later pin?
+3. OK to spend a throwaway POC (not committed) confirming the `blob:` import
+   trick before writing the real loader?
+
+## Version history log
+
+| Date | Vendored version | Notes |
+|---|---|---|
+| 2024 | r152 → r158 | Initial vendoring off CDN, see `vendor/README.md` |
+| (pending) | r158 → r160 | Phase 2b, drop-in, tracked outside this doc |
+| (pending) | r160 → first UMD-less release | Phase 2c/2d, this document |
+
+## References
+
+- Migration guide (always re-fetch, don't trust a cached copy):
+  `https://github.com/mrdoob/three.js/wiki/Migration-Guide`
+- `vendor/README.md` — vendoring rationale, hash verification steps
+- `.github/workflows/update-three-vendor.yml` — the automated vendor pipeline
+- `js/cleanmodels.js` — existing precedent for the `file://` Base64/Blob
+  pattern this plan reuses
+- `/mnt/skills/user/nwn-mdl-viewer-dev/SKILL.md` §"Three.js Version
+  Strategy" — older internal notes, superseded in scope by this document for
+  everything ES-module related
