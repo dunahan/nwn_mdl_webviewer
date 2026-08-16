@@ -59,23 +59,16 @@ jobs:
           fetch-depth: 1
 
       # ── 1. Resolve target version ────────────────────────────────────────
-      # No explicit version → stay on whatever is already vendored in the repo
-      # instead of npm's "latest" dist-tag. "latest" moves on its own schedule
-      # and can briefly point at a broken/unpublished release (e.g. the
-      # 2026-08-10 failure on a nonexistent 0.185.1); real upgrades are a
-      # deliberate workflow_dispatch with an explicit version, matching the
-      # staged Three.js upgrade plan (r152→r158→ES modules) instead of an
-      # unplanned jump to whatever npm currently calls latest.
+      # npm registry is queried directly (no npm install needed) — same
+      # trust-anchor reasoning as vendor/README.md: npm is the source of
+      # truth cdnjs itself builds from.
       - name: Resolve target version
         id: resolve
         run: |
           INPUT_VERSION="${{ inputs.version }}"
           if [ -n "$INPUT_VERSION" ]; then
             VERSION="$INPUT_VERSION"
-          elif [ -f "${{ env.VERSION_FILE }}" ]; then
-            VERSION=$(cat "${{ env.VERSION_FILE }}")
           else
-            # First run ever, nothing vendored yet — fall back to latest.
             VERSION=$(curl -sSf https://registry.npmjs.org/three/latest | jq -r '.version')
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -102,17 +95,25 @@ jobs:
       # entry and pulls in npm's own resolution machinery for a single file).
       # The tarball URL is deterministic from the registry metadata.
       - name: Download and extract three.js build
+        id: download
         if: steps.check.outputs.update == 'true'
         run: |
           VERSION="${{ steps.resolve.outputs.version }}"
-          TARBALL_URL=$(curl -sSf "https://registry.npmjs.org/three/$VERSION" | jq -r '.dist.tarball // empty')
-          if [ -z "$TARBALL_URL" ]; then
-            echo "::error::three@$VERSION has no downloadable tarball on npm (typo, or a broken/unpublished release). Aborting."
-            exit 1
-          fi
+          TARBALL_URL=$(curl -sSf "https://registry.npmjs.org/three/$VERSION" | jq -r '.dist.tarball')
           echo "Tarball: $TARBALL_URL"
           mkdir -p tmp_three && curl -sSfL "$TARBALL_URL" -o tmp_three/three.tgz
           tar xzf tmp_three/three.tgz -C tmp_three
+
+          # Safety rail: upstream dropped the UMD/global build starting at r161.
+          # This pipeline only supports that build today — fail loudly and
+          # point at the migration plan instead of yielding a cryptic
+          # 'cp: cannot stat' error and (on a scheduled run) potentially
+          # leaving a half-vendored state.
+          if [ ! -f tmp_three/package/build/three.min.js ]; then
+            echo "::error::three@$VERSION no longer ships build/three.min.js (UMD build removed upstream)."
+            echo "::error::This vendor pipeline only supports the UMD build. See docs/THREEJS_UPGRADE.md before vendoring this version."
+            exit 1
+          fi
 
           mkdir -p "${{ env.VENDOR_DIR }}"
           cp tmp_three/package/build/three.min.js "${{ env.VENDOR_DIR }}/three.min.js"
@@ -180,9 +181,11 @@ jobs:
         run: |
           {
             echo "## Three.js Vendor Update"
-            if [ "${{ steps.check.outputs.update }}" = "true" ]; then
+            if [ "${{ steps.check.outputs.update }}" != "true" ]; then
+              echo "ℹ️ Already up to date at r${{ steps.resolve.outputs.version }}."
+            elif [ "${{ steps.download.outcome }}" = "success" ]; then
               echo "✅ **Vendored r${{ steps.resolve.outputs.version }}**"
             else
-              echo "ℹ️ Already up to date at r${{ steps.resolve.outputs.version }}."
+              echo "❌ **Failed to vendor r${{ steps.resolve.outputs.version }}** — see the \`Download and extract three.js build\` step above (likely the UMD-build safety rail; see \`docs/THREEJS_UPGRADE.md\`)."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
