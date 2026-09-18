@@ -51,6 +51,9 @@ jobs:
     env:
       VENDOR_DIR: vendor/three
       VERSION_FILE: vendor/three/three.version
+      # NEW: Base64 copy of the ESM build, used by js/three-loader.js under
+      # file:// (mirrors js/cleanmodels_wasm.js — see docs/THREEJS_UPGRADE.md §3).
+      B64_PATH: js/three_module_b64.js
 
     steps:
       - name: Checkout
@@ -136,7 +139,50 @@ jobs:
             echo "$f: sha512-$SHA"
           done
 
-      # ── 5. Update the CDN-fallback integrity hash + version in index.html ─
+      # ── 5. Generate three_module_b64.js for file:// mode ──────────────────
+      # NEW: Chromium refuses module imports from file: URLs, so the standalone
+      # HTML release loads Three.js from an embedded Base64 string via a Blob
+      # URL instead. Same pattern (and same reason) as update-wasm.yml's
+      # cleanmodels_wasm.js step. Generated here rather than in a separate
+      # workflow so the Base64 copy can never drift from the vendored file.
+      - name: Generate three_module_b64.js
+        if: steps.check.outputs.update == 'true'
+        run: |
+          VERSION="${{ steps.resolve.outputs.version }}"
+          SRC="${{ env.VENDOR_DIR }}/three.module.min.js"
+          OUT="${{ env.B64_PATH }}"
+
+          mkdir -p js
+          B64=$(base64 -w 0 "$SRC")
+
+          cat > "$OUT" << JSEOF
+          /* three.module.min.js — Base64 encoded for file:// mode
+             Upstream version : ${VERSION}
+             Generated        : $(date -u '+%Y-%m-%dT%H:%M:%SZ')
+             Source           : https://registry.npmjs.org/three/${VERSION}
+             Consumed by      : js/three-loader.js (Blob URL import under file://)
+             WARNING: This file is automatically updated by the GitHub Actions
+             workflow update-three-vendor.yml. Do not edit manually.
+          */
+          // eslint-disable-next-line
+          var THREE_MODULE_B64 = "${B64}";
+          JSEOF
+
+          SIZE=$(wc -c < "$OUT")
+          echo "Generated: $OUT ($SIZE bytes)"
+
+          # Round-trip guard: the decoded Base64 must be byte-identical to the
+          # vendored module, or the file:// build would silently ship a
+          # different (or truncated) Three.js than the HTTP build.
+          echo "$B64" | base64 -d > tmp_roundtrip.js
+          if ! cmp -s tmp_roundtrip.js "$SRC"; then
+            echo "::error::Base64 round-trip mismatch — $OUT does not decode back to $SRC."
+            exit 1
+          fi
+          rm -f tmp_roundtrip.js
+          echo "Round-trip verified: decodes byte-identical to $SRC"
+
+      # ── 6. Update the CDN-fallback integrity hash + version in index.html ─
       # Matches the two-line pattern already in index.html (version comment
       # + integrity attribute on the same <script> tag).
       - name: Patch CDN fallback in index.html
@@ -150,7 +196,7 @@ jobs:
             index.html
           grep -n "cdnjs.cloudflare.com/ajax/libs/three.js" index.html
 
-      # ── 6. Commit ─────────────────────────────────────────────────────────
+      # ── 7. Commit ─────────────────────────────────────────────────────────
       - name: Commit and Push
         if: steps.check.outputs.update == 'true'
         run: |
@@ -164,6 +210,7 @@ jobs:
             "${{ env.VENDOR_DIR }}/three.module.min.js.sha512" \
             "${{ env.VENDOR_DIR }}/LICENSE" \
             "${{ env.VERSION_FILE }}" \
+            "${{ env.B64_PATH }}" \
             index.html
           git commit -m "chore: vendor Three.js → r${VERSION}
 
@@ -171,9 +218,9 @@ jobs:
           SHA-512 (three.min.js): $(cat ${{ env.VENDOR_DIR }}/three.min.js.sha512)
           Trigger: ${{ github.event_name }}
 
-          Note: three.module.min.js is vendored ahead of need for the planned
-          ES-module migration (r160+ drops the global build) — not yet wired
-          into index.html."
+          Note: three.module.min.js is vendored for the ES-module migration
+          (upstream dropped the global build after r160); js/three_module_b64.js
+          is its Base64 copy for file:// mode. See docs/THREEJS_UPGRADE.md."
           git push
 
       - name: Write job summary
