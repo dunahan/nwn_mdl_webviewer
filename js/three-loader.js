@@ -7,18 +7,24 @@
    change. Three.js dropped its UMD/global build after r160 — a plain
    <script src="three.min.js"> is no longer possible.
 
-   Two load paths, selected by protocol (same check cleanmodels.js uses):
+   Three load paths, tried in this order:
 
-     HTTP(S) / Tauri   → import('vendor/three/three.module.min.js')
-                         Tauri serves over http://ipc.localhost, not literal
-                         file://, so it always takes this branch.
-     file:// (+content:) → Chromium refuses module imports from file: URLs
-                         ("Cross origin requests are only supported for
-                         HTTP"). blob: URLs are exempt, so the module source
-                         is decoded from an embedded Base64 string, wrapped
-                         in a Blob and imported from its object URL —
-                         mirroring the WASM-under-file:// trick in
-                         cleanmodels.js.
+     1. Already embedded  → a standalone build/index.html (see build.py) has
+                            THREE_MODULE_B64 baked in ahead of this file. Used
+                            unconditionally when present, regardless of
+                            protocol — a single downloaded HTML file must not
+                            depend on a sibling vendor/ folder existing next
+                            to it, whether it's opened via file:// or served
+                            from some HTTP path that doesn't have one.
+     2. HTTP(S) / Tauri   → otherwise, import('vendor/three/three.module.min.js')
+                            Tauri serves over http://ipc.localhost, not literal
+                            file://, so it always lands here.
+     3. file:// (+content:) → Chromium refuses module imports from file: URLs
+                            ("Cross origin requests are only supported for
+                            HTTP"). blob: URLs are exempt, so js/three_module_b64.js
+                            is fetched as a classic script first (same trick
+                            cleanmodels.js uses for its WASM), then decoded and
+                            imported from a Blob object URL.
 
    Sequencing: scene.js constructs a WebGLRenderer at parse time and
    animation.js calls animate(0) at the bottom of the file — every one of
@@ -89,24 +95,9 @@ const threeLoader = (() => {
   }
 
   // ── Import Three.js, protocol-dependent ─────────────────────────────────
-  async function _importTHREE() {
-    if (!_isLocal) {
-      // Absolute URL: a dynamic import() of a relative path without "./"
-      // would be treated as a bare module specifier and fail.
-      return await import(new URL(THREE_MODULE_PATH, document.baseURI).href);
-    }
-
-    // file:// — Base64 → Blob → import(blobUrl)
-    // In the standalone HTML build the constant is already inlined ahead of
-    // this file, so the extra script load is skipped (same as cleanmodels.js).
-    if (typeof THREE_MODULE_B64 === 'undefined') {
-      await _loadScript(THREE_B64_JS);
-    }
-    if (typeof THREE_MODULE_B64 === 'undefined') {
-      throw new Error(THREE_B64_JS + ' missing — cannot load Three.js under ' + protocol);
-    }
-
-    const bin   = atob(THREE_MODULE_B64);
+  // ── Decode a Base64 ESM bundle and import it via a Blob URL ─────────────
+  async function _importFromB64(b64) {
+    const bin   = atob(b64);
     const bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
 
@@ -116,6 +107,34 @@ const threeLoader = (() => {
     } finally {
       URL.revokeObjectURL(url);
     }
+  }
+
+  // ── Import Three.js, protocol-dependent ─────────────────────────────────
+  async function _importTHREE() {
+    // A standalone build carries THREE_MODULE_B64 already embedded (see
+    // build.py) and is meant to be fully self-contained — use it regardless
+    // of protocol, so a single dist/index.html keeps working even when
+    // served over HTTP without its sibling vendor/ folder alongside it
+    // (checked: without this, the standalone file would ignore its own
+    // embedded copy and 404 trying to import() a vendor/ path that may not
+    // exist wherever that lone file ended up).
+    if (typeof THREE_MODULE_B64 !== 'undefined') {
+      return await _importFromB64(THREE_MODULE_B64);
+    }
+
+    if (!_isLocal) {
+      // Absolute URL: a dynamic import() of a relative path without "./"
+      // would be treated as a bare module specifier and fail.
+      return await import(new URL(THREE_MODULE_PATH, document.baseURI).href);
+    }
+
+    // file:// on the dev tree (no embedded Base64 yet) — fetch it as a
+    // classic script first, same trick cleanmodels.js uses for its WASM.
+    await _loadScript(THREE_B64_JS);
+    if (typeof THREE_MODULE_B64 === 'undefined') {
+      throw new Error(THREE_B64_JS + ' missing — cannot load Three.js under ' + protocol);
+    }
+    return await _importFromB64(THREE_MODULE_B64);
   }
 
   // ── Run the viewer's own scripts, in document order, one at a time ───────
