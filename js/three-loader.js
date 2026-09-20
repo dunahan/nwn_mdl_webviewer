@@ -29,9 +29,15 @@
    load event — the same pattern cleanmodels.js's _loadScript() already uses.
 
    The ordered file list stays defined exactly once, in index.html: the tags
-   inside the "<!-- NWN MDL Viewer — Module -->" marker block carry
-   type="text/nwn-script", which the browser does not execute. Both this
-   loader (at runtime) and build.py (at build time) read that same block.
+   inside the viewer's module-marker comment block (see build.py's
+   extract_js_order) carry type="text/nwn-script", which the browser does
+   not execute. Both this loader (at runtime) and build.py (at build time)
+   read that same block.
+   NOTE: deliberately not spelling out the marker comment's exact text here —
+   build.py searches the whole built HTML for it, and this file ends up
+   inlined into that same HTML (see build.py step 2.6), so quoting it
+   verbatim would make build.py match its own docs instead of the real
+   marker. Cost a rebuilt-and-broken dist/index.html to find out.
 
    build.py emits the concatenated standalone bundle as a single inline tag
    of the same type; inline tags are injected via a blob URL rather than
