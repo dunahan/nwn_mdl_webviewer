@@ -300,4 +300,13 @@ const FloatPanel = (() => {
 
 })();
 
-document.addEventListener('DOMContentLoaded', () => FloatPanel.init());
+// FIX: three-loader.js injects this file after DOMContentLoaded has already
+// fired (it deliberately waits for the full DOM before running any of the 25
+// viewer scripts) — a plain addEventListener('DOMContentLoaded', …) registered
+// this late never runs, since the event already happened. Same readyState
+// guard ui.js's initTheme() already uses.
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => FloatPanel.init());
+} else {
+  FloatPanel.init();
+}

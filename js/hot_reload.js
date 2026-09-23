@@ -636,5 +636,12 @@ const HotReload = (() => {
 
 })();
 
-// Initialise as soon as the DOM is ready
-document.addEventListener('DOMContentLoaded', () => HotReload.init());
+// Initialise as soon as the DOM is ready.
+// FIX: see the matching comment in floating_panel.js — three-loader.js injects
+// this file after DOMContentLoaded has already fired, so a bare
+// addEventListener('DOMContentLoaded', …) here would never run.
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => HotReload.init());
+} else {
+  HotReload.init();
+}
