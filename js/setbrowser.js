@@ -921,4 +921,11 @@ const SetBrowser = (() => {
 
 
 // ── Initialise once DOM is ready ─────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => SetBrowser.init());
+// FIX: see the matching comment in floating_panel.js — three-loader.js injects
+// this file after DOMContentLoaded has already fired, so a bare
+// addEventListener('DOMContentLoaded', …) here would never run.
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => SetBrowser.init());
+} else {
+  SetBrowser.init();
+}

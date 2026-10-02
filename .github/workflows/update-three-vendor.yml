@@ -51,6 +51,9 @@ jobs:
     env:
       VENDOR_DIR: vendor/three
       VERSION_FILE: vendor/three/three.version
+      # NEW: Base64 copy of the ESM build, used by js/three-loader.js under
+      # file:// (mirrors js/cleanmodels_wasm.js — see docs/THREEJS_UPGRADE.md §3).
+      B64_PATH: js/three_module_b64.js
 
     steps:
       - name: Checkout
@@ -104,24 +107,57 @@ jobs:
           mkdir -p tmp_three && curl -sSfL "$TARBALL_URL" -o tmp_three/three.tgz
           tar xzf tmp_three/three.tgz -C tmp_three
 
-          # Safety rail: upstream dropped the UMD/global build starting at r161.
-          # This pipeline only supports that build today — fail loudly and
-          # point at the migration plan instead of yielding a cryptic
-          # 'cp: cannot stat' error and (on a scheduled run) potentially
-          # leaving a half-vendored state.
-          if [ ! -f tmp_three/package/build/three.min.js ]; then
-            echo "::error::three@$VERSION no longer ships build/three.min.js (UMD build removed upstream)."
-            echo "::error::This vendor pipeline only supports the UMD build. See docs/THREEJS_UPGRADE.md before vendoring this version."
+          # FIX: js/three-loader.js (Phase 2c, see docs/THREEJS_UPGRADE.md) loads
+          # three.module.min.js, not three.min.js — the safety rail below used to
+          # guard the wrong file. The UMD build (three.min.js) was retired
+          # upstream after r160 and is never coming back; it stays vendored at
+          # r160 only, frozen, as the documented rollback target (§10) and is
+          # deliberately no longer refreshed by this workflow. Missing UMD is
+          # therefore expected steady state from here on, not a failure.
+          #
+          # Two further, separate build-layout changes upstream, verified against
+          # the real npm tarballs (not the Migration Guide wiki, which covers
+          # neither):
+          #   r171: three.module.min.js started importing from a sibling
+          #         three.core.min.js — no longer the single self-contained file
+          #         this pipeline's Base64/Blob embedding assumes.
+          #   r186: EVERY minified build (module/core/tsl/webgpu) was dropped
+          #         entirely — only unminified .js builds remain. This landed
+          #         within the last couple of releases, so it may not even be
+          #         documented upstream yet.
+          # r160-r170 are the only versions past the UMD cutoff that are still a
+          # single self-contained minified three.module.min.js — matching what
+          # this pipeline (and js/three-loader.js's Blob import) is actually
+          # built for. Versions beyond r170 need that mechanism re-evaluated
+          # first; this rail deliberately still fails loudly for them rather
+          # than silently vendoring something the loader can't consume.
+          if [ ! -f tmp_three/package/build/three.module.min.js ]; then
+            echo "::error::three@$VERSION does not ship a build/three.module.min.js at all."
+            echo "::error::No minified ESM build exists in this release (true from r186 on) —"
+            echo "::error::js/three-loader.js needs a design change before vendoring past r170."
+            echo "::error::See docs/THREEJS_UPGRADE.md."
+            exit 1
+          fi
+          if grep -q '^import' tmp_three/package/build/three.module.min.js; then
+            echo "::error::three@$VERSION's build/three.module.min.js imports from another file"
+            echo "::error::(the r171+ core/module split) — no longer self-contained. js/three-loader.js's"
+            echo "::error::Blob-URL import assumes a single file; this needs a design change first,"
+            echo "::error::not a silent partial vendor. See docs/THREEJS_UPGRADE.md."
             exit 1
           fi
 
           mkdir -p "${{ env.VENDOR_DIR }}"
-          cp tmp_three/package/build/three.min.js "${{ env.VENDOR_DIR }}/three.min.js"
-          # Phase-2 prep (ES modules for the eventual r160+ / Tauri-ESM migration,
-          # see docs — NOT wired into index.html yet, vendored ahead of time so
-          # the switch itself is a smaller, isolated PR):
           cp tmp_three/package/build/three.module.min.js "${{ env.VENDOR_DIR }}/three.module.min.js"
           cp tmp_three/package/LICENSE "${{ env.VENDOR_DIR }}/LICENSE"
+
+          if [ -f tmp_three/package/build/three.min.js ]; then
+            cp tmp_three/package/build/three.min.js "${{ env.VENDOR_DIR }}/three.min.js"
+            echo "umd_refreshed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "UMD build (three.min.js) not present in three@$VERSION — expected since r161."
+            echo "Leaving the existing vendored copy untouched (rollback target, see docs/THREEJS_UPGRADE.md §10)."
+            echo "umd_refreshed=false" >> "$GITHUB_OUTPUT"
+          fi
 
           echo "$VERSION" > "${{ env.VERSION_FILE }}"
           rm -rf tmp_three
@@ -136,11 +172,57 @@ jobs:
             echo "$f: sha512-$SHA"
           done
 
-      # ── 5. Update the CDN-fallback integrity hash + version in index.html ─
+      # ── 5. Generate three_module_b64.js for file:// mode ──────────────────
+      # NEW: Chromium refuses module imports from file: URLs, so the standalone
+      # HTML release loads Three.js from an embedded Base64 string via a Blob
+      # URL instead. Same pattern (and same reason) as update-wasm.yml's
+      # cleanmodels_wasm.js step. Generated here rather than in a separate
+      # workflow so the Base64 copy can never drift from the vendored file.
+      - name: Generate three_module_b64.js
+        if: steps.check.outputs.update == 'true'
+        run: |
+          VERSION="${{ steps.resolve.outputs.version }}"
+          SRC="${{ env.VENDOR_DIR }}/three.module.min.js"
+          OUT="${{ env.B64_PATH }}"
+
+          mkdir -p js
+          B64=$(base64 -w 0 "$SRC")
+
+          cat > "$OUT" << JSEOF
+          /* three.module.min.js — Base64 encoded for file:// mode
+             Upstream version : ${VERSION}
+             Generated        : $(date -u '+%Y-%m-%dT%H:%M:%SZ')
+             Source           : https://registry.npmjs.org/three/${VERSION}
+             Consumed by      : js/three-loader.js (Blob URL import under file://)
+             WARNING: This file is automatically updated by the GitHub Actions
+             workflow update-three-vendor.yml. Do not edit manually.
+          */
+          // eslint-disable-next-line
+          var THREE_MODULE_B64 = "${B64}";
+          JSEOF
+
+          SIZE=$(wc -c < "$OUT")
+          echo "Generated: $OUT ($SIZE bytes)"
+
+          # Round-trip guard: the decoded Base64 must be byte-identical to the
+          # vendored module, or the file:// build would silently ship a
+          # different (or truncated) Three.js than the HTTP build.
+          echo "$B64" | base64 -d > tmp_roundtrip.js
+          if ! cmp -s tmp_roundtrip.js "$SRC"; then
+            echo "::error::Base64 round-trip mismatch — $OUT does not decode back to $SRC."
+            exit 1
+          fi
+          rm -f tmp_roundtrip.js
+          echo "Round-trip verified: decodes byte-identical to $SRC"
+
+      # ── 6. Update the CDN-fallback integrity hash + version in index.html ─
       # Matches the two-line pattern already in index.html (version comment
       # + integrity attribute on the same <script> tag).
       - name: Patch CDN fallback in index.html
-        if: steps.check.outputs.update == 'true'
+        # FIX: only when three.min.js was actually refreshed this run (see the
+        # download step) — otherwise this would rewrite the rollback snapshot's
+        # CDN URL to a version that never shipped a UMD build, a dead link.
+        if: steps.check.outputs.update == 'true' && steps.download.outputs.umd_refreshed == 'true'
         run: |
           VERSION="${{ steps.resolve.outputs.version }}"
           SHA=$(cat "${{ env.VENDOR_DIR }}/three.min.js.sha512")
@@ -150,7 +232,7 @@ jobs:
             index.html
           grep -n "cdnjs.cloudflare.com/ajax/libs/three.js" index.html
 
-      # ── 6. Commit ─────────────────────────────────────────────────────────
+      # ── 7. Commit ─────────────────────────────────────────────────────────
       - name: Commit and Push
         if: steps.check.outputs.update == 'true'
         run: |
@@ -164,6 +246,7 @@ jobs:
             "${{ env.VENDOR_DIR }}/three.module.min.js.sha512" \
             "${{ env.VENDOR_DIR }}/LICENSE" \
             "${{ env.VERSION_FILE }}" \
+            "${{ env.B64_PATH }}" \
             index.html
           git commit -m "chore: vendor Three.js → r${VERSION}
 
@@ -171,9 +254,9 @@ jobs:
           SHA-512 (three.min.js): $(cat ${{ env.VENDOR_DIR }}/three.min.js.sha512)
           Trigger: ${{ github.event_name }}
 
-          Note: three.module.min.js is vendored ahead of need for the planned
-          ES-module migration (r160+ drops the global build) — not yet wired
-          into index.html."
+          Note: three.module.min.js is vendored for the ES-module migration
+          (upstream dropped the global build after r160); js/three_module_b64.js
+          is its Base64 copy for file:// mode. See docs/THREEJS_UPGRADE.md."
           git push
 
       - name: Write job summary

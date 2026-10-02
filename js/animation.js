@@ -44,6 +44,25 @@ function lerpKeys(keys, time) {
   return { lo: a, hi: b, alpha };
 }
 
+// NEW: Cubic Hermite spline for one scalar component of a Bezier controller
+// segment (positionbezierkey / scalebezierkey). p0/p1 = key values at the
+// segment start/end, m0/m1 = the two Hermite derivatives (callers pass
+// 3×tanOut / -3×tanIn — see applyAnimFrame()), s = position within the
+// segment [0,1] (== lerpKeys' "alpha").
+// Tangent convention verified against plc_a01.mdl (the official Bezier demo
+// model) + its reference video: NWN stores tanOut/tanIn as Bezier
+// control-point handle offsets (not raw derivatives) with tanIn pointing
+// backward — hence ×3 (standard Bezier↔Hermite conversion) and the negation
+// on tanIn, both applied at the call sites, not in this function.
+function hermite1D(p0, m0, p1, m1, s) {
+  const s2 = s * s, s3 = s2 * s;
+  const h00 =  2 * s3 - 3 * s2 + 1;
+  const h10 =      s3 - 2 * s2 + s;
+  const h01 = -2 * s3 + 3 * s2;
+  const h11 =      s3 -     s2;
+  return h00 * p0 + h10 * m0 + h01 * p1 + h11 * m1;
+}
+
 // Interpolation for emitterKey arrays ({ t, vals[] }) — returns interpolated vals array.
 function lerpEmitterKey(keys, time) {
   if (!keys || keys.length === 0) return null;
@@ -65,11 +84,35 @@ function applyAnimFrame(anim, time) {
     if (data.posKeys.length > 0) {
       const r = lerpKeys(data.posKeys, time);
       if (r && r.alpha !== undefined) {
-        obj.position.set(
-          r.lo.x + (r.hi.x - r.lo.x) * r.alpha,
-          r.lo.y + (r.hi.y - r.lo.y) * r.alpha,
-          r.lo.z + (r.hi.z - r.lo.z) * r.alpha
-        );
+        // NEW: positionbezierkey carries per-key tanOut/tanIn — use a cubic
+        // Hermite curve instead of a straight lerp when both ends have them.
+        // Plain positionkey entries have no tanOut/tanIn → falls through to
+        // the existing linear path unchanged.
+        // FIX: tanIn is stored as a backward-pointing handle (points away from
+        // the direction of travel, matching the toolset's tangent-handle
+        // convention) — negate it to get the forward derivative the Hermite
+        // basis expects. Without this the curve bows inward (cuts corners)
+        // instead of bulging outward along the intended path; confirmed
+        // against a reference video where the curved paths run outside the
+        // straight-line keyframe polygon, not inside it.
+        // FIX: tanIn/tanOut are Bezier control-point handle offsets, not raw
+        // Hermite derivatives — the standard conversion is derivative = 3 ×
+        // handle offset (P1 = P0 + m0/3 for a cubic Bezier from a Hermite
+        // tangent). Without ×3 the curve bulges the right direction but far
+        // too weakly; confirmed against the reference video's amplitude.
+        if (r.lo.tanOut && r.hi.tanIn) {
+          obj.position.set(
+            hermite1D(r.lo.x, 3 * r.lo.tanOut[0], r.hi.x, -3 * r.hi.tanIn[0], r.alpha),
+            hermite1D(r.lo.y, 3 * r.lo.tanOut[1], r.hi.y, -3 * r.hi.tanIn[1], r.alpha),
+            hermite1D(r.lo.z, 3 * r.lo.tanOut[2], r.hi.z, -3 * r.hi.tanIn[2], r.alpha)
+          );
+        } else {
+          obj.position.set(
+            r.lo.x + (r.hi.x - r.lo.x) * r.alpha,
+            r.lo.y + (r.hi.y - r.lo.y) * r.alpha,
+            r.lo.z + (r.hi.z - r.lo.z) * r.alpha
+          );
+        }
       } else if (r) {
         obj.position.set(r.x, r.y, r.z);
       }
@@ -91,7 +134,13 @@ function applyAnimFrame(anim, time) {
     if (data.scaleKeys && data.scaleKeys.length > 0) {
       const r = lerpKeys(data.scaleKeys, time);
       if (r && r.alpha !== undefined) {
-        obj.scale.setScalar(r.lo.s + (r.hi.s - r.lo.s) * r.alpha);
+        // NEW: same Hermite/linear split as position, just scalar.
+        // FIX: tanIn negated + ×3 handle→derivative factor — see the
+        // identical fixes on posKeys above.
+        const s = (r.lo.tanOut !== undefined && r.hi.tanIn !== undefined)
+          ? hermite1D(r.lo.s, 3 * r.lo.tanOut, r.hi.s, -3 * r.hi.tanIn, r.alpha)
+          : r.lo.s + (r.hi.s - r.lo.s) * r.alpha;
+        obj.scale.setScalar(s);
       } else if (r) {
         obj.scale.setScalar(r.s);
       }
@@ -475,4 +524,3 @@ function animate(time) {
   renderer.render(scene, camera);
 }
 animate(0);
-

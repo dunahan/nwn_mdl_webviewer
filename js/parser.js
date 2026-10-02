@@ -175,24 +175,34 @@ function parseFullAnimNode(lines, start) {
       continue;
     } else if (k === 'positionbezierkey') {
       // value(3) + tangentIn(3) + tangentOut(3) = 9 Floats/Key
+      // NEW: tangentIn/tangentOut werden jetzt mit abgelegt (vorher verworfen) —
+      // animation.js wertet sie als kubische Hermite-Kurve aus, siehe hermite1D().
       const count = (t.length > 1 && !isNaN(parseInt(t[1]))) ? parseInt(t[1]) : 0;
       const res = readAllKeys(i + 1, 9, count);
-      data.posKeys = res.keys.map(k => ({ t: k.t, x: k.vals[0], y: k.vals[1], z: k.vals[2] }));
+      data.posKeys = res.keys.map(k => ({
+        t: k.t, x: k.vals[0], y: k.vals[1], z: k.vals[2],
+        tanIn:  [k.vals[3], k.vals[4], k.vals[5]],
+        tanOut: [k.vals[6], k.vals[7], k.vals[8]],
+      }));
       i = res.next;
       continue;
     } else if (k === 'scalebezierkey') {
       // value(1) + tangentIn(1) + tangentOut(1) = 3 Floats/Key
+      // NEW: gleiches Prinzip wie positionbezierkey, nur skalar.
       const count = (t.length > 1 && !isNaN(parseInt(t[1]))) ? parseInt(t[1]) : 0;
       const res = readAllKeys(i + 1, 3, count);
-      data.scaleKeys = res.keys.map(k => ({ t: k.t, s: k.vals[0] }));
+      data.scaleKeys = res.keys.map(k => ({ t: k.t, s: k.vals[0], tanIn: k.vals[1], tanOut: k.vals[2] }));
       i = res.next;
       continue;
     } else if (k.endsWith('bezierkey')) {
       // ── Generic Bezier Controller Key (alphabezierkey, selfillumcolorbezierkey, …) ──
       // Format: <baseName>bezierkey <count>
       //           <time> <value...> <tangentIn...> <tangentOut...>
-      // Only the value portion is adopted — the viewer interpolates linearly,
-      // not cubic; therefore, the tangents are discarded rather than misinterpreted.
+      // ponytail: nur der Wert wird übernommen, die Tangenten werden verworfen →
+      // lineare statt kubischer Interpolation. Ceiling: sichtbar nur bei scharfen
+      // Ease-In/Out-Kurven auf Alpha/Emissive. Upgrade-Pfad: gleiches Muster wie
+      // bei positionbezierkey/scalebezierkey (tanIn/tanOut ablegen), falls ein
+      // Modell das mal sichtbar braucht.
       const baseName = k.slice(0, -9);   // 'alphabezierkey' → 'alpha'
       const baseCols = EMITTER_KEY_COLS[baseName] ?? 1;
       const count = (t.length > 1 && !isNaN(parseInt(t[1]))) ? parseInt(t[1]) : 0;
@@ -279,10 +289,6 @@ function parseNode(lines, start) {
     textures: {},     // index → name (from MDL node, e.g., texture0, texture1 ...)
     renderhint: '',   // 'NormalAndSpecMapped' | 'NormalTangents' | ''
     verts: [], tverts: [], normals: [], tangents: [], faces: [],
-    // NEW: additional UV stages (lightmaps, detail texturing) — parsed for
-    // visibility only, not yet consumed by scene_build.js. See node-detail
-    // panel / log hint in ui.js.
-    tverts1: [], tverts2: [], tverts3: [],
     ambient: [0.2, 0.2, 0.2],
     diffuse: [0.8, 0.8, 0.8],
     specular: [0, 0, 0],
@@ -335,12 +341,6 @@ function parseNode(lines, start) {
     danglyTightness:     1.0,   // Return force (stored for reference, unused in sine-wave sim)
     danglyDisplacement:  0.5,   // Maximum vertex displacement in NWN units
     constraints:         [],    // Per-vertex weights [0–1], normalised from MDL's 0–255
-    // ── Reference-node properties ────────────────────────────────────────
-    // NEW: parsed for visibility only (log + node-detail hint) — the referenced
-    // sub-model is not actually loaded/merged into the scene. See scene_build.js
-    // and ui.js.
-    refModel:            '',   // name of the referenced model (no extension)
-    reattachable:        0,    // 1 = reference can be reattached at runtime
   };
 
   function tok(idx) { return lines[idx].trim().split(/\s+/).filter(x => x.length > 0); }
@@ -415,8 +415,6 @@ function parseNode(lines, start) {
     else if (k === 'framestart')        node.frameStart = parseInt(t[1]) || 0;
     else if (k === 'frameend')          node.frameEnd   = parseInt(t[1]) || 0;
     else if (k === 'chunkname')         node.chunkName  = (t[1]||'').toLowerCase();
-    else if (k === 'refmodel')          node.refModel   = t[1] || '';
-    else if (k === 'reattachable')      node.reattachable = parseInt(t[1]) || 0;
     // ── Light-Properties (only for node.type === 'light') ─────────────────────
     else if (k === 'color'         && node.type === 'light') node.lightColor        = [num(t[1]), num(t[2]), num(t[3])];
     else if (k === 'radius'        && node.type === 'light') node.lightRadius        = num(t[1]);
@@ -446,17 +444,6 @@ function parseNode(lines, start) {
         const vt = tok(i);
         if (vt.length >= 2) node.tverts.push([num(vt[0]), num(vt[1])]);
       }
-    } else if (k === 'tverts1' || k === 'tverts2' || k === 'tverts3') {
-      // NEW: parsed for visibility (log + node-detail hint) only — see
-      // ui.js/loader.js. Not yet wired into scene_build.js geometry/material.
-      const count  = parseInt(t[1]) || 0;
-      const target = node[k];
-      for (let j = 0; j < count; j++) {
-        i++;
-        if (i >= lines.length) break;
-        const vt = tok(i);
-        if (vt.length >= 2) target.push([num(vt[0]), num(vt[1])]);
-      }
     } else if (k === 'normals') {
       const count = parseInt(t[1]) || 0;
       for (let j = 0; j < count; j++) {
@@ -480,15 +467,9 @@ function parseNode(lines, start) {
       }
     } else if (k === 'faces') {
       const count = parseInt(t[1]) || 0;
-      // FIX: animmesh exporters sometimes write the faces block twice for the
-      // same node — only the first occurrence is valid, the rest is a known
-      // MAX exporter bug (see nwn-mdl-format.md, Subtlety #8). Skip parsing
-      // (but still advance the line index) if this animmesh already has faces.
-      const skipDup = node.type === 'animmesh' && node.faces.length > 0;
       for (let j = 0; j < count; j++) {
         i++;
         if (i >= lines.length) break;
-        if (skipDup) continue;
         const ft = tok(i);
         if (ft.length >= 7) {
           node.faces.push({

@@ -267,43 +267,59 @@
   </div>
 </div>
 
-<!--  Three.js r160 (vendored locally - see vendor/README.md for provenance / hash verification).
-      Last revision that still ships the classic/UMD build — r161 drops it,
-      see docs/THREEJS_UPGRADE.md for the ES-module migration plan.
-      Falls back to the CDN build if vendor/ was not shipped alongside this HTML file
-      (e.g. the standalone single-file release opened on its own). --> 
+<!-- NEW: Three.js is loaded as an ES module by js/three-loader.js, which bridges it
+     back onto the global window.THREE and then runs the viewer's own scripts in order.
+     Upstream dropped the classic/UMD build after r160, so a plain <script src> is no
+     longer an option — see docs/THREEJS_UPGRADE.md for the full migration plan.
+     The loader picks its own path by protocol: import() of the vendored module over
+     HTTP(S)/Tauri, Base64 + Blob URL under file:// (Chromium blocks module imports
+     from file: URLs). -->
+<script src="js/three-loader.js"></script>
+
+<!-- TODO(cleanup): superseded by js/three-loader.js above. Kept verbatim until Phase 2c
+     is verified on GitHub Pages, standalone file:// and all three Tauri bundles
+     (docs/THREEJS_UPGRADE.md, testing checklist + rollback plan). Restoring the two tags
+     below and removing the loader tag above is the complete rollback.
+     NOTE: the cdnjs fallback covered one case only, "vendor/ missing over HTTP". It has
+     no dynamic-import() equivalent, and never applied to the standalone build (which
+     inlines the module for file://) or to Tauri (CSP: script-src 'self').
+
 <script src="vendor/three/three.min.js"></script>
 <script>
   if (typeof THREE === 'undefined') {
-    document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js" integrity="sha512-vnmn/Qqn6aG0POAc9mIGzjq0IybrvxJXYDafNvp9JSnDGxeF3pbkSqLvf+YGd5ku63pT7sa/jxHn7/d0mU8+tA==" crossorigin="anonymous" referrerpolicy="no-referrer"><\/script>');    
+    document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js" integrity="sha512-vnmn/Qqn6aG0POAc9mIGzjq0IybrvxJXYDafNvp9JSnDGxeF3pbkSqLvf+YGd5ku63pT7sa/jxHn7/d0mU8+tA==" crossorigin="anonymous" referrerpolicy="no-referrer"><\/script>');
   }
 </script>
+-->
   
 <!-- NWN MDL Viewer — Module -->
-<script src="js/i18n.js"></script>        <!-- Translation --!>
-<script src="js/wasm_exec.js"></script>   <!-- Cleanmodels WASM --!>
-<script src="js/cleanmodels.js"></script> <!-- Binary Functions --!>
-<script src="js/mtr.js"></script>         <!-- MRT Functions --!>
-<script src="js/txi.js"></script>         <!-- TXI Functions --!>
-<script src="js/plt_swatch.js"></script>  <!-- PLT Watcher / ColorPicker Definitions --!>
-<script src="js/palettes.js"></script>    <!-- PLT Functions --!>
-<script src="js/textures.js"></script>    <!-- Tex Functions --!>
-<script src="js/wok.js"></script>         <!-- WOK Functions --!>
-<script src="js/pwk.js"></script>         <!-- PWK Functions --!>
-<script src="js/dwk.js"></script>         <!-- DWK Functions --!>
-<script src="js/parser.js"></script>      <!-- Parser Functions --!>
-<script src="js/scene.js"></script>       <!-- Scene Functions --!>
-<script src="js/scene_build.js"></script> <!-- Scene Build Functions --!>
-<script src="js/session.js"></script>     <!-- Session Functions --!>
-<script src="js/ui.js"></script>          <!-- UI Functions --!>
-<script src="js/log.js"></script>         <!-- Log Functions --!>
-<script src="js/loader.js"></script>      <!-- Loader Functions --!>
-<script src="js/emitter.js"></script>     <!-- Particle Emitter Engine --!>
-<script src="js/dangly.js"></script>      <!-- Danglymesh Simulation --!>
-<script src="js/animation.js"></script>   <!-- Animation Functions--!>
-<script src="js/hot_reload.js"></script>  <!-- Texture Hot-Reload --!>
-<script src="js/setbrowser.js"></script>  <!-- Set Browser --!>
-<script src="js/floating_panel.js"></script> <!-- Floating Panel Manager --!>
-<script src="js/ui_bindings.js"></script>    <!-- Static UI Event Bindings (CSP: replaces inline onclick/onchange/oninput) --!>
+<!-- NEW: type="text/nwn-script" — the browser does NOT execute these; js/three-loader.js
+     queries them from the DOM and injects them as real scripts, in this order, once
+     window.THREE exists. build.py reads the same block (extract_js_order). -->
+<script type="text/nwn-script" src="js/i18n.js"></script>           <!-- Translation --!>
+<script type="text/nwn-script" src="js/wasm_exec.js"></script>      <!-- Cleanmodels WASM --!>
+<script type="text/nwn-script" src="js/cleanmodels.js"></script>    <!-- Binary Functions --!>
+<script type="text/nwn-script" src="js/mtr.js"></script>            <!-- MRT Functions --!>
+<script type="text/nwn-script" src="js/txi.js"></script>            <!-- TXI Functions --!>
+<script type="text/nwn-script" src="js/plt_swatch.js"></script>     <!-- PLT Watcher / ColorPicker Definitions --!>
+<script type="text/nwn-script" src="js/palettes.js"></script>       <!-- PLT Functions --!>
+<script type="text/nwn-script" src="js/textures.js"></script>       <!-- Tex Functions --!>
+<script type="text/nwn-script" src="js/wok.js"></script>            <!-- WOK Functions --!>
+<script type="text/nwn-script" src="js/pwk.js"></script>            <!-- PWK Functions --!>
+<script type="text/nwn-script" src="js/dwk.js"></script>            <!-- DWK Functions --!>
+<script type="text/nwn-script" src="js/parser.js"></script>         <!-- Parser Functions --!>
+<script type="text/nwn-script" src="js/scene.js"></script>          <!-- Scene Functions --!>
+<script type="text/nwn-script" src="js/scene_build.js"></script>    <!-- Scene Build Functions --!>
+<script type="text/nwn-script" src="js/session.js"></script>        <!-- Session Functions --!>
+<script type="text/nwn-script" src="js/ui.js"></script>             <!-- UI Functions --!>
+<script type="text/nwn-script" src="js/log.js"></script>            <!-- Log Functions --!>
+<script type="text/nwn-script" src="js/loader.js"></script>         <!-- Loader Functions --!>
+<script type="text/nwn-script" src="js/emitter.js"></script>        <!-- Particle Emitter Engine --!>
+<script type="text/nwn-script" src="js/dangly.js"></script>         <!-- Danglymesh Simulation --!>
+<script type="text/nwn-script" src="js/animation.js"></script>      <!-- Animation Functions--!>
+<script type="text/nwn-script" src="js/hot_reload.js"></script>     <!-- Texture Hot-Reload --!>
+<script type="text/nwn-script" src="js/setbrowser.js"></script>     <!-- Set Browser --!>
+<script type="text/nwn-script" src="js/floating_panel.js"></script> <!-- Floating Panel Manager --!>
+<script type="text/nwn-script" src="js/ui_bindings.js"></script>    <!-- Static UI Event Bindings (CSP: replaces inline onclick/onchange/oninput) --!>
 </body>
 </html>
