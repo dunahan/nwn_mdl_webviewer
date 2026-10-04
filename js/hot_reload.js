@@ -9,8 +9,10 @@
    Backend abstraction (Tauri-ready):
      'browser-fsa'  – File System Access API (Chrome/Edge)
                       Polling via setInterval + FileSystemFileHandle
-     'tauri'        – (placeholder) native fs-watch via
-                      tauri-plugin-fs, event-based, no polling
+     'tauri'        – tauri-plugin-fs + tauri-plugin-dialog. Phase 1: same
+                      polling as browser-fsa, fed by FileSystemHandle-shaped
+                      shims (see _tauriDirRef / _tauriFileRef). Event-based
+                      fs.watch() is phase 2.
      null           – not supported (Firefox etc.)
 
    Dependencies (global variables from other modules):
@@ -37,9 +39,10 @@
      HotReload.onModelLoaded()     – after applyTexturesToScene() from loader.js
      HotReload.setModelFileHandle(h) – MDL drop handle as picker hint
 
-   Tauri migration (later):
-     Only swap out _backendPick() and _backendStartWatch() / _backendStopWatch().
-     _onFileChanged() and all texture logic remain unchanged.
+   Tauri phase 2 (later):
+     Replace the polling in _backendStartWatch() / _backendStopWatch() with
+     fs.watch() (needs tauri-plugin-fs feature "watch"). _onFileChanged() and
+     all texture logic remain unchanged.
    ═══════════════════════════════════════════════ */
 
 const HotReload = (() => {
@@ -101,7 +104,10 @@ const HotReload = (() => {
 
   // ── Backend detection ────────────────────────────────────────────────────
   function _detectBackend() {
-    if (typeof window !== 'undefined' && window.__TAURI__)                return 'tauri';
+    // FIX: require the plugin globals, not just __TAURI__ — otherwise the
+    // button stays enabled but every click fails inside the picker.
+    const T = typeof window !== 'undefined' ? window.__TAURI__ : null;
+    if (T && T.dialog && T.fs && T.core && T.path)                        return 'tauri';
     if (typeof window !== 'undefined' && 'showDirectoryPicker' in window) return 'browser-fsa';
     return null;
   }
@@ -136,26 +142,22 @@ const HotReload = (() => {
   // ════════════════════════════════════════════════════════════════════════
 
   async function _backendPick() {
-    if (_backend === 'tauri') {
-      // ── Tauri (placeholder) ─────────────────────────────────────────
-      // const { open } = window.__TAURI__.dialog;
-      // const dir = await open({ directory: true, multiple: false });
-      // ... Handles über Tauri-FS-API aufbauen ...
-      logWarnI18n('hr_tauri_not_impl');
-      return;
-    }
-
-    // ── browser-fsa ──────────────────────────────────────────────────
+    // Both pickers yield a directory handle; everything below is shared.
     let dirHandle;
-    try {
-      dirHandle = await window.showDirectoryPicker({
-        mode:    'read',
-        startIn: _modelFileHandle ?? 'documents',
-      });
-    } catch (_) {
-      // User cancelled dialog → silently ignore
-      return;
+    if (_backend === 'tauri') {
+      dirHandle = await _tauriPickDir();
+    } else {
+      try {
+        dirHandle = await window.showDirectoryPicker({
+          mode:    'read',
+          startIn: _modelFileHandle ?? 'documents',
+        });
+      } catch (_) {
+        // User cancelled dialog → silently ignore
+        return;
+      }
     }
+    if (!dirHandle) return;
 
     _watched.clear();
     _watchedMDL.clear();
@@ -185,6 +187,71 @@ const HotReload = (() => {
     _refreshNodeIndicators();
   }
 
+  // ── Tauri: FileSystemHandle-shaped shims ────────────────────────────────
+  //
+  // SetBrowser, loader.js (loadMDLFromHandle / _readMDLHandle) and _scanDir
+  // only use .kind, .name, .getFile() and .entries(), so shims with that shape
+  // leave all of them untouched.
+  //
+  // getLastModified() is stat-only: getFile() reads the whole file over IPC,
+  // far too expensive for the 2 s poll across hundreds of files.
+  // ponytail: symlinks are listed as plain files (readDir does not follow them),
+  // symlinked folders are therefore not scanned; mtime == null falls back to the
+  // file size (misses shrinking files). Upgrade: stat() the entry / fs.watch().
+
+  async function _tauriMtime(path) {
+    const s = await window.__TAURI__.fs.stat(path);
+    return s.mtime ? s.mtime.getTime() : s.size;
+  }
+
+  function _tauriFileRef(path, name) {
+    return {
+      kind: 'file', name, path,
+      getLastModified: () => _tauriMtime(path),
+      async getFile() {
+        const bytes = await window.__TAURI__.fs.readFile(path);
+        return new File([bytes], name, { lastModified: await _tauriMtime(path) });
+      },
+    };
+  }
+
+  function _tauriDirRef(path, name) {
+    return {
+      kind: 'directory', name, path,
+      async *entries() {
+        const T = window.__TAURI__;
+        for (const e of await T.fs.readDir(path)) {
+          const child = await T.path.join(path, e.name);
+          yield [e.name, e.isDirectory ? _tauriDirRef(child, e.name) : _tauriFileRef(child, e.name)];
+        }
+      },
+    };
+  }
+
+  // Folder dialog + fs scope grant. Tauri's dialog does NOT grant fs access to
+  // the chosen path — grant_folder_access (lib.rs) must run before any readDir.
+  // Returns null on cancel or error.
+  async function _tauriPickDir() {
+    const T = window.__TAURI__;
+    // Directory part of the last loaded MDL (if any) as dialog start folder.
+    const start = _modelFileHandle?.path?.replace(/[\\/][^\\/]*$/, '');
+    try {
+      const path = await T.dialog.open({ directory: true, multiple: false, defaultPath: start });
+      if (!path) return null;                                   // cancelled
+      await T.core.invoke('grant_folder_access', { path });
+      return _tauriDirRef(path, path);
+    } catch (e) {
+      // Tauri rejects with plain strings, not Error objects.
+      logMsg(`[HotReload] Folder access error: ${e?.message ?? e}`, 'warn');
+      return null;
+    }
+  }
+
+  // FIX: mtime without reading the file where the handle can do that (Tauri);
+  // falls back to getFile().lastModified for FileSystemFileHandle (unchanged).
+  const _mtime = async h =>
+    h.getLastModified ? h.getLastModified() : (await h.getFile()).lastModified;
+
   // ── Directory scan (recursive up to SCAN_DEPTH) ─────────────────────────
   //
   // Traverses dirHandle up to depth SCAN_DEPTH (currently 1 = root + direct
@@ -212,12 +279,10 @@ const HotReload = (() => {
         const newPrio  = TEX_PRIORITY[parts.ext] ?? 0;
         const oldPrio  = existing ? (TEX_PRIORITY[existing.ext] ?? 0) : -1;
         if (!existing || newPrio > oldPrio) {
-          const file = await handle.getFile();
-          _watched.set(parts.key, { handle, ext: parts.ext, lastModified: file.lastModified });
+          _watched.set(parts.key, { handle, ext: parts.ext, lastModified: await _mtime(handle) });
         }
       } else if (MDL_EXTS.includes(parts.ext)) {
-        const file = await handle.getFile();
-        _watchedMDL.set(parts.key, { handle, lastModified: file.lastModified });
+        _watchedMDL.set(parts.key, { handle, lastModified: await _mtime(handle) });
       }
     }
   }
@@ -250,11 +315,15 @@ const HotReload = (() => {
         // alive holds an OS-level file descriptor open. Passing the raw ArrayBuffer
         // to _onFileChanged instead of the File object ensures the descriptor is
         // released as soon as the GC collects the short-lived File.
+        const mtime = await _mtime(entry.handle);
+        if (mtime <= entry.lastModified) continue;
         let file = await entry.handle.getFile();
-        if (file.lastModified <= entry.lastModified) { file = null; continue; }
-        entry.lastModified = file.lastModified;
         const buffer = await file.arrayBuffer();
         file = null;  // release OS handle (Windows/Chromium lock fix)
+        // FIX: advance lastModified only after a successful read. A failed read
+        // (editor still holding the file on Windows) is retried on the next poll
+        // instead of being lost until the next save.
+        entry.lastModified = mtime;
         await _onFileChanged(key, entry.ext, buffer);
       } catch (_) {
         // Handle lost (file deleted / folder no longer accessible) → skip
@@ -266,9 +335,9 @@ const HotReload = (() => {
     // SetBrowser decides what to do (set sb-changed indicator).
     for (const [key, entry] of _watchedMDL.entries()) {
       try {
-        const file = await entry.handle.getFile();
-        if (file.lastModified <= entry.lastModified) continue;
-        entry.lastModified = file.lastModified;
+        const mtime = await _mtime(entry.handle);
+        if (mtime <= entry.lastModified) continue;
+        entry.lastModified = mtime;
         _mdlChangedCallbacks.forEach(cb => cb(key));
       } catch (_) {
         // Handle lost → skip
