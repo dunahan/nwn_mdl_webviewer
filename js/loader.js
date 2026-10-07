@@ -25,6 +25,7 @@
       'shinr':  'rshin_g',     // shin right
       'footl':  'lfoot_g',     // foot left
       'footr':  'rfoot_g',     // foot right*/
+      'robe':   'pelvis_g',    // robe: bone the (rigid) robe FOLLOWS in animations — position comes from the anchor offset, not from this bone
   };
   
   const NWN_ARM_CHAINS = [
@@ -36,6 +37,25 @@
     ['footl', 'footr'], ['shinl', 'shinr'], ['legl', 'legr'],
     ['pelvis'], ['belt'], ['chest'], ['neck'], ['head'],
   ];
+
+// World position of node `name` inside its own model (NWN space), walking the parent
+// chain. Stops (excluding it) at `stopAt`, the model's root node, whose transform the
+// scene does not apply either (skeleton root is skipped on merge, robe root is re-placed).
+function nwnNodeWorldPos(nodes, name, stopAt) {
+  const map = new Map(nodes.map(n => [n.name.toLowerCase(), n]));
+  const chain = [];
+  for (let n = map.get(name.toLowerCase()); n && chain.length < 64;
+       n = map.get((n.parent || '').toLowerCase())) {
+    if (n.name.toLowerCase() === stopAt) break;
+    chain.unshift(n);
+  }
+  const m = new THREE.Matrix4(), t = new THREE.Matrix4(), one = new THREE.Vector3(1, 1, 1);
+  for (const n of chain) {
+    t.compose(new THREE.Vector3(...n.position), axisAngleToQuat(...n.orientation), one);
+    m.multiply(t);
+  }
+  return new THREE.Vector3().setFromMatrixPosition(m);
+}
 
 function loadFiles(fileList) {
   if (!fileList || fileList.length === 0) return;
@@ -741,30 +761,6 @@ function positionCharacterParts(charParts, skeletonModel) {
   // ══════════════════════════════════════════════════════════════════════════
   if (skeletonModel) {
 
-    // NWN part abbreviation → attachment node name in skeleton
-    // Source: pmh0.mdl analysis (applies to all pm[mf][0-9].mdl base skeletons)
-/*  const BONE_MAP = {
-      'chest':  'torso_g',
-      'pelvis': 'pelvis_g',
-      'belt':   'belt_g1',
-      'neck':   'neck_g',
-      'head':   'head_g',
-      'shol':   'lbicep_g',    // shoulder plate: left shoulder joint
-      'shor':   'rbicep_g',    //                 right shoulder joint
-      'bicepl': 'lbicep_g',    // upper arm left
-      'bicepr': 'rbicep_g',    // upper arm right
-      'forel':  'lforearm_g',  // forearm left
-      'forer':  'rforearm_g',  // forearm right
-      'handl':  'lhand_g',     // hand left
-      'handr':  'rhand_g',     // hand right
-      'legl':   'lthigh_g',    // thigh left
-      'legr':   'rthigh_g',    // thigh right
-      'shinl':  'lshin_g',     // shin left
-      'shinr':  'rshin_g',     // shin right
-      'footl':  'lfoot_g',     // foot left
-      'footr':  'rfoot_g',     // foot right
-    };*/
-
     // World positions of all skeleton nodes via hierarchy traversal
     const nodeMap = {};
     for (const n of skeletonModel.nodes) nodeMap[n.name.toLowerCase()] = n;
@@ -911,8 +907,13 @@ function loadAllMDLFiles(mdlFiles) {
       if (allParsed.length > 1) {
         const charPartRx    = /^p[mf][a-z]\d_[a-z]+\d+$/i;
         const baseSkeletonRx = /^p[mf][a-z]\d$/i;
+        // Cloaks (pmh0_cloak_001) are skinned onto the skeleton's Cloak_g / CL*_g /
+        // CM*_g / CR*_g bones. The extra "_" before the number keeps them out of
+        // charPartRx, so they need their own pattern.
+        const cloakRx       = /^p[mf][a-z]\d_cloak_\d+$/i;
 
         const charParts     = allParsed.filter(m => charPartRx.test(m.name));
+        const cloakParts    = allParsed.filter(m => cloakRx.test(m.name));
         const skeletonModel = allParsed.find(m => baseSkeletonRx.test(m.name)) || null;
 
         // Case D applies when: only parts loaded  OR  skeleton + parts  OR
@@ -924,6 +925,7 @@ function loadAllMDLFiles(mdlFiles) {
           : '';
         const nonPartNonSkeleton = allParsed.filter(
           m => !charPartRx.test(m.name) &&
+               !cloakRx.test(m.name) &&
                !baseSkeletonRx.test(m.name) &&
                !(skelSuperName && skelSuperName !== 'null' &&
                  m.name.toLowerCase() === skelSuperName)
@@ -936,8 +938,34 @@ function loadAllMDLFiles(mdlFiles) {
 
           logInfoI18n('log_char_assembly', { n: charParts.length, base: base.name });
 
+          // Robes (pmh0_robe001) ship invisible render-0 helper trimeshes named after the
+          // bones they cover (pelvis_g, lthigh_g, torso_g, …) in addition to the visible
+          // "Robe" mesh. The helpers are NOT merged (they would shadow the skeleton's bone
+          // dummies and show up as boxes); their names tell which body parts the robe hides.
+          const robeRx    = /^p[mf][a-z]\d_robe\d+$/i;
+          const isHelper  = n => n.type === 'trimesh' && n.render === 0 && n.verts.length > 0;
+          const robeBones   = new Set();
+          const robeOffsets = new Map();   // part name → THREE.Vector3 (robe root position in skeleton space)
           for (const part of others) {
-            for (const node of part.nodes) base.nodes.push(node);
+            const robe = robeRx.test(part.name);
+            // A robe is modelled in its own space: its helper bone chain (rootdummy, torso_g, …)
+            // sits at different heights than in the skeleton (rootdummy z −0.225 vs 1.207).
+            // The helpers therefore double as calibration points: place the robe root so the
+            // first helper that also exists in the skeleton lands exactly on the skeleton's bone.
+            if (robe && skeletonModel) {
+              const skelNames = new Set(skeletonModel.nodes.map(n => n.name.toLowerCase()));
+              const anchor = part.nodes.find(n => isHelper(n) && skelNames.has(n.name.toLowerCase()));
+              if (anchor) {
+                const sRoot = skeletonModel.name.toLowerCase();
+                const off = nwnNodeWorldPos(skeletonModel.nodes, anchor.name, sRoot)
+                  .sub(nwnNodeWorldPos(part.nodes, anchor.name, part.name.toLowerCase()));
+                robeOffsets.set(part.name, off);
+              }
+            }
+            for (const node of part.nodes) {
+              if (robe && isHelper(node)) { robeBones.add(node.name.toLowerCase()); continue; }
+              base.nodes.push(node);
+            }
             logInfoI18n('log_char_part', { part: part.name, base: base.name });
           }
 
@@ -965,6 +993,37 @@ function loadAllMDLFiles(mdlFiles) {
           }
           // ─────────────────────────────────────────────────────────────────────
 
+          // ── Integrate cloak(s) ───────────────────────────────────────────────
+          // A cloak MDL repeats the skeleton's bone chain (rootdummy, torso_g,
+          // Cloak_g, CL1_g … CR4_g) as invisible render-0 trimeshes plus one skin
+          // node (Cloak_Skin) weighted to those bones. Only the skin node is new:
+          // every bone name already exists in the skeleton, whose dummies are the
+          // ones a_ba animates. So: skip all name duplicates (incl. the cloak's own
+          // root dummy) and re-parent whatever hung off the cloak root to base.
+          // Without a skeleton there are no bones to skin against → skip with a note.
+          if (cloakParts.length > 0) {
+            if (!skeletonModel) {
+              for (const cloak of cloakParts) logWarnI18n('log_char_cloak_noskel', { name: cloak.name });
+            } else {
+              const have = new Set(base.nodes.map(n => n.name.toLowerCase()));
+              for (const cloak of cloakParts) {
+                const cloakRoot = cloak.name.toLowerCase();
+                let added = 0;
+                for (const node of cloak.nodes) {
+                  if (have.has(node.name.toLowerCase())) continue;   // bone / root duplicate
+                  const patched = Object.assign({}, node, { _cloak: true });
+                  const par = (patched.parent || '').toLowerCase();
+                  if (!par || par === 'null' || par === cloakRoot) patched.parent = base.name;
+                  base.nodes.push(patched);
+                  have.add(node.name.toLowerCase());
+                  added++;
+                }
+                logInfoI18n('log_char_cloak', { name: cloak.name, n: added });
+              }
+            }
+          }
+          // ─────────────────────────────────────────────────────────────────────
+
           buildScene(base);
           // ── Reparent charpart roots to bones & hide bone debug meshes ────────
           // Skip positionCharacterParts() when skeleton is present:
@@ -973,17 +1032,6 @@ function loadAllMDLFiles(mdlFiles) {
           // in space by Three.js (including parent rotations).
           // → boneObj.add(partRoot) + position (0,0,0): part lands exactly at bone origin.
           if (skeletonModel) {
-/*          const BONE_MAP = {
-              'chest':  'torso_g',    'pelvis': 'pelvis_g',   'belt':   'belt_g1',
-              'neck':   'neck_g',     'head':   'head_g',
-              'shol':   'lbicep_g',   'shor':   'rbicep_g',
-              'bicepl': 'lbicep_g',   'bicepr': 'rbicep_g',
-              'forel':  'lforearm_g', 'forer':  'rforearm_g',
-              'handl':  'lhand_g',    'handr':  'rhand_g',
-              'legl':   'lthigh_g',   'legr':   'rthigh_g',
-              'shinl':  'lshin_g',    'shinr':  'rshin_g',
-              'footl':  'lfoot_g',    'footr':  'rfoot_g',
-            };*/
 
             // Case-insensitive bone lookup: skeletons of different models
             // use different capitalisations (e.g. Lbicep_g vs lbicep_g).
@@ -996,6 +1044,7 @@ function loadAllMDLFiles(mdlFiles) {
             // Step 1: attach part roots to their bones, set local position to (0,0,0)
             for (const part of charParts) {
               if (part === base) continue;
+              if (robeRx.test(part.name)) continue;   // robes are placed in Step 3 (anchor offset)
               const m = part.name.match(/^p[mf][a-z]\d_([a-z]+)\d+$/i);
               const boneName = NWN_BONE_MAP[m ? m[1].toLowerCase() : ''];
               if (!boneName) continue;
@@ -1011,17 +1060,22 @@ function loadAllMDLFiles(mdlFiles) {
             // The base root itself cannot be moved (all bones hang from it).
             // Its geometry meshes (non-skeleton nodes) are attached directly
             // under their bone attachment node, like all other parts.
+            // Cloak skin meshes stay on the base root: CPU skinning writes
+            // vertices in model space, so they must not inherit a bone transform.
             const pelvisGObj   = nodeObjLC[NWN_BONE_MAP['pelvis']];
             const baseRootObj  = nodeObjects[base.name];
+            const baseGeom     = [];   // base geometry moved to pelvis_g (needed for robe hiding)
             if (pelvisGObj && baseRootObj) {
               const skelNodeNames = new Set(
                 skeletonModel.nodes.map(n => n.name.toLowerCase())
               );
               for (const ch of [...baseRootObj.children]) {
+                if (ch.userData.nodeData?._cloak) continue;
                 if (!skelNodeNames.has(ch.name.toLowerCase())) {
                   pelvisGObj.add(ch);
                   ch.position.set(0, 0, 0);
                   ch.quaternion.identity();
+                  baseGeom.push(ch);
                 }
               }
             }
@@ -1038,6 +1092,45 @@ function loadAllMDLFiles(mdlFiles) {
               for (const child of obj.children) {
                 if (nodeObjects[child.name] !== child) child.visible = false;
               }
+            }
+
+            // Step 3a: robe placement. Put the robe root at its anchor offset under the base
+            // root (same frame as the skeleton), then attach() it to the follow bone — attach
+            // keeps the world transform, so the robe sits right at rest and moves with the bone.
+            for (const part of charParts) {
+              if (!robeRx.test(part.name)) continue;
+              const partRoot = nodeObjects[part.name];
+              const off      = robeOffsets.get(part.name);
+              if (!partRoot || !off) continue;
+              baseRootObj.add(partRoot);
+              partRoot.position.copy(off);
+              partRoot.quaternion.identity();
+              modelGroup.updateMatrixWorld(true);
+              const followBone = nodeObjLC[NWN_BONE_MAP['robe']];
+              if (followBone) followBone.attach(partRoot);
+              logInfoI18n('log_char_robe_anchor', { part: part.name, z: off.z.toFixed(3) });
+            }
+
+            // Step 3: robe → hide every body part whose attachment bone the robe covers
+            // (= has a helper trimesh in the robe file). Data-driven, so robes that cover
+            // different parts hide different parts. Not covered → stays visible.
+            if (robeBones.size > 0) {
+              const keyOf = name => {
+                const m = name.match(/^p[mf][a-z]\d_([a-z]+)\d+$/i);
+                return m ? m[1].toLowerCase() : '';
+              };
+              const hideKeys = new Set(Object.entries(NWN_BONE_MAP)
+                .filter(([k, bone]) => k !== 'robe' && robeBones.has(bone))
+                .map(([k]) => k));
+              const hidden = [];
+              for (const part of charParts) {
+                const key = keyOf(part.name);
+                if (!hideKeys.has(key)) continue;
+                if (part === base) baseGeom.forEach(o => { o.visible = false; });
+                else if (nodeObjects[part.name]) nodeObjects[part.name].visible = false;
+                hidden.push(key);
+              }
+              logInfoI18n('log_char_robe', { n: hidden.length, parts: hidden.join(', ') });
             }
           } else {
             positionCharacterParts(charParts, skeletonModel);  // fallback mode B (BB stacking)
@@ -1353,6 +1446,58 @@ viewport.addEventListener('dragleave', e => {
 });
 
 viewport.addEventListener('drop', () => _vpOverlay.classList.remove('drag-active'));
+
+// ── Native file drop (Tauri) ─────────────────────────────────────────────
+// WebKitGTK (Linux) fires the HTML5 dragenter/dragover events for files dragged
+// in from the file manager but delivers an EMPTY dataTransfer.files on drop, so
+// the handlers above load nothing. Tauri's own drag-drop handler reports the
+// real paths instead. It only fires when the window has dragDropEnabled: true
+// (tauri.linux.conf.json); on Windows/macOS it stays false, no native events
+// arrive and the HTML5 handlers above do the work, so nothing loads twice.
+// ponytail: all dropped files are read into memory at once; folders are skipped.
+(function () {
+  const T  = window.__TAURI__;
+  const wv = T && T.webview;
+  if (!wv || !wv.getCurrentWebview || !T.fs || !T.core) return;   // plain browser
+
+  const sidebar = document.getElementById('sidebar');
+  function highlight(on) {
+    dropZone.classList.toggle('drag-over', on);
+    _vpOverlay.classList.toggle('drag-active', on && sidebar.classList.contains('collapsed'));
+  }
+
+  async function filesFromPaths(paths) {
+    // Tauri's dialog/drop gives no fs access by itself — grant before reading.
+    await T.core.invoke('grant_files_access', { paths });
+    const files = [];
+    for (const path of paths) {
+      const info = await T.fs.stat(path);
+      if (info.isDirectory) continue;
+      const name = path.split(/[\\/]/).pop();
+      files.push(new File([await T.fs.readFile(path)], name,
+        { lastModified: info.mtime ? info.mtime.getTime() : Date.now() }));
+    }
+    return files;
+  }
+
+  wv.getCurrentWebview().onDragDropEvent(async ev => {
+    const p = ev.payload;
+    if (p.type === 'enter' || p.type === 'over') { highlight(true); return; }
+    highlight(false);
+    if (p.type !== 'drop' || !p.paths || !p.paths.length) return;
+    try {
+      const files = await filesFromPaths(p.paths);
+      // Start folder hint for the Watch-Folder dialog (see hot_reload.js).
+      const mdlPath = p.paths.find(x => /\.mdl$/i.test(x));
+      if (mdlPath && typeof HotReload !== 'undefined') {
+        HotReload.setModelFileHandle({ name: mdlPath.split(/[\\/]/).pop(), path: mdlPath });
+      }
+      loadFiles(files);
+    } catch (e) {
+      logError('[Drop] ' + (e && e.message ? e.message : e));
+    }
+  }).catch(e => console.warn('[Drop] native drop listener failed:', e));
+})();
 
 // ─────────────────────────────────────────────
 // ─────────────────────────────────────────────
