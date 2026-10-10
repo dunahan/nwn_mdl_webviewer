@@ -1,13 +1,13 @@
 /* ═══════════════════════════════════════════════
-   NWN MDL Viewer — Internationalisation (i18n)
+   NWN MDL Viewer — Internationalization (i18n)
    ═══════════════════════════════════════════════ */
 
 
 // ─────────────────────────────────────────────
 //  i18n — Internationalisation
-//  - Beide Kernsprachen (en/de) sind eingebettet → funktioniert auch lokal (file://)
-//  - Weitere Sprachen per ?lang=fr laden (benötigt HTTP-Server oder GitHub Pages)
-//  - Sprachumschalter-Dropdown in der Sidebar
+//  - Both core languages ​​(en/de) are embedded → works locally (file://) as well.
+//  - Load additional languages ​​via ?lang=fr (requires an HTTP server or GitHub Pages)
+//  - Language switcher dropdown in the sidebar
 // ─────────────────────────────────────────────
 
 const I18N_BUNDLE = {
@@ -86,6 +86,8 @@ const I18N_BUNDLE = {
     plt_layer_7:          'Leather 2',
     plt_layer_8:          'Tattoo 1',
     plt_layer_9:          'Tattoo 2',
+    plt_expand_all:       'Expand all',
+    plt_collapse_all:     'Collapse all',
     // decompile loading msg
     dcmp_title:           'Decompiling…',
     dcmp_hint:            'Binary MDL · Please wait',
@@ -176,6 +178,13 @@ const I18N_BUNDLE = {
     log_char_positioned:  'Character parts positioned via bounding-box stacking',
     log_char_skeleton:    'Base skeleton found: {name} — using exact attachment positions',
     log_char_bone:        'Part {part} → bone {bone} (Z: {z})',
+    log_char_robe:        'Robe: {n} body part(s) hidden ({parts})',
+    log_char_robe_anchor: 'Robe "{part}" placed on the skeleton (z offset {z})',
+    log_char_robe_fit:    'Robe "{part}": no helper nodes — offset estimated from the mesh (z {z})',
+    log_char_robe_skin:   'Skinned robe "{name}" bound to the skeleton ({n} node(s))',
+    status_2da_loaded:    'parts_robe.2da loaded: {name} ({n} robe row(s))',
+    log_char_cloak:        'Cloak "{name}" attached to skeleton ({n} node(s))',
+    log_char_cloak_noskel: 'Cloak "{name}" skipped — base skeleton required for skinning',
     // missing texture report
     tex_missing_none:     'All referenced textures loaded ✓',
     tex_missing_header:   'Missing textures ({n}) — not yet loaded:',
@@ -305,6 +314,8 @@ const I18N_BUNDLE = {
     plt_layer_7:          'Leder 2',
     plt_layer_8:          'Tattoo 1',
     plt_layer_9:          'Tattoo 2',
+    plt_expand_all:       'Alle aufklappen',
+    plt_collapse_all:     'Alle zuklappen',
     // decompile loading msg
     dcmp_title:           'Dekompiliere…',
     dcmp_hint:            'Binäres MDL · Bitte warten',
@@ -395,6 +406,13 @@ const I18N_BUNDLE = {
     log_char_positioned:  'Charakterteile per Bounding-Box gestapelt',
     log_char_skeleton:    'Basis-Skelett gefunden: {name} — exakte Attachment-Positionen werden verwendet',
     log_char_bone:        'Teil {part} → Knochen {bone} (Z: {z})',
+    log_char_robe:        'Robe: {n} Körperteil(e) ausgeblendet ({parts})',
+    log_char_robe_anchor: 'Robe "{part}" am Skelett platziert (z-Offset {z})',
+    log_char_robe_fit:    'Robe "{part}": keine Helper-Nodes — Offset aus dem Mesh geschätzt (z {z})',
+    log_char_robe_skin:   'Geskinnte Robe "{name}" am Skelett angebunden ({n} Node(s))',
+    status_2da_loaded:    'parts_robe.2da geladen: {name} ({n} Robe-Zeile(n))',
+    log_char_cloak:        'Umhang "{name}" am Skelett angebracht ({n} Node(s))',
+    log_char_cloak_noskel: 'Umhang "{name}" übersprungen — Basis-Skelett für das Skinning nötig',
     // Fehlende-Texturen-Report
     tex_missing_none:     'Alle referenzierten Texturen geladen ✓',
     tex_missing_header:   'Fehlende Texturen ({n}) — noch nicht geladen:',
@@ -451,7 +469,7 @@ const I18N_BUNDLE = {
   }
 };
 
-// Englisch ist der eingebaute Fallback
+// English is the built-in fallback.
 const I18N_FALLBACK = I18N_BUNDLE.en;
 let LANG = Object.assign({}, I18N_FALLBACK);
 let currentLangCode = 'en';
@@ -468,20 +486,20 @@ function applyI18n() {
     const val = L(el.getAttribute('data-i18n'));
     if (val) el.textContent = val;
   });
-  // Dropdown-Auswahl synchron halten
+  // Keep dropdown selection synchronized
   const sel = document.getElementById('lang-select');
   if (sel) sel.value = currentLangCode;
 }
 
-// Sprache wechseln — funktioniert immer (eingebettet oder per fetch)
+// Change language — always works (embedded or via fetch)
 async function switchLanguage(code) {
-  // --- 1. SPRACHDATEN LADEN ---
+  // --- 1. LOAD LANGUAGE DATA ---
   if (I18N_BUNDLE[code]) {
-    // A. Eingebettete Sprache (en / de)
+    // A. Embedded language (en / de)
     LANG = Object.assign({}, I18N_FALLBACK, I18N_BUNDLE[code]);
     currentLangCode = code;
   } else {
-    // B. Externe JSON-Datei (für eigene Übersetzungen)
+    // B. External JSON file (for custom translations)
     try {
       const resp = await fetch('lang/' + code + '.json');
       if (!resp.ok) throw new Error(resp.status);
@@ -489,7 +507,7 @@ async function switchLanguage(code) {
       LANG = Object.assign({}, I18N_FALLBACK, data);
       currentLangCode = code;
       
-      // Dropdown mit neuer Option befüllen falls noch nicht vorhanden
+      // Populate dropdown with a new option if it does not already exist.
       const sel = document.getElementById('lang-select');
       if (sel && !sel.querySelector('option[value="' + code + '"]')) {
         const opt = document.createElement('option');
@@ -498,15 +516,15 @@ async function switchLanguage(code) {
       }
     } catch (e) {
       setStatus(L('status_lang_fallback'));
-      return; // Bei Fehler abbrechen, UI nicht aktualisieren
+      return; // Abort on error, do not update UI
     }
   }
 
-  // --- 2. UI AKTUALISIEREN (Wird jetzt immer erreicht!) ---
+  // --- 2. UPDATE UI (Now always reached!) ---
   
-  applyI18n(); // Übersetzt statisches HTML (data-i18n)
+  applyI18n(); // Translates static HTML (data-i18n)
   
-  // Dynamische UI-Elemente neu zeichnen
+  // Redraw dynamic UI elements
   if (typeof currentModel !== 'undefined' && currentModel) {
     buildNodeList(currentModel); 
     if (typeof showModelInfo === 'function') {
@@ -514,26 +532,26 @@ async function switchLanguage(code) {
     }
   }
 
-  // PLT Panel immer neu bauen, da es von textureCache abhängt
+  // PLT Always rebuild the panel, as it depends on textureCache.
   if (typeof buildPLTPanel === 'function') {
     buildPLTPanel(); // Hier greift nun das L('plt_layer_' + i)
   }
   
-  // Statusleiste und URL-Parameter aktualisieren
+  // Update status bar and URL parameters
   setStatus(fmt('status_lang_loaded', { lang: LANG._meta?.language || currentLangCode }));
   const url = new URL(window.location);
   url.searchParams.set('lang', currentLangCode);
   history.replaceState(null, '', url);
 
-  // Log-Einträge mit gespeichertem i18n-Schlüssel neu übersetzen
+  // Re-translate log entries with stored i18n keys
   if (typeof retranslateLog === 'function') retranslateLog();
 }
 
-// Beim Start: Sprache aus URL-Parameter oder Browser-Sprache ermitteln
+// At startup: Determine language from URL parameter or browser language.
 async function loadLanguage() {
   const params = new URLSearchParams(window.location.search);
   let code = params.get('lang');
-  // Kein Parameter → Browser-Sprache als Hinweis nutzen (nur wenn eingebettet)
+  // No parameter → Use browser language as a hint (only if embedded)
   if (!code) {
     const browserLang = (navigator.language || 'en').slice(0, 2).toLowerCase();
     code = I18N_BUNDLE[browserLang] ? browserLang : 'en';
