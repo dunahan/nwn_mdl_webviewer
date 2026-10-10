@@ -179,6 +179,10 @@ const I18N_BUNDLE = {
     log_char_skeleton:    'Base skeleton found: {name} — using exact attachment positions',
     log_char_bone:        'Part {part} → bone {bone} (Z: {z})',
     log_char_robe:        'Robe: {n} body part(s) hidden ({parts})',
+    log_char_robe_anchor: 'Robe "{part}" placed on the skeleton (z offset {z})',
+    log_char_robe_fit:    'Robe "{part}": no helper nodes — offset estimated from the mesh (z {z})',
+    log_char_robe_skin:   'Skinned robe "{name}" bound to the skeleton ({n} node(s))',
+    status_2da_loaded:    'parts_robe.2da loaded: {name} ({n} robe row(s))',
     log_char_cloak:        'Cloak "{name}" attached to skeleton ({n} node(s))',
     log_char_cloak_noskel: 'Cloak "{name}" skipped — base skeleton required for skinning',
     // missing texture report
@@ -403,6 +407,10 @@ const I18N_BUNDLE = {
     log_char_skeleton:    'Basis-Skelett gefunden: {name} — exakte Attachment-Positionen werden verwendet',
     log_char_bone:        'Teil {part} → Knochen {bone} (Z: {z})',
     log_char_robe:        'Robe: {n} Körperteil(e) ausgeblendet ({parts})',
+    log_char_robe_anchor: 'Robe "{part}" am Skelett platziert (z-Offset {z})',
+    log_char_robe_fit:    'Robe "{part}": keine Helper-Nodes — Offset aus dem Mesh geschätzt (z {z})',
+    log_char_robe_skin:   'Geskinnte Robe "{name}" am Skelett angebunden ({n} Node(s))',
+    status_2da_loaded:    'parts_robe.2da geladen: {name} ({n} Robe-Zeile(n))',
     log_char_cloak:        'Umhang "{name}" am Skelett angebracht ({n} Node(s))',
     log_char_cloak_noskel: 'Umhang "{name}" übersprungen — Basis-Skelett für das Skinning nötig',
     // Fehlende-Texturen-Report

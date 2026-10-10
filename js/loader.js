@@ -25,7 +25,10 @@
       'shinr':  'rshin_g',     // shin right
       'footl':  'lfoot_g',     // foot left
       'footr':  'rfoot_g',     // foot right*/
-      'robe':   'pelvis_g',    // robe: bone the (rigid) robe FOLLOWS in animations — position comes from the anchor offset, not from this bone
+      // robe: bone the (rigid) robe FOLLOWS in animations — position comes from the offset, not from this bone.
+      // capart.2da attaches robes to "root"; rootdummy is the animated root of the skeleton (pelvis_g would also
+      // follow the hip rotation). Unverified in-engine — to revert, set this back to 'pelvis_g'.
+      'robe':   'rootdummy',
   };
   
   const NWN_ARM_CHAINS = [
@@ -57,6 +60,48 @@ function nwnNodeWorldPos(nodes, name, stopAt) {
   return new THREE.Vector3().setFromMatrixPosition(m);
 }
 
+// ── Robes ───────────────────────────────────────────────────────────────────
+// NEW: parts_robe.2da — row N (= pmh0_robe00N) → Set of body-part keys the engine hides
+// ('footr', 'legl', 'chest', …: HIDE<KEY> column = 1). A 2da is configuration, not session
+// data: it survives clearSession() and stays until another one is dropped.
+let partsRobeTable = null;   // Map<number, Set<string>> | null
+
+function parsePartsRobe2DA(text) {
+  const lines = text.replace(/\r/g, '').split('\n').map(l => l.trim()).filter(Boolean);
+  const hi = lines.findIndex(l => /(^|\s)HIDEPELVIS(\s|$)/i.test(l));
+  if (hi < 0) return null;   // not a parts_robe.2da (e.g. capart.2da)
+  const cols  = lines[hi].split(/\s+/).map(c => c.toUpperCase());
+  const table = new Map();
+  for (const l of lines.slice(hi + 1)) {
+    const t  = l.split(/\s+/);
+    const nr = parseInt(t[0], 10);
+    if (isNaN(nr)) continue;
+    const keys = new Set();
+    cols.forEach((c, i) => { if (c.startsWith('HIDE') && t[i + 1] === '1') keys.add(c.slice(4).toLowerCase()); });
+    table.set(nr, keys);
+  }
+  return table;
+}
+
+// Offset for a rigid robe WITHOUT helper trimeshes (pmh0_robe002, pfh0_robe002): there is no
+// bone to anchor on, so the lowest point of the visible mesh decides. Robes authored in floor
+// space (pfh0_robe002: lowest z 0.097) need no shift; robes authored around the pelvis
+// (pmh0_robe002: lowest z −1.36) are lifted until the hem sits NWN_ROBE_HEM above the floor.
+// ponytail: measured on three robes only (hems 0.07–0.11, so ±3 cm); node rotation of the
+// mesh is ignored. Upgrade: per-skeleton constant, once a rule from the engine is known.
+const NWN_ROBE_HEM = 0.09;
+function nwnRobeFitOffset(part) {
+  const root = part.name.toLowerCase();
+  let minZ = Infinity;
+  for (const n of part.nodes) {
+    if (n.type !== 'trimesh' || n.render === 0 || n.verts.length === 0) continue;
+    const z0 = nwnNodeWorldPos(part.nodes, n.name, root).z;
+    for (const v of n.verts) if (z0 + v[2] < minZ) minZ = z0 + v[2];
+  }
+  if (!isFinite(minZ)) return null;
+  return new THREE.Vector3(0, 0, minZ >= -0.05 ? 0 : NWN_ROBE_HEM - minZ);
+}
+
 function loadFiles(fileList) {
   if (!fileList || fileList.length === 0) return;
 
@@ -69,10 +114,11 @@ function loadFiles(fileList) {
   const wokFiles = files.filter(f => /\.wok$/i.test(f.name));
   const pwkFiles = files.filter(f => /\.pwk$/i.test(f.name));
   const dwkFiles = files.filter(f => /\.dwk$/i.test(f.name));
+  const twodaFiles = files.filter(f => /\.2da$/i.test(f.name));
 
   if (mdlFiles.length === 0 && texFiles.length === 0 && txiFiles.length === 0 
       && mtrFiles.length === 0 && wokFiles.length === 0 && pwkFiles.length === 0
-      && dwkFiles.length === 0 && setFiles.length === 0) {
+      && dwkFiles.length === 0 && setFiles.length === 0 && twodaFiles.length === 0) {
     setStatus(L('status_no_files'));
     return;
   }
@@ -97,6 +143,7 @@ function loadFiles(fileList) {
   let texPending = texFiles.length;
   let txiPending = txiFiles.length;
   let mtrPending = mtrFiles.length;
+  let twodaPending = twodaFiles.length;   // parts_robe.2da must be in before the MDLs are assembled
   let texLoaded  = 0;
 
   function onAllTexReady() {
@@ -113,7 +160,7 @@ function loadFiles(fileList) {
   }
 
   function checkAllReady() {
-    if (texPending === 0 && txiPending === 0 && mtrPending === 0) onAllTexReady();
+    if (texPending === 0 && txiPending === 0 && mtrPending === 0 && twodaPending === 0) onAllTexReady();
   }
 
   // Read TXI files as text
@@ -155,6 +202,30 @@ function loadFiles(fileList) {
     reader.onerror = () => {
       logError(file.name + ' — ' + L('status_read_error'));
       mtrPending--;
+      checkAllReady();
+    };
+    reader.readAsText(file);
+  }
+
+  // Read parts_robe.2da (robe → hidden body parts). Other 2das (capart.2da, …) are ignored.
+  for (const file of twodaFiles) {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const table = parsePartsRobe2DA(ev.target.result);
+        if (table) {
+          partsRobeTable = table;
+          logInfoI18n('status_2da_loaded', { name: file.name, n: table.size });
+        }
+      } catch(err) {
+        logError(file.name + ' — ' + err.message);
+      }
+      twodaPending--;
+      checkAllReady();
+    };
+    reader.onerror = () => {
+      logError(file.name + ' — ' + L('status_read_error'));
+      twodaPending--;
       checkAllReady();
     };
     reader.readAsText(file);
@@ -217,7 +288,7 @@ function loadFiles(fileList) {
     }
   }
 
-  if (texPending === 0 && mtrPending === 0) {
+  if (texPending === 0 && mtrPending === 0 && twodaPending === 0) {
     onAllTexReady();
     return;
   }
@@ -911,10 +982,14 @@ function loadAllMDLFiles(mdlFiles) {
         // CM*_g / CR*_g bones. The extra "_" before the number keeps them out of
         // charPartRx, so they need their own pattern.
         const cloakRx       = /^p[mf][a-z]\d_cloak_\d+$/i;
+        const robeRx        = /^p[mf][a-z]\d_robe\d+$/i;
 
         const charParts     = allParsed.filter(m => charPartRx.test(m.name));
-        const cloakParts    = allParsed.filter(m => cloakRx.test(m.name));
         const skeletonModel = allParsed.find(m => baseSkeletonRx.test(m.name)) || null;
+        // NEW: skinned robes (pmh0_robe003: a skin node weighted to the skeleton bones) behave
+        // like cloaks — CPU skinning, no placement. Rigid robes (robe001/002) are placed below.
+        const skinRobes     = charParts.filter(m => robeRx.test(m.name) && m.nodes.some(n => n.type === 'skin'));
+        const cloakParts    = allParsed.filter(m => cloakRx.test(m.name)).concat(skinRobes);
 
         // Case D applies when: only parts loaded  OR  skeleton + parts  OR
         // skeleton + parts + supermodel of skeleton (e.g. a_fa.mdl).
@@ -931,39 +1006,64 @@ function loadAllMDLFiles(mdlFiles) {
                  m.name.toLowerCase() === skelSuperName)
         );
 
-        if (charParts.length > 1 && nonPartNonSkeleton.length === 0) {
+        // NEW: skeleton + a single robe is a complete character too (the robe carries no body parts).
+        const bodyParts = charParts.filter(m => !robeRx.test(m.name));
+        const loneRobe  = charParts.length === 1 && bodyParts.length === 0 && !!skeletonModel;
+        if ((charParts.length > 1 || loneRobe) && (skeletonModel || bodyParts.length > 0) &&
+            nonPartNonSkeleton.length === 0) {
           charParts.sort((a, b) => a.name.localeCompare(b.name));
-          const base   = charParts.find(m => /pelvis/i.test(m.name)) || charParts[0];
+          // Base = a real body part. A robe is never base (its helper chain would shadow the
+          // skeleton bones); robes only → a copy of the skeleton model is the base.
+          const base   = bodyParts.find(m => /pelvis/i.test(m.name)) || bodyParts[0] ||
+            Object.assign({}, skeletonModel, { nodes: skeletonModel.nodes.slice(), animations: [], restPose: {}, animCount: 0 });
           const others = charParts.filter(m => m !== base);
 
           logInfoI18n('log_char_assembly', { n: charParts.length, base: base.name });
 
-          // Robes (pmh0_robe001) ship invisible render-0 helper trimeshes named after the
+          // Robes (pmh0_robe001) may ship invisible render-0 helper trimeshes named after the
           // bones they cover (pelvis_g, lthigh_g, torso_g, …) in addition to the visible
           // "Robe" mesh. The helpers are NOT merged (they would shadow the skeleton's bone
-          // dummies and show up as boxes); their names tell which body parts the robe hides.
-          const robeRx    = /^p[mf][a-z]\d_robe\d+$/i;
+          // dummies and show up as boxes).
           const isHelper  = n => n.type === 'trimesh' && n.render === 0 && n.verts.length > 0;
-          const robeBones   = new Set();
           const robeOffsets = new Map();   // part name → THREE.Vector3 (robe root position in skeleton space)
+          // Body parts hidden by robes. Source of truth is the engine's parts_robe.2da (row = robe
+          // number); helpers are incomplete there (no belt, robe002 has none). Without a table row
+          // the robe's own helper names are the fallback. No table, no helpers → nothing is hidden.
+          const robeHideKeys = new Set();
           for (const part of others) {
             const robe = robeRx.test(part.name);
-            // A robe is modelled in its own space: its helper bone chain (rootdummy, torso_g, …)
+            if (robe) {
+              const row = partsRobeTable && partsRobeTable.get(parseInt(part.name.match(/(\d+)$/)[1], 10));
+              if (row) row.forEach(k => robeHideKeys.add(k));
+              else for (const n of part.nodes) {
+                if (!isHelper(n)) continue;
+                for (const [k, bone] of Object.entries(NWN_BONE_MAP)) {
+                  if (k !== 'robe' && bone === n.name.toLowerCase()) robeHideKeys.add(k);
+                }
+              }
+            }
+            if (skinRobes.includes(part)) continue;   // skinned robe → cloak block below
+            // A rigid robe is modelled in its own space: its helper bone chain (rootdummy, torso_g, …)
             // sits at different heights than in the skeleton (rootdummy z −0.225 vs 1.207).
             // The helpers therefore double as calibration points: place the robe root so the
             // first helper that also exists in the skeleton lands exactly on the skeleton's bone.
+            // Without helpers (robe002): estimate from the mesh, see nwnRobeFitOffset().
             if (robe && skeletonModel) {
               const skelNames = new Set(skeletonModel.nodes.map(n => n.name.toLowerCase()));
               const anchor = part.nodes.find(n => isHelper(n) && skelNames.has(n.name.toLowerCase()));
+              let off = null;
               if (anchor) {
                 const sRoot = skeletonModel.name.toLowerCase();
-                const off = nwnNodeWorldPos(skeletonModel.nodes, anchor.name, sRoot)
+                off = nwnNodeWorldPos(skeletonModel.nodes, anchor.name, sRoot)
                   .sub(nwnNodeWorldPos(part.nodes, anchor.name, part.name.toLowerCase()));
-                robeOffsets.set(part.name, off);
+              } else {
+                off = nwnRobeFitOffset(part);
+                if (off) logInfoI18n('log_char_robe_fit', { part: part.name, z: off.z.toFixed(3) });
               }
+              if (off) robeOffsets.set(part.name, off);
             }
             for (const node of part.nodes) {
-              if (robe && isHelper(node)) { robeBones.add(node.name.toLowerCase()); continue; }
+              if (robe && isHelper(node)) continue;
               base.nodes.push(node);
             }
             logInfoI18n('log_char_part', { part: part.name, base: base.name });
@@ -1006,19 +1106,26 @@ function loadAllMDLFiles(mdlFiles) {
               for (const cloak of cloakParts) logWarnI18n('log_char_cloak_noskel', { name: cloak.name });
             } else {
               const have = new Set(base.nodes.map(n => n.name.toLowerCase()));
+              // NEW: skinning looks bones up case-sensitively; skeletons and weights disagree
+              // (pmh0 'Lbicep_g' vs robe003 weights 'lbicep_g') → use the skeleton's spelling.
+              const skelCase = new Map(base.nodes.map(n => [n.name.toLowerCase(), n.name]));
               for (const cloak of cloakParts) {
                 const cloakRoot = cloak.name.toLowerCase();
                 let added = 0;
                 for (const node of cloak.nodes) {
                   if (have.has(node.name.toLowerCase())) continue;   // bone / root duplicate
                   const patched = Object.assign({}, node, { _cloak: true });
+                  if (node.vertexWeights) {
+                    patched.vertexWeights = node.vertexWeights.map(ps =>
+                      ps.map(p => ({ bone: skelCase.get(p.bone.toLowerCase()) || p.bone, weight: p.weight })));
+                  }
                   const par = (patched.parent || '').toLowerCase();
                   if (!par || par === 'null' || par === cloakRoot) patched.parent = base.name;
                   base.nodes.push(patched);
                   have.add(node.name.toLowerCase());
                   added++;
                 }
-                logInfoI18n('log_char_cloak', { name: cloak.name, n: added });
+                logInfoI18n(skinRobes.includes(cloak) ? 'log_char_robe_skin' : 'log_char_cloak', { name: cloak.name, n: added });
               }
             }
           }
@@ -1111,21 +1218,18 @@ function loadAllMDLFiles(mdlFiles) {
               logInfoI18n('log_char_robe_anchor', { part: part.name, z: off.z.toFixed(3) });
             }
 
-            // Step 3: robe → hide every body part whose attachment bone the robe covers
-            // (= has a helper trimesh in the robe file). Data-driven, so robes that cover
-            // different parts hide different parts. Not covered → stays visible.
-            if (robeBones.size > 0) {
+            // Step 3: robe → hide the body parts parts_robe.2da (or, as fallback, the robe's helper
+            // trimeshes) lists. Data-driven, so robes that cover different parts hide different
+            // parts. Not listed → stays visible.
+            if (robeHideKeys.size > 0) {
               const keyOf = name => {
                 const m = name.match(/^p[mf][a-z]\d_([a-z]+)\d+$/i);
                 return m ? m[1].toLowerCase() : '';
               };
-              const hideKeys = new Set(Object.entries(NWN_BONE_MAP)
-                .filter(([k, bone]) => k !== 'robe' && robeBones.has(bone))
-                .map(([k]) => k));
               const hidden = [];
               for (const part of charParts) {
                 const key = keyOf(part.name);
-                if (!hideKeys.has(key)) continue;
+                if (!robeHideKeys.has(key)) continue;
                 if (part === base) baseGeom.forEach(o => { o.visible = false; });
                 else if (nodeObjects[part.name]) nodeObjects[part.name].visible = false;
                 hidden.push(key);
