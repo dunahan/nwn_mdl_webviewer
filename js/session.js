@@ -174,7 +174,10 @@ function applyTexturesToScene() {
 
   for (const node of currentModel.nodes) {
     const obj = nodeObjects[node.name];
-    if (!obj || !obj.material) continue;
+    // Only buildScene's textured meshes get a MeshStandardMaterial. A node with
+    // no geometry is a placeholder sphere with a MeshBasicMaterial, which has
+    // no normalMap or normalScale to set.
+    if (!obj || !obj.material || !obj.material.isMeshStandardMaterial) continue;
     const mat = obj.material;
 
     // MTR lookup: materialname takes precedence over bitmap-based lookup
