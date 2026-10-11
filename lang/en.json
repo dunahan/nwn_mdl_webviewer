@@ -206,6 +206,7 @@
   "log_char_robe_anchor": "Robe \"{part}\" placed on the skeleton (z offset {z})",
   "log_char_robe_fit": "Robe \"{part}\": no helper nodes — offset estimated from the mesh (z {z})",
   "log_char_robe_skin": "Skinned robe \"{name}\" bound to the skeleton ({n} node(s))",
+  "log_char_robe_autoskin": "Robe \"{part}\": rigid mesh — skin weights generated from the skeleton ({n} vertices)",
   "status_2da_loaded": "parts_robe.2da loaded: {name} ({n} robe row(s))",
   "log_char_cloak": "Cloak \"{name}\" attached to skeleton ({n} node(s))",
   "log_char_cloak_noskel": "Cloak \"{name}\" skipped — base skeleton required for skinning",
