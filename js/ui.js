@@ -554,6 +554,20 @@ function buildPLTPanel() {
 
   panel.style.display = 'block';
   listEl.innerHTML = '';
+  
+  if (pltEntries.length > 3) {
+    const bar = document.createElement('div');
+    bar.style.cssText = 'display:flex;gap:4px;padding:0 0 4px;';
+    for (const [collapse, key, icon] of [[false, 'plt_expand_all', '▼'], [true, 'plt_collapse_all', '▲']]) {
+      const b = document.createElement('button');
+      b.className   = 'ntb-btn';
+      b.textContent = icon;
+      b.title       = L(key);
+      b.addEventListener('click', () => pltSetAllParts(collapse));
+      bar.appendChild(b);
+    }
+    listEl.appendChild(bar);
+  }
 
   for (const [texName, tex] of pltEntries) {
     const isMulti = pltEntries.length > 1;
@@ -696,6 +710,13 @@ function _buildLayerPicker(layerIdx, dotEl, texKey) {
     wrap.appendChild(sw);
   }
   return wrap;
+}
+
+function pltSetAllParts(collapse) {
+  document.querySelectorAll('#plt-layer-list .plt-part-body').forEach(body => {
+    body.classList.toggle('collapsed', collapse);
+    body.previousElementSibling.querySelector('.plt-part-arrow').textContent = collapse ? '▲' : '▼';
+  });
 }
 
 function togglePLTPanel() {
