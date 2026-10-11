@@ -102,6 +102,71 @@ function nwnRobeFitOffset(part) {
   return new THREE.Vector3(0, 0, minZ >= -0.05 ? 0 : NWN_ROBE_HEM - minZ);
 }
 
+// ── Rigid robes → generated skin weights ────────────────────────────────────
+// robe001/002 are plain trimeshes (no weights, no helper links, no robe bone in a_ba), yet in the
+// game they follow the whole skeleton. The engine's mechanism is unknown, so rigid robes get
+// skin weights generated here and take the same CPU-skinning path as pmh0_robe003.
+// Set to false to fall back to the rigid placement (robe root attached to one bone).
+const NWN_ROBE_AUTOSKIN = true;
+
+// Body as capsules: [bone, from joint, to joint | [dx,dy,dz] leaf offset, radius in m (human male)].
+// A segment's bone is the joint it starts at (that node rotates its children). Radii only decide
+// who "owns" a vertex near the body — they are scaled by the skeleton's hip height.
+const NWN_ROBE_SEGMENTS = [
+  ['torso_g',   'torso_g',   'neck_g',    0.17],
+  ['neck_g',    'neck_g',    'head_g',    0.06],
+  ['head_g',    'head_g',    'head',      0.11],
+  ['pelvis_g',  'pelvis_g',  'lthigh_g',  0.14],
+  ['pelvis_g',  'pelvis_g',  'rthigh_g',  0.14],
+  ['lthigh_g',  'lthigh_g',  'lshin_g',   0.10],
+  ['rthigh_g',  'rthigh_g',  'rshin_g',   0.10],
+  ['lshin_g',   'lshin_g',   'lfoot_g',   0.07],
+  ['rshin_g',   'rshin_g',   'rfoot_g',   0.07],
+  ['lfoot_g',   'lfoot_g',   [0, -0.12, -0.04], 0.06],
+  ['rfoot_g',   'rfoot_g',   [0, -0.12, -0.04], 0.06],
+  ['lbicep_g',  'lbicep_g',  'lforearm_g', 0.06],
+  ['rbicep_g',  'rbicep_g',  'rforearm_g', 0.06],
+  ['lforearm_g','lforearm_g','lhand_g',   0.05],
+  ['rforearm_g','rforearm_g','rhand_g',   0.05],
+  ['lhand_g',   'lhand_g',   [0, 0, -0.10], 0.05],
+  ['rhand_g',   'rhand_g',   [0, 0, -0.10], 0.05],
+];
+
+// Per-vertex weights for a mesh given in skeleton space: inverse-distance to each capsule surface
+// (power 4), so a vertex inside the torso belongs to the torso alone and one between two legs
+// blends them. Result matches node.vertexWeights: [[{bone, weight}, …] per vertex].
+// ponytail: geometric guess, not the engine's rule; no smoothing pass, max 4 bones per vertex.
+function nwnRobeWeights(vertsModel, skeletonModel) {
+  const sRoot = skeletonModel.name.toLowerCase();
+  const nameOf = new Map(skeletonModel.nodes.map(n => [n.name.toLowerCase(), n.name]));
+  const P = nm => nameOf.has(nm) ? nwnNodeWorldPos(skeletonModel.nodes, nm, sRoot) : null;
+  const hip = P('rootdummy');
+  const k = hip && hip.z > 0.1 ? hip.z / 1.207 : 1;
+  const segs = [];
+  for (const [bone, from, to, r] of NWN_ROBE_SEGMENTS) {
+    const a = P(from);
+    const b = Array.isArray(to) ? (a && a.clone().add(new THREE.Vector3(...to).multiplyScalar(k))) : P(to);
+    if (!a || !b || !nameOf.has(bone)) continue;
+    const ab = b.clone().sub(a);
+    segs.push({ bone: nameOf.get(bone), a, ab, len2: Math.max(ab.lengthSq(), 1e-9), r: r * k });
+  }
+  const tmp = new THREE.Vector3();
+  return vertsModel.map(v => {
+    const acc = new Map();
+    for (const s of segs) {
+      const t = Math.max(0, Math.min(1, tmp.copy(v).sub(s.a).dot(s.ab) / s.len2));
+      const d = Math.max(0, tmp.copy(v).sub(s.a).addScaledVector(s.ab, -t).length() - s.r);
+      const w = 1 / Math.pow(d + 0.01, 4);
+      acc.set(s.bone, (acc.get(s.bone) || 0) + w);
+    }
+    const top = [...acc].sort((x, y) => y[1] - x[1]).slice(0, 4);
+    const sum = top.reduce((q, [, w]) => q + w, 0) || 1;
+    const kept = top.filter(([, w]) => w / sum > 0.02);
+    const ksum = kept.reduce((q, [, w]) => q + w, 0) || 1;
+    return kept.map(([bone, w]) => ({ bone, weight: w / ksum }));
+  });
+}
+
 function loadFiles(fileList) {
   if (!fileList || fileList.length === 0) return;
 
@@ -1060,6 +1125,27 @@ function loadAllMDLFiles(mdlFiles) {
                 off = nwnRobeFitOffset(part);
                 if (off) logInfoI18n('log_char_robe_fit', { part: part.name, z: off.z.toFixed(3) });
               }
+              // Rigid robe + skeleton: generate skin weights and hand the robe to the cloak/skin
+              // block below (offset baked into the skin node's position = pivot in skeleton space).
+              if (off && NWN_ROBE_AUTOSKIN) {
+                let n = 0;
+                part.nodes = part.nodes.map(node => {
+                  if (node.type !== 'trimesh' || isHelper(node) || node.faces.length === 0) return node;
+                  const q    = axisAngleToQuat(...node.orientation);
+                  const pos  = new THREE.Vector3(...node.position).add(off);
+                  const vs   = node.verts.map(v => new THREE.Vector3(...v).applyQuaternion(q).add(pos));
+                  n += vs.length;
+                  return Object.assign({}, node, {
+                    type: 'skin',
+                    position: pos.toArray(),
+                    vertexWeights: nwnRobeWeights(vs, skeletonModel),
+                  });
+                });
+                skinRobes.push(part);
+                cloakParts.push(part);
+                logInfoI18n('log_char_robe_autoskin', { part: part.name, n });
+                continue;
+              }
               if (off) robeOffsets.set(part.name, off);
             }
             for (const node of part.nodes) {
@@ -1114,6 +1200,7 @@ function loadAllMDLFiles(mdlFiles) {
                 let added = 0;
                 for (const node of cloak.nodes) {
                   if (have.has(node.name.toLowerCase())) continue;   // bone / root duplicate
+                  if (isHelper(node)) continue;                       // invisible bone proxies never render
                   const patched = Object.assign({}, node, { _cloak: true });
                   if (node.vertexWeights) {
                     patched.vertexWeights = node.vertexWeights.map(ps =>
