@@ -150,15 +150,34 @@ const threeLoader = (() => {
   // ── Fatal error surface ─────────────────────────────────────────────────
   // i18n.js and log.js are not loaded yet at this point, so this deliberately
   // uses plain English and touches the DOM directly instead of L()/logError().
+  // Only the FIRST error is shown (root cause); later ones are only console.error'd.
+  let _stage      = 'importing Three.js';
+  let _fatalShown = false;
   function _showFatal(err) {
-    console.error('[three-loader]', err);
+    console.error('[three-loader]', _stage, err);
+    if (_fatalShown) return;
+    _fatalShown = true;
+    const msg  = String(err && err.message || err);
+    const hint = /WebGL/i.test(msg)
+      ? '<br>This browser/GPU provides no WebGL 2 (required by Three.js r163+). Test: get.webgl.org/webgl2'
+      : '';
     const el = document.getElementById('empty-state');
     if (el) {
+      el.style.display = 'flex';
       el.innerHTML = '<div class="es-icon">⚠</div>' +
-        '<p>Three.js failed to load</p>' +
-        '<small>' + String(err && err.message || err) + '</small>';
+        '<p>Viewer failed to start</p>' +
+        '<small>' + _stage + ': ' + msg + hint + '</small>';
     }
   }
+
+  // ── Diagnose: what the bootstrap cannot see on its own ──────────────────
+  // 1) Until loader.js registers its drop handlers, a dropped file makes the
+  //    browser navigate to it (file:///…). Swallow drops from the very start.
+  // 2) A script that throws at top level (e.g. new WebGLRenderer without WebGL 2)
+  //    does NOT reject _loadScript() — it only fires window 'error', and every
+  //    later file of the same block (incl. loader.js) silently never runs.
+  ['dragover', 'drop'].forEach(t => window.addEventListener(t, e => e.preventDefault()));
+  const _onBootError = e => _showFatal(e.error || e.reason || e.message);
 
   function _domReady() {
     if (document.readyState !== 'loading') return Promise.resolve();
@@ -176,7 +195,14 @@ const threeLoader = (() => {
       _ready = true;
       _readyResolve();
 
-      await _runViewerScripts();
+      _stage = 'running viewer scripts';
+      window.addEventListener('error', _onBootError);
+      window.addEventListener('unhandledrejection', _onBootError);
+      try { await _runViewerScripts(); }
+      finally {
+        window.removeEventListener('error', _onBootError);
+        window.removeEventListener('unhandledrejection', _onBootError);
+      }
     } catch (err) {
       _showFatal(err);
       _readyReject(err);

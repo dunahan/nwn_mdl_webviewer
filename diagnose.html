@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NWN MDL Viewer – Diagnose</title>
+<style>
+  body { font: 16px/1.5 system-ui, sans-serif; max-width: 46em; margin: 2em auto; padding: 0 1em; }
+  pre  { background: #eee; padding: 1em; white-space: pre-wrap; word-break: break-word; }
+  #drop { border: 3px dashed #888; padding: 2em; text-align: center; margin: 1em 0; }
+  #drop.on { background: #ffe9a8; }
+  button { font-size: 1em; padding: .5em 1em; }
+</style>
+</head>
+<body>
+<h1>NWN MDL Viewer – Diagnose</h1>
+<p>Nothing to install, nothing to configure. Wait a few seconds until the list below ends with <b>RESULT</b>.</p>
+
+<h2>Step 1 – automatic tests</h2>
+<pre id="out">Running…</pre>
+
+<h2>Step 2 – drop test</h2>
+<p>Drag <b>any file</b> (e.g. your .mdl) onto the box. The box should turn yellow while you hold the file over it.
+If the browser instead opens the file or leaves this page, that is an important result too – please tell us.</p>
+<div id="drop">Drop a file here</div>
+
+<h2>Step 3 – send us the result</h2>
+<p><button id="copy">Copy result</button> then paste it into the GitHub issue (Ctrl+V / Cmd+V).</p>
+
+<script>
+const out = [], $ = id => document.getElementById(id);
+let fails = 0;
+const render = () => { $('out').textContent = out.join('\n'); };
+const log = (ok, t) => { if (!ok) fails++; out.push((ok ? '[OK]   ' : '[FAIL] ') + t); render(); };
+async function T(name, fn) {
+  try { const r = await fn(); log(true, name + (r ? ': ' + r : '')); return true; }
+  catch (e) { log(false, name + ': ' + (e && e.message || e)); return false; }
+}
+const blobUrl = s => URL.createObjectURL(new Blob([s], { type: 'text/javascript' }));
+const gpu = c => { const x = c.getExtension('WEBGL_debug_renderer_info'); return x ? c.getParameter(x.UNMASKED_RENDERER_WEBGL) : '(GPU name hidden)'; };
+const ctx = v => { const c = document.createElement('canvas').getContext(v); if (!c) throw Error('NOT available'); return gpu(c); };
+
+(async () => {
+  out.push('Address:  ' + location.href, 'Browser:  ' + navigator.userAgent, 'Platform: ' + navigator.platform, '');
+  await T('WebGL 1', () => ctx('webgl'));
+  await T('WebGL 2 (needed by the viewer)', () => ctx('webgl2'));
+  await T('Module from blob: URL', async () => { if ((await import(blobUrl('export default 42'))).default !== 42) throw Error('wrong value'); });
+  await T('Script from blob: URL', () => new Promise((res, rej) => {
+    const s = document.createElement('script'); window.__d = 0;
+    s.src = blobUrl('window.__d = 1');
+    s.onload  = () => window.__d === 1 ? res() : rej(Error('loaded but did not run'));
+    s.onerror = () => rej(Error('blocked'));
+    document.head.appendChild(s);
+  }));
+  let THREE;
+  const P = 'vendor/three/three.module.min.js';
+  await T('Three.js import from file', async () => { THREE = await import(new URL(P, location.href).href); return 'r' + THREE.REVISION; });
+  await T('Three.js import via blob (same way as the viewer)', async () => {
+    const m = await import(blobUrl(await (await fetch(P)).text())); return 'r' + m.REVISION;
+  });
+  await T('Three.js creates its renderer', () => {
+    if (!THREE) throw Error('Three.js not loaded');
+    new THREE.WebGLRenderer({ canvas: document.createElement('canvas') }).dispose();
+  });
+  out.push('', fails ? 'RESULT: ' + fails + ' test(s) FAILED' : 'RESULT: all automatic tests passed');
+  render();
+})();
+
+const d = $('drop');
+d.ondragenter = d.ondragover = e => { e.preventDefault(); d.classList.add('on'); };
+d.ondragleave = () => d.classList.remove('on');
+d.ondrop = e => {
+  e.preventDefault(); d.classList.remove('on');
+  const n = [...e.dataTransfer.files].map(f => f.name).join(', ') || '(no files)';
+  d.textContent = 'Drop received: ' + n;
+  out.push('[OK]   Drop test: received ' + n); render();
+};
+
+$('copy').onclick = async () => {
+  try { await navigator.clipboard.writeText($('out').textContent); $('copy').textContent = 'Copied!'; }
+  catch (_) {
+    const r = document.createRange(); r.selectNodeContents($('out'));
+    getSelection().removeAllRanges(); getSelection().addRange(r);
+    $('copy').textContent = 'Selected – now press Ctrl+C / Cmd+C';
+  }
+};
+</script>
+</body>
+</html>
