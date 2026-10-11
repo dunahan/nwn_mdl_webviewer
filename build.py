@@ -216,6 +216,12 @@ def build(version: str = ''):
     else:
         print(f'  WARNING: favicon.png not found — skipping.')
   
+    # ── 7.5 Copy diagnose.html (beginner-friendly self-test, see issue #201) ─
+    diag_src = ROOT / 'diagnose.html'
+    if diag_src.exists():
+        shutil.copy(diag_src, DIST / 'diagnose.html')
+        print(f'✓  Copied: diagnose.html → dist/diagnose.html')
+
     # ── 8. Copy vendor/ (Three.js + fonts) ───────────────────────────────────
     # index.html references vendor/fonts/fonts.css via a relative <link> that
     # step 1 above doesn't touch, so dist/vendor/fonts/ must exist on disk in
