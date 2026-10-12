@@ -251,6 +251,7 @@ nwn-mdl-webviewer/
 ├── README.md               # This file
 ├── LICENSE                 # MIT License
 ├── build.py                # Build script (inlines all JS/CSS → dist/)
+├── diagnose.html           # Beginner-friendly self-test (WebGL 2, blob: loading, Three.js, drop) — copied to dist/ by build.py
 ├── .gitignore
 │
 ├── css/
@@ -327,6 +328,7 @@ nwn-mdl-webviewer/
 - Not every model variant has been tested; edge cases may still produce display artefacts
 - Supermodel references that are not dropped together with the main model are noted in the log but not loaded automatically
 - Hot-Reload and Set Browser require Chrome or Edge (File System Access API); not available in Firefox
+- **WebGL 2 is required** (Three.js r163+). Browsers or computers without it show *"Viewer failed to start"* instead of the viewer — see the [FAQ](#the-viewer-does-not-start--dropping-a-file-opens-it-in-the-browser-instead)
 - Export to glTF / OBJ is not yet implemented
 - Secondary UV stages (`tverts1`/`tverts2`/`tverts3`) are parsed but not rendered — lightmapped or detail-texture surfaces display using the primary UV layout only; the log panel and Node Inspector flag affected nodes
 - `reference` nodes are detected but the referenced sub-model is not loaded — the node shows as a wireframe marker instead of the actual referenced geometry; the log panel and Node Inspector flag affected nodes with the target model's name
@@ -361,6 +363,31 @@ nwn-mdl-webviewer/
 ---
 
 ## ❓ FAQ
+
+### The viewer does not start — dropping a file opens it in the browser instead
+
+**Symptoms:** The page looks normal, but the drop zone does not light up, nothing is rendered, and when you drop a model the browser navigates to the file itself (address bar shows `file:///Users/…`). In the newest builds the viewport shows *"Viewer failed to start"* together with the reason.
+
+**Most common cause:** the browser or graphics driver provides no **WebGL 2**. Since the switch to Three.js r170 (viewer builds after v1.9.4) WebGL 2 is required — Three.js dropped its WebGL 1 fallback in r163. Without it, creating the renderer fails and the remaining scripts (including the drag & drop handling) never start. This is a property of the computer (older GPU/driver, a VM, or disabled hardware acceleration), not of one specific browser — Chrome and Firefox usually fail together. See [issue #201](https://github.com/dunahan/nwn_mdl_webviewer/issues/201).
+
+**Check it in two minutes — no installation, no technical knowledge needed:**
+
+1. **WebGL 2 test.** Open <https://get.webgl.org/webgl2/> in the browser that fails. A **spinning cube** means WebGL 2 works; no cube (or a "not supported" message) means it does not.
+2. **Viewer self-test.** Open [`diagnose.html`](https://dunahan.github.io/nwn_mdl_webviewer/diagnose.html) on the same site as the viewer and wait ~5 seconds until the list ends with a `RESULT` line.
+   - Every line starts with `[OK]` or `[FAIL]`. The line *WebGL 2 (needed by the viewer)* is the important one.
+   - Drag any file onto the dashed box: it should turn yellow and show *"Drop received"*. If the browser opens the file instead, please mention that.
+3. **Send us the result.** Click **Copy result** and paste it into [issue #201](https://github.com/dunahan/nwn_mdl_webviewer/issues/201) (or a new issue), together with your computer model/year and operating system version.
+
+**What you can try:**
+
+- Make sure hardware acceleration is on — Chrome: *Settings → System → "Use graphics acceleration when available"*; Firefox: *Settings → General → Performance → untick "Use recommended performance settings" → tick "Use hardware acceleration when available"*. Restart the browser afterwards.
+- Update the browser and the operating system / graphics driver.
+- Chrome: open `chrome://gpu`, Firefox: open `about:support` and look for *WebGL 2* — "Hardware accelerated" or "Software only" is fine, "Disabled" or "Unavailable" is not.
+- If WebGL 2 is simply not available on your machine, the current viewer cannot run there. Please report it anyway (with the `diagnose.html` result) so we can decide whether a legacy build is worth providing.
+
+**If WebGL 2 works but the viewer still does not start:** the `[FAIL]` lines of `diagnose.html` show which loading step breaks (module/script loading from `blob:` URLs, importing Three.js, creating the renderer) — please attach them to the issue.
+
+---
 
 ### Hot-Reload: Texture files stay locked after closing the viewer (Windows / Chrome)
 
