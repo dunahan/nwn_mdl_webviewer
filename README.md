@@ -328,7 +328,7 @@ nwn-mdl-webviewer/
 - Not every model variant has been tested; edge cases may still produce display artefacts
 - Supermodel references that are not dropped together with the main model are noted in the log but not loaded automatically
 - Hot-Reload and Set Browser require Chrome or Edge (File System Access API); not available in Firefox
-- **WebGL 2 is required** (Three.js r163+). Browsers or computers without it show *"Viewer failed to start"* instead of the viewer — see the [FAQ](#the-viewer-does-not-start--dropping-a-file-opens-it-in-the-browser-instead)
+- **WebGL 2 is required** (Three.js r163+). Browsers or computers without it show *"Viewer failed to start"* instead of the viewer — a frozen older version for such machines is linked in the [FAQ](#the-viewer-does-not-start--dropping-a-file-opens-it-in-the-browser-instead)
 - Export to glTF / OBJ is not yet implemented
 - Secondary UV stages (`tverts1`/`tverts2`/`tverts3`) are parsed but not rendered — lightmapped or detail-texture surfaces display using the primary UV layout only; the log panel and Node Inspector flag affected nodes
 - `reference` nodes are detected but the referenced sub-model is not loaded — the node shows as a wireframe marker instead of the actual referenced geometry; the log panel and Node Inspector flag affected nodes with the target model's name
@@ -383,7 +383,7 @@ nwn-mdl-webviewer/
 - Make sure hardware acceleration is on — Chrome: *Settings → System → "Use graphics acceleration when available"*; Firefox: *Settings → General → Performance → untick "Use recommended performance settings" → tick "Use hardware acceleration when available"*. Restart the browser afterwards.
 - Update the browser and the operating system / graphics driver.
 - Chrome: open `chrome://gpu`, Firefox: open `about:support` and look for *WebGL 2* — "Hardware accelerated" or "Software only" is fine, "Disabled" or "Unavailable" is not.
-- If WebGL 2 is simply not available on your machine, the current viewer cannot run there. Please report it anyway (with the `diagnose.html` result) so we can decide whether a legacy build is worth providing.
+- **No WebGL 2 on your machine (typically Macs from before ~2012 with Intel HD Graphics 3000, old drivers, some VMs)?** The current viewer cannot run there, but a frozen copy of the last version that still worked without it is available: **[https://dunahan.github.io/nwn_mdl_webviewer194/](https://dunahan.github.io/nwn_mdl_webviewer194/)** (repository: [nwn_mdl_webviewer194](https://github.com/dunahan/nwn_mdl_webviewer194), state before the Three.js r170 upgrade). It receives no new features and no bug fixes; development continues here. Alternatively, use any newer computer, tablet or smartphone with the normal site.
 
 **If WebGL 2 works but the viewer still does not start:** the `[FAIL]` lines of `diagnose.html` show which loading step breaks (module/script loading from `blob:` URLs, importing Three.js, creating the renderer) — please attach them to the issue.
 
