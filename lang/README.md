@@ -12,7 +12,7 @@ Add `?lang=XX` to the URL, where `XX` is the filename without `.json`:
 * **GitHub Pages:** `https://your-name.github.io/nwn-mdl-viewer/?lang=en`
 * **Local Server:** `http://localhost:8080/?lang=en`
 
-> **Note:** When opening `index.html` directly from the filesystem (`file://`), the browser cannot load external JSON files due to security restrictions. The viewer will fall back to the built-in English strings automatically.
+> **Note:** When opening `index.html` directly from the filesystem (`file://`), the browser cannot load external JSON files due to security restrictions. English and German are built into the viewer and work regardless (`?lang=en` / `?lang=de`); any additional language needs an HTTP server.
 > To test translations locally, use a simple HTTP server:
 > ```bash
 > python3 -m http.server 8080
@@ -45,18 +45,22 @@ Add `?lang=XX` to the URL, where `XX` is the filename without `.json`:
 | `ref_model_not_loaded` | Log warning (and Node Detail panel hint) when a `reference` node's `refModel` is parsed but the referenced sub-model is not loaded/merged into the scene. |
 | `nd_lt_*` | Light properties in the Node Detail panel. |
 | `info_*` | Model Info panel (general statistics like vertex count). |
-| `status_*` | Bottom status bar messages (supports placeholders). |
+| `status_*` | Bottom status bar messages (supports placeholders), including `status_2da_loaded` for `parts_robe.2da`. |
 | `super_*` | Messages regarding Supermodel/Animation merging. |
 | `err_*` | Error messages for invalid files, parsing issues, or missing themes. |
 | `plt_*` | Labels for the PLT (Pixel Look-up Table) color picker. |
 | `dcmp_*` | UI strings for the MDL decompiler process, including progressive phase labels (`dcmp_phase_*`). |
 | `cm_*` | Technical log messages for the cleanmodels WASM module. |
 | `wasm_*` | Status and error messages for the WASM decompiler module loading. |
-| `log_em_*` | Log messages for the particle Emitter system initialization and errors. |
+| `log_em_*` | Log messages for the particle Emitter system initialization and errors (`log_em_lightning_static` is appended for static lightning beams). |
 | `log_multi_part` | Log message for generic Multi-Part assembly (e.g. weapon parts `_b_` / `_m_` / `_t_`). |
-| `log_char_*` | Log messages for Multi-Part character assembly (part merging, skeleton attachment, bounding-box stacking). |
+| `log_char_*` | Log messages for Multi-Part character assembly (part merging, skeleton attachment, bounding-box stacking, robes and cloaks). |
 | `hr_*` | Texture Hot-Reload feature (watch folder button, status messages, node indicator tooltip). |
 | `sb_*` | Set Browser panel strings, tile loading statuses, and group messages. |
+| `fp_*` | Floating panel buttons (detach / dock tooltips). |
+| `tex_missing_*` | Missing-texture report in the log panel. |
+| `hud_*` / `empty_*` / `axis_up` | HUD overlay, axis legend and empty-state text in the viewport. |
+| `textures_heading` / `scene_graph` / `no_file_loaded` / `vis_toggle_title` | Sidebar section headings, empty scene-graph text and visibility toggle tooltip. |
 
 ### Placeholder Dictionary
 These variables are replaced dynamically at runtime and must not be translated.
@@ -77,6 +81,7 @@ These variables are replaced dynamically at runtime and must not be translated.
 | `{tex}` | Name of a texture file | "(texture pending: \"{tex}\")" |
 | `{base}` | Name of the base model in multi-part assembly | "Multi-Part: \"{part}\" merged into \"{base}\"" |
 | `{part}` | Name of a sub-part in multi-part assembly | "Multi-Part: \"{part}\" merged into \"{base}\"" |
+| `{parts}` | Comma-separated list of body parts hidden by a robe | "Robe: {n} body part(s) hidden ({parts})" |
 | `{ref}` | Name of a referenced sub-model (MDL `reference` node) | "Reference node \"tor_torch01\" points to \"{ref}\" — not loaded/merged into the scene." |
 | `{bone}` | Name of a skeleton bone | "Part {part} → bone {bone} (Z: {z})" |
 | `{z}` | Z-position of an attachment point | "Part {part} → bone {bone} (Z: {z})" |
@@ -91,7 +96,7 @@ These variables are replaced dynamically at runtime and must not be translated.
 
 ---
 
-## Detailed Feature Notes (v1.4.1)
+## Detailed Feature Notes
 
 ### Walkmesh & Collision (`wok_*`, `pwk_*`, `dwk_*`, `colordrop_*`)
 
@@ -144,9 +149,15 @@ NWN models can consist of multiple separate MDL parts assembled at runtime. The 
 * **`log_char_positioned`**: Logged when parts are stacked via bounding-box fallback (no skeleton found).
 * **`log_char_skeleton`**: Logged when a base skeleton is found and exact bone attachment is used.
 * **`log_char_bone`**: Logged for each individual part-to-bone mapping with its Z-offset.
+* **`log_char_cloak`** / **`log_char_cloak_noskel`**: Logged when a cloak (`pmh0_cloak_NNN`) is attached to the skeleton, or skipped because no base skeleton was dropped. Placeholders: `{name}`, `{n}`.
+* **`log_char_robe`**: Logged when a robe hides body parts (according to `parts_robe.2da`, or the robe's helper nodes as fallback). Placeholders: `{n}`, `{parts}`.
+* **`log_char_robe_anchor`** / **`log_char_robe_fit`**: Logged when a rigid robe is placed on the skeleton, either via its helper nodes or — when it has none — with an offset estimated from the mesh. Placeholders: `{part}`, `{z}`.
+* **`log_char_robe_skin`**: Logged when a skinned robe is bound to the skeleton. Placeholders: `{name}`, `{n}`.
+* **`log_char_robe_autoskin`**: Logged when skin weights are generated for a rigid robe. Placeholders: `{part}`, `{n}`.
+* **`status_2da_loaded`**: Status bar message after a `parts_robe.2da` was loaded. Placeholders: `{name}`, `{n}`.
 
 ### Texture Hot-Reload (`hr_*`)
-The viewer can watch a local folder for texture changes and automatically reload updated files without reloading the model. This feature requires Chrome or Edge (File System Access API).
+The viewer can watch a local folder for texture changes and automatically reload updated files without reloading the model. This feature requires Chrome or Edge (File System Access API) or the Tauri desktop app.
 
 | Key | Description |
 |-----|-------------|
@@ -161,7 +172,6 @@ The viewer can watch a local folder for texture changes and automatically reload
 | `hr_filled_missing` | Status message after missing textures for the loaded model were automatically filled from the watch folder. Placeholder: `{n}`. |
 | `hr_indicator_title` | Tooltip text for the `↻` watch indicator icon shown next to nodes in the Scene Graph. |
 | `hr_watching_node` | Status bar message when the user clicks a `↻` indicator to inspect which textures are watched. Placeholder: `{names}` (comma-separated filenames). |
-| `hr_tauri_not_impl` | Developer-facing log message for an unimplemented Tauri desktop backend. Present in the built-in language bundle but intentionally omitted from the external JSON files — no translation required. |
 
 ### Set Browser (`sb_*`)
 The Set Browser is a floating panel that parses NWN `.set` tileset-definition files and displays all tiles as a browsable grid or list. It integrates with the Hot-Reload watch folder to detect which tile MDLs are currently available.
@@ -187,6 +197,8 @@ The Set Browser is a floating panel that parses NWN `.set` tileset-definition fi
 | `sb_group_file_error` | Log warning during group loading when a tile's MDL FileHandle could not be read. Placeholder: `{name}`. |
 | `sb_group_decompile_error` | Log warning during group loading when a binary tile MDL failed to decompile. Placeholders: `{name}`, `{msg}`. |
 | `sb_group_parse_error` | Log warning during group loading when a tile MDL's ASCII text failed to parse. Placeholders: `{name}`, `{msg}`. |
+| `sb_watch_hint` | Hint banner in the Set Browser while no watch folder is active. |
+| `sb_watch_unsupported` | Hint banner when the browser has no folder-watch backend (e.g. Firefox). |
 
 ### Supermodel Logic (`super_*`)
 If a model references a Supermodel for animations, these strings guide the user to load the required additional `.mdl` files to enable animations.
@@ -209,7 +221,7 @@ A `reference` node points at a separate sub-model via its `refModel` field, mean
 * **Fallback:** If a key is missing in your translation, the viewer falls back to the built-in English default strings — no crash or visible error.
 * **JSON Syntax:** Use a JSON Linter to ensure no commas or quotes are missing. Always verify the structure after editing.
 * **Encoding:** Always save files in **UTF-8** (without BOM) to ensure special characters like "ä, ö, ü" display correctly.
-* **`_meta` block:** The `code` field must match the filename (e.g. `"code": "fr"` for `lang/fr.json`). The `version` field is informational only and does not affect loading.
+* **`_meta` block:** The `code` field must match the filename (e.g. `"code": "fr"` for `lang/fr.json`).
 
 ---
 
@@ -217,7 +229,7 @@ A `reference` node points at a separate sub-model via its `refModel` field, mean
 
 | File | Language | Status |
 |------|----------|--------|
-| `en.json` | English | Built-in default (v1.4.1) |
-| `de.json` | Deutsch | Maintained (v1.4.1) |
+| `en.json` | English | Built-in default |
+| `de.json` | Deutsch | Maintained |
 
 Contributions welcome — submit a pull request!
