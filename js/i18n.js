@@ -209,7 +209,6 @@ const I18N_BUNDLE = {
     hr_dir_picked:        '{n} texture(s) found, watching…',
     hr_no_textures:       'No texture files found in folder.',
     hr_parse_error:       'Hot-Reload parse error: {name} — {msg}',
-    hr_tauri_not_impl:    '[HotReload] Tauri backend not yet implemented.',
     hr_filled_missing:    '{n} missing texture(s) loaded from watch folder.',
     hr_indicator_title:   'Texture is being watched for changes',
     hr_watching_node:     'Watching: {names}',
@@ -234,7 +233,7 @@ const I18N_BUNDLE = {
     sb_group_file_error:      '[Group] File not readable: {name}',
     sb_group_decompile_error: '[Group] Decompile error: {name} — {msg}',
     sb_group_parse_error:     '[Group] Parse error: {name} — {msg}',
-    sb_watch_hint:        'Activate "Watch Folder" in the sidebar to load tile models.',
+    sb_watch_hint:        'Activate \'Watch Folder\' in the sidebar to load tile models.',
     sb_watch_unsupported: 'Watch Folder requires Chrome or Edge.',
     // Floating Panel Manager
     fp_float_title:       'Detach panel',
@@ -419,7 +418,7 @@ const I18N_BUNDLE = {
     tex_missing_none:     'Alle referenzierten Texturen geladen ✓',
     tex_missing_header:   'Fehlende Texturen ({n}) — noch nicht geladen:',
     extra_uv_stage_warn:  '{n} Node(s) nutzen eine zweite UV-Stage (tverts1/2/3) — wird noch nicht gerendert.',
-    ref_model_not_loaded: 'Reference-Node "{name}" verweist auf "{ref}" — wird nicht geladen/eingebunden.',
+    ref_model_not_loaded: 'Reference-Node „{name}" verweist auf „{ref}" — wird nicht geladen/eingebunden.',
     // Walkmesh
     wok_loaded:           'Walkmesh geladen: {nodes} Node(s), {faces} Face(s).',
     // Placeable Walk Geometry
@@ -438,7 +437,6 @@ const I18N_BUNDLE = {
     hr_dir_picked:        '{n} Textur(en) gefunden, Beobachtung aktiv…',
     hr_no_textures:       'Keine Texturdateien im Ordner gefunden.',
     hr_parse_error:       'Hot-Reload Parse-Fehler: {name} — {msg}',
-    hr_tauri_not_impl:    '[HotReload] Tauri-Backend noch nicht implementiert.',
     hr_filled_missing:    '{n} fehlende Textur(en) aus dem Beobachtungsordner geladen.',
     hr_indicator_title:   'Textur wird auf Änderungen beobachtet',
     hr_watching_node:     'Beobachtet: {names}',
@@ -463,7 +461,7 @@ const I18N_BUNDLE = {
     sb_group_file_error:      '[Gruppe] Datei nicht lesbar: {name}',
     sb_group_decompile_error: '[Gruppe] Dekompilierungsfehler: {name} — {msg}',
     sb_group_parse_error:     '[Gruppe] Parse-Fehler: {name} — {msg}',
-    sb_watch_hint:        '„Ordner beobachten" in der Sidebar aktivieren, um Tile-Modelle zu laden.',
+    sb_watch_hint:        '\'Ordner beobachten\' in der Sidebar aktivieren, um Tile-Modelle zu laden.',
     sb_watch_unsupported: 'Watch Folder erfordert Chrome oder Edge.',
     // Floating Panel Manager
     fp_float_title:       'Panel ablösen',
