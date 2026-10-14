@@ -159,7 +159,8 @@ const threeLoader = (() => {
     _fatalShown = true;
     const msg  = String(err && err.message || err);
     const hint = /WebGL/i.test(msg)
-      ? '<br>This browser/GPU provides no WebGL 2 (required by Three.js r163+). Test: get.webgl.org/webgl2'
+      ? '<br>This browser/GPU provides no WebGL 2 (required by Three.js r163+). Test: get.webgl.org/webgl2' +
+        '<br>Older version without WebGL 2: <a href="https://dunahan.github.io/nwn_mdl_webviewer194/" style="color:inherit">https://dunahan.github.io/nwn_mdl_webviewer194/</a>'
       : '';
     const el = document.getElementById('empty-state');
     if (el) {

@@ -2,8 +2,7 @@
   "_meta": {
     "language": "English",
     "code": "en",
-    "author": "",
-    "version": "1.4.1"
+    "author": ""
   },
   "logo_subtitle": "Neverwinter Nights 1 · Enhanced Edition",
   "drop_title": "Drop MDL + Textures here",
@@ -35,8 +34,10 @@
   "btn_floor": "Floor",
   "btn_walkmesh": "Walkmesh",
   "wok_pin_title": "Fix WOK when loading next model",
+  "wok_pinned_on": "Walkmesh fixed — persists when loading new models.",
   "btn_pwk": "PWK",
   "pwk_pin_title": "Fix PWK when loading next model",
+  "pwk_pinned_on": "PWK is fixed — remains preserved when loading new models.",
   "btn_dwk": "DWK",
   "dwk_state_closed": "Closed",
   "dwk_state_open1": "Open 1",
@@ -46,7 +47,7 @@
   "anim_heading": "Animations",
   "anim_speed": "Speed:",
   "empty_title": "Load MDL File",
-  "empty_hint": "Drag & Drop · ASCII Format · Decompiled",
+  "empty_hint": "Drag & Drop · ASCII Format · Compiled",
   "hud_camera": "Camera",
   "hud_orbit": "LMB Orbit",
   "hud_zoom": "RMB/Wheel Zoom",
@@ -230,7 +231,6 @@
   "hr_filled_missing": "{n} missing texture(s) loaded from watch folder.",
   "hr_indicator_title": "Texture is being watched for changes",
   "hr_watching_node": "Watching: {names}",
-  "hr_tauri_not_impl": "[HotReload] Tauri backend not yet implemented.",
   "btn_set_browser": "🗃 Set Browser",
   "sb_panel_title": "Set Browser",
   "sb_load_btn": "📂 Load .set",

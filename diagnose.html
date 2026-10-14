@@ -24,6 +24,12 @@
 If the browser instead opens the file or leaves this page, that is an important result too – please tell us.</p>
 <div id="drop">Drop a file here</div>
 
+<p id="legacy" hidden style="background:#ffe9a8;padding:1em;border-radius:4px">
+<b>WebGL 2 is not available on this computer</b>, so the current viewer cannot run here.
+An older version that works without WebGL 2 is available at
+<a href="https://dunahan.github.io/nwn_mdl_webviewer194/">https://dunahan.github.io/nwn_mdl_webviewer194/</a>
+(frozen at the state before the Three.js upgrade – no new features, but it works).</p>
+
 <h2>Step 3 – send us the result</h2>
 <p><button id="copy">Copy result</button> then paste it into the GitHub issue (Ctrl+V / Cmd+V).</p>
 
@@ -43,7 +49,7 @@ const ctx = v => { const c = document.createElement('canvas').getContext(v); if 
 (async () => {
   out.push('Address:  ' + location.href, 'Browser:  ' + navigator.userAgent, 'Platform: ' + navigator.platform, '');
   await T('WebGL 1', () => ctx('webgl'));
-  await T('WebGL 2 (needed by the viewer)', () => ctx('webgl2'));
+  if (!await T('WebGL 2 (needed by the viewer)', () => ctx('webgl2'))) $('legacy').hidden = false;
   await T('Module from blob: URL', async () => { if ((await import(blobUrl('export default 42'))).default !== 42) throw Error('wrong value'); });
   await T('Script from blob: URL', () => new Promise((res, rej) => {
     const s = document.createElement('script'); window.__d = 0;
