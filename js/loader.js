@@ -702,8 +702,13 @@ function mergeAnimationsFromSupermodel(mainModel, superModel) {
       if (animScale !== 1.0 && data.posKeys.length > 0) {
         remapped.nodes[mapped] = {
           ...data,
+          // tanIn/tanOut (positionbezierkey) are position-space handles → scale them too,
+          // otherwise the Hermite curve in animation.js would be dropped for this model.
           posKeys: data.posKeys.map(k => ({
-            t: k.t, x: k.x * animScale, y: k.y * animScale, z: k.z * animScale
+            ...k,
+            x: k.x * animScale, y: k.y * animScale, z: k.z * animScale,
+            tanIn:  k.tanIn  && k.tanIn.map(v => v * animScale),
+            tanOut: k.tanOut && k.tanOut.map(v => v * animScale),
           }))
         };
       } else {
