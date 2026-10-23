@@ -1,9 +1,10 @@
 # ⬡ NWN MDL Viewer
 
 A browser-based 3D model viewer for **Neverwinter Nights 1: Enhanced Edition** binary AND decompiled ASCII `.mdl` files.
-No installation, no server — just open `index.html` locally or use it directly via **GitHub Pages**.
+No installation, no server — just open `index.html` locally or use it directly via **GitHub Pages**. A desktop build (Tauri) is available as a separate project.
 
 🌐 **Live Demo:** `https://dunahan.github.io/nwn_mdl_webviewer/`
+🖥️ **Desktop app:** [nwn_mdl_viewer_tauri](https://github.com/dunahan/nwn_mdl_viewer_tauri)
 
 [![Latest Release](https://img.shields.io/github/v/release/dunahan/nwn_mdl_webviewer?label=Release&color=c8a44a)](https://github.com/dunahan/nwn_mdl_webviewer/releases/latest)
 
@@ -56,15 +57,15 @@ No installation, no server — just open `index.html` locally or use it directly
 
 ### Multi-Part Model Assembly
 - **Character part assembly** — Automatically detects and merges NWN body part files (regex `p[mf][a-z]\d_…`) into a single scene; skeleton-based bone attachment (Mode A) with bounding-box stacking fallback (Mode B)
+- **Cloaks** — `p[mf][a-z]\d_cloak_NNN` models are skinned onto the skeleton's cloak bones; requires the base skeleton in the same drop
+- **Robes** — `p[mf][a-z]\d_robeNNN` models: skinned robes (e.g. `robe003`) use their own skin weights; rigid robes (`robe001`/`robe002`) get skin weights generated from the skeleton so they follow the animation. Drop `parts_robe.2da` alongside to hide the body parts a robe covers (without it, the robe's helper nodes decide, if present)
 - **Weapon / prop merging** — Drag multiple `.mdl` files at once; independent part models are merged into one scene
 - **EFFECT-only model inclusion** — Emitter-only models (no geometry) are included in multi-part assemblies
 - **Supermodel chain** — Loads and links `setsupermodel` references when the parent file is dropped together
-- **Cloaks** — `pmh0_cloak_NNN` skin nodes are CPU-skinned onto the skeleton's cloak bones (base skeleton must be in the drop); the invisible bone-proxy helper meshes inside the cloak MDL are skipped
-- **Robes** — `pmX#_robeNNN`: skinned robes use CPU skinning; rigid robes get skin weights generated from the skeleton (`NWN_ROBE_AUTOSKIN`, a geometric approximation, not the engine's rule). Body parts covered by a robe are hidden using a dropped `parts_robe.2da` (fallback: the bone names of the robe's helper nodes)
 
 ### Animations
 - **Keyframe playback** — Interpolation for position, orientation, scale, alpha, UV animation, and light property keys
-- **Bezier controllers** — `positionbezierkey` / `scalebezierkey` are evaluated as cubic Hermite curves; other Bezier keys (`alpha`, `selfillumcolor`, …) use their key values with linear interpolation
+- **Bezier keys** — `positionbezierkey` and `scalebezierkey` are evaluated as cubic Hermite curves (tangent handles from the MDL); other bezier controllers (alpha, selfillumcolor, …) use their key values with linear interpolation
 - **Scrubber & speed control** — Interactive timeline with ¼×, ½×, 1×, 2× speed presets
 - **Animation selector** — Drop-down list of `newanim` blocks in the model
 - **Supermodel animations** — Animations from base skeletons (e.g. `a_fa.mdl`) merged and applied to character parts
@@ -75,9 +76,7 @@ No installation, no server — just open `index.html` locally or use it directly
 - **Sprite-sheet UV animation** — UV tiling and orientation (TGA flip-Y / `flipY=false` compatible); `xgrid`/`ygrid` support
 - **Keyframe-driven birthrate** — Emitter birthrate follows animation keyframe curves (`birthratekey`)
 - **Billboard modes** — Standard camera-facing sprites and `Billboard_to_World_Z` flat-ground particles
-- **Point-to-point emitters** — `p2p=1` emitters pull particles toward their child `reference` node (`grav` as acceleration, `threshold` as deletion radius, `drag` as overshoot); Bezier mode (`p2p_sel=1`) is approximated by the same path
-- **Linked beams** — `p2p` + `render=Linked` is drawn as a single camera-facing quad stretched between emitter and target
-- **Lightning** — `update=Lightning` is drawn as a static line between the emitter and its `reference` node (no flicker or subdivision)
+- **Point-to-point emitters** — `p2p` emitters pull particles towards a child `reference` node (`grav`, `drag`, `threshold`); `p2p=1` + `render Linked` is drawn as a single beam quad between emitter and target; `update Lightning` as a static bolt (no fractal/flicker)
 - **Smart decoration visibility** — The in-scene emitter marker (sphere, ring, directional arrows) is automatically hidden once the emitter is active and its texture is loaded; visible only as a placeholder when the texture has not yet arrived or the emitter has no birthrate
 
 ### Textures & Materials
@@ -94,7 +93,7 @@ No installation, no server — just open `index.html` locally or use it directly
 - **DWK** (door walkmesh) — Three door states (Closed / Open 1 / Open 2), per-state geometry, color pickers, pinnable
 
 ### Texture Hot-Reload
-- **Watch Folder** — File System Access API (Chrome/Edge) or the [Tauri desktop app](https://github.com/dunahan/nwn_mdl_viewer_tauri) (native folder dialog + fs plugin); monitors a local folder for changed texture files
+- **Watch Folder** — File System Access API (Chrome/Edge) or, in the desktop app, the native folder dialog + file access (Tauri); monitors a local folder for changed texture files
 - **Automatic reapply** — Changed TGA/DDS/PLT files are reloaded and applied to all affected materials in the scene without reloading the model; in-place canvas patch preserves GPU object references
 - **Missing texture fill** — Watcher immediately fills missing textures for a newly loaded model from the watch folder
 - **Scene graph indicators** — ↻ icon next to nodes whose textures are being watched; click to highlight in texture list; flash animation on reload
@@ -113,18 +112,17 @@ No installation, no server — just open `index.html` locally or use it directly
 - **Collision-safe visibility** — In group-loaded tileset scenes, multiple tiles may share identical node names (e.g. `walkmesh` on AABB nodes, or generic mesh names like `ground01`). Each scene graph entry correctly controls its own specific Three.js object regardless of name collisions — visibility toggles and type-filter buttons all resolve to the right tile.
 - **Node Inspector** — Draggable floating panel with zoom controls (−/○/＋); shows: type, parent, vertices, faces, bitmap, position, diffuse, alpha, plus type-specific sections for emitter nodes (all parameters), light nodes (color, radius, multiplier, shadow, etc.), and MTR nodes (slot status, renderhint, tangent status, shader parameters)
 - **Skeleton Helper** — Three.js SkeletonHelper overlay for skinned models; toggled via the Skeleton button
-- **Node selection** — Click a node in the Scene Graph sidebar, or **Ctrl+Click** directly on a mesh in the 3D viewport, to select it and open the Node Inspector panel
+- **Node selection** — Click a node in the Scene Graph sidebar, or **Ctrl+Click** (Cmd+Click on macOS) directly on a mesh in the 3D viewport, to select it and open the Node Inspector panel
 - **Selection highlight** — The selected mesh is outlined with a static white highlight (visible on trimesh, skin, danglymesh, and animmesh nodes); automatically follows CPU-skinning and danglymesh deformation, and clears when a different node is selected or the panel is closed
-- **Deselect** — Ctrl+Click on empty space in the viewport closes the Node Inspector and clears the selection highlight
+- **Deselect** — Ctrl+Click (Cmd+Click on macOS) on empty space in the viewport closes the Node Inspector and clears the selection highlight
 
 ### Camera & Display Controls
 | Control | Description |
 |---------|-------------|
 | Orbit | Left mouse drag |
 | Zoom | Scroll wheel |
-| Pan | Right or middle mouse drag (the offset is kept during Auto-Rotate) |
+| Pan | Middle or right mouse drag |
 | Touch | Pinch-zoom & one/two-finger drag |
-| Select node | Ctrl+Click on a mesh; Ctrl+Click on empty space deselects |
 | Reset Camera | Button in toolbar |
 
 | Toggle | Description |
@@ -157,7 +155,7 @@ The panel opens automatically on errors; the badge counter lights up orange for 
 
 ### Floating Panels
 
-- **Floatable sidebar panels** — The Animations and PLT Layers panels can be detached from the sidebar into freely positionable floating windows via the ↗ button in their header; ↙ re-docks them back into the sidebar
+- **Floatable sidebar panels** — The Animations and PLT Layers panels can be detached from the sidebar into freely positionable floating windows via the ⇱ button in their header; ⇲ re-docks them back into the sidebar
 - **Drag-to-reposition** — Each floating panel has a ⠿ grip strip for repositioning; panels are clamped to the viewport boundary
 - **Persistent state** — Floating/docked state and position are saved per panel in `localStorage` and restored on the next visit
 - **Extensible** — Any sidebar container can be made floatable by adding `data-floatable` to its HTML element (`floating_panel.js`)
@@ -177,13 +175,13 @@ The panel opens automatically on errors; the badge counter lights up orange for 
 ### Option A — GitHub Pages (recommended)
 
 1. Fork or clone this repository
-2. Go to **Settings → Pages → Build and deployment → Source → GitHub Actions** (`pages.yml` builds `dist/` with `build.py` and deploys it on every push to `main`/`master`)
+2. Go to **Settings → Pages → Source → GitHub Actions** (the workflow `pages.yml` runs `build.py` and deploys `dist/`; it does *not* publish the repository root)
 3. Visit `https://<your-username>.github.io/nwn_mdl_webviewer/`
 
 ### Option B — Local use (with a release)
 
-1. Download the latest Release from GitHub
-2. Open in browser (Chrome, Firefox, Edge)
+1. Download `nwn_mdl_webviewer.html` from the latest Release
+2. Open it in your browser (Chrome, Firefox, Edge)
 3. Drag `.mdl` + texture files (`.tga`, `.dds`, `.plt`, …) into the drop zone
 
 ### Option C — Local use (build from source)
@@ -192,7 +190,8 @@ The panel opens automatically on errors; the badge counter lights up orange for 
 git clone https://github.com/dunahan/nwn_mdl_webviewer.git
 cd nwn_mdl_webviewer
 
-# Creates dist/index.html (self-contained, all JS inlined)
+# Creates dist/ — index.html with all viewer JS/CSS inlined,
+# plus vendor/, lang/, wasm/ and favicon.png next to it
 python3 build.py
 
 cd dist
@@ -201,13 +200,21 @@ start index.html         # Windows
 xdg-open index.html      # Linux
 ```
 
+`file://` works because Three.js and the decompiler WASM are embedded as Base64 (`js/three_module_b64.js`, `js/cleanmodels_wasm.js`). Both files are generated by the workflows `update-three-vendor.yml` and `update-wasm.yml`; without them `build.py` prints a warning and the standalone build will not run from disk.
+
+### Option D — Desktop app
+
+The Tauri desktop build lives in [nwn_mdl_viewer_tauri](https://github.com/dunahan/nwn_mdl_viewer_tauri). It runs this viewer unchanged in a native window and adds a native folder dialog for Watch Folder / Set Browser (also usable without Chrome/Edge) and native file drop. Prebuilt bundles for Windows, macOS and Linux are attached to its releases.
+
+If the viewer shows *"Viewer failed to start"* (no WebGL 2, blocked module loading), open `diagnose.html` — it checks the prerequisites and produces a result you can paste into an issue.
+
 ---
 
 ## 📁 File Formats Supported
 
 | Extension | Description |
 |-----------|-------------|
-| `.mdl` | NWN model — ASCII (decompiled) or binary (auto-decompiled via WASM); `.txt` is also accepted as ASCII MDL |
+| `.mdl` | NWN model — ASCII (decompiled) or binary (auto-decompiled via WASM) |
 | `.tga` | TGA texture (parsed in-browser: Types 2, 3, 10, 11; 16/24/32-bit) |
 | `.dds` | DDS texture: Bioware custom (DXT1/DXT5), standard (DXT1/DXT3/DXT5/ATI1/ATI2) |
 | `.png` / `.jpg` | Standard image formats |
@@ -218,7 +225,7 @@ xdg-open index.html      # Linux
 | `.pwk` | Placeable walkmesh |
 | `.dwk` | Door walkmesh |
 | `.set` | NWN tileset definition (tile models, terrain, groups) |
-| `.2da` | `parts_robe.2da` — body parts hidden by a robe (other 2DA files are ignored) |
+| `.2da` | `parts_robe.2da` only (which body parts a robe hides); other 2DA files are ignored |
 
 ---
 
@@ -256,44 +263,44 @@ Alternatively:
 ```
 nwn-mdl-webviewer/
 ├── index.html              # Main entry point
+├── diagnose.html           # Self-test page (WebGL 2, module/blob loading, Three.js, drop)
 ├── README.md               # This file
 ├── LICENSE                 # MIT License
-├── build.py                # Build script (inlines all JS/CSS → dist/)
-├── diagnose.html           # Beginner-friendly self-test (WebGL 2, blob: loading, Three.js, drop) — copied to dist/ by build.py
+├── build.py                # Build script (inlines viewer JS/CSS → dist/)
 ├── .gitignore
 │
 ├── css/
 │   └── viewer.css          # All UI styles and CSS custom property theme variables
 │
 ├── js/
-│   ├── animation.js        # Keyframe animation engine, render loop, CPU skinning, TXI cycle
-│   ├── cleanmodels.js      # WASM bridge for binary MDL decompilation (HTTP + file:// / Base64)
-│   ├── cleanmodels_wasm.js # cleanmodels.wasm as Base64 for file:// mode (auto-generated, do not edit)
-│   ├── dangly.js           # Danglymesh simulation — procedural sine-wave physics, per-animation displacement/period overrides
-│   ├── dwk.js              # Door walkmesh parser & renderer (3 door states)
-│   ├── emitter.js          # Particle emitter system (pool-based, sprite-sheet, birthratekey)
-│   ├── floating_panel.js   # Floating panel manager — dock ↔ float for data-floatable sidebar panels
-│   ├── hot_reload.js       # Texture hot-reload: File System Access API (browser-fsa) or Tauri fs/dialog backend
+│   ├── three-loader.js     # Loads Three.js as ES module (import / Base64 Blob), bridges it to window.THREE, then runs the viewer scripts in order
+│   ├── three_module_b64.js # Base64 copy of three.module.min.js for file:// mode (generated by update-three-vendor.yml)
 │   ├── i18n.js             # Internationalisation — embedded EN/DE bundles + external JSON support
-│   ├── loader.js           # File loader, multi-part assembly, supermodel merge, decompile overlay
-│   ├── log.js              # Error/warning/info log panel; sidebar toggle
-│   ├── mtr.js              # MTR material file parser (6 texture slots + parameters)
-│   ├── palettes.js         # PLT palette data (embedded Base64) & getPaletteRGB() API
-│   ├── parser.js           # MDL ASCII parser — all node types, animation keys, axis-angle orientation
-│   ├── plt_swatch.js       # PLT swatch colour tables for the layer colour picker
-│   ├── pwk.js              # Placeable walkmesh parser & renderer (walk geometry + IoP markers)
-│   ├── scene.js            # Three.js scene setup, camera, orbit controls, render loop
-│   ├── scene_build.js      # MDL → Three.js scene builder (geometry, materials, lights, emitters)
-│   ├── session.js          # Session state reset, texture application, PLT panel, texture UI
-│   ├── setbrowser.js       # Set Browser — .set parser, tile browser panel, group loading
-│   ├── textures.js         # TGA/DDS/PLT/PNG parsers, texture cache, palette reapply, spec→roughness invert
-│   ├── three-loader.js     # Loads Three.js as ES module (import() / Base64 + Blob under file://), bridges it to window.THREE, then runs the viewer scripts in order
-│   ├── three_module_b64.js # three.module.min.js as Base64 for file:// mode (auto-generated by update-three-vendor.yml)
-│   ├── txi.js              # TXI metadata parser, UV animation registry
-│   ├── ui.js               # Sidebar, node list, inspector panel, controls, PLT picker, themes
-│   ├── ui_bindings.js      # Static UI event bindings (addEventListener instead of inline handlers — required by the strict Tauri CSP)
 │   ├── wasm_exec.js        # Go WASM runtime support
-│   └── wok.js              # Area walkmesh parser & renderer (19 surface types, color picker)
+│   ├── cleanmodels.js      # WASM bridge for binary MDL decompilation (HTTP + file:// / Base64)
+│   ├── cleanmodels_wasm.js # Base64 copy of cleanmodels.wasm for file:// mode (generated by update-wasm.yml)
+│   ├── mtr.js              # MTR material file parser (6 texture slots + parameters)
+│   ├── txi.js              # TXI metadata parser, UV animation registry
+│   ├── plt_swatch.js       # PLT colour-picker swatch tables
+│   ├── palettes.js         # PLT palette data (embedded Base64) & getPaletteRGB() API
+│   ├── textures.js         # TGA/DDS/PLT/PNG parsers, texture cache, palette reapply, spec→roughness invert
+│   ├── wok.js              # Area walkmesh parser & renderer (19 surface types, color picker)
+│   ├── pwk.js              # Placeable walkmesh parser & renderer (walk geometry + IoP markers)
+│   ├── dwk.js              # Door walkmesh parser & renderer (3 door states)
+│   ├── parser.js           # MDL ASCII parser — all node types, animation keys (incl. bezier), axis-angle orientation
+│   ├── scene.js            # Three.js scene setup, camera, orbit controls, mesh picking
+│   ├── scene_build.js      # MDL → Three.js scene builder (geometry, materials, lights, emitters, skin bind)
+│   ├── session.js          # Session reset, texture application, texture list UI
+│   ├── ui.js               # Sidebar, node list, inspector panel, controls, PLT panel & picker, themes
+│   ├── log.js              # Error/warning/info log panel; sidebar toggle
+│   ├── loader.js           # File loader, multi-part/character/cloak/robe assembly, supermodel merge, decompile overlay, native file drop (Tauri)
+│   ├── emitter.js          # Particle emitter system (pool-based, sprite-sheet, birthratekey, p2p/beam)
+│   ├── dangly.js           # Danglymesh simulation — procedural sine-wave physics, per-animation displacement/period overrides
+│   ├── animation.js        # Keyframe animation engine (linear + Hermite), render loop, CPU skinning, TXI cycle
+│   ├── hot_reload.js       # Texture hot-reload (File System Access API or Tauri backend)
+│   ├── setbrowser.js       # Set Browser — .set parser, tile browser panel, group loading
+│   ├── floating_panel.js   # Floating panel manager — dock ↔ float for data-floatable sidebar panels
+│   └── ui_bindings.js      # Static UI event bindings (replaces inline onclick/onchange for strict CSP)
 │
 ├── lang/
 │   ├── en.json             # English UI strings
@@ -303,36 +310,32 @@ nwn-mdl-webviewer/
 ├── themes/
 │   ├── default.json        # Default dark theme (CSS custom properties)
 │   ├── high-contrast.json  # High Contrast theme
-│   └── README.md           # Theme JSON format and all available variables
+│   └── README.md           # Theme file format
+│
+├── vendor/                 # Self-hosted third-party assets (no CDN needed)
+│   ├── three/              # Three.js (module build; r160 UMD kept as rollback target)
+│   ├── fonts/              # Cinzel + Share Tech Mono
+│   └── README.md           # Provenance and update notes
 │
 ├── wasm/
-│   ├── cleanmodels.wasm        # CleanModelsEE WebAssembly binary (kept up to date by CI)
-│   ├── cleanmodels.version     # Upstream tag of the bundled WASM
-│   ├── cleanmodels.wasm.sha256 # Checksum of the WASM binary
-│   └── README.md
-│
-├── vendor/
-│   ├── three/              # Self-hosted Three.js: ES module build (r170) + frozen UMD build as rollback copy, checksums, version file
-│   ├── fonts/              # Self-hosted Cinzel + Share Tech Mono (latin subset)
-│   └── README.md           # Provenance and update instructions
+│   └── cleanmodels.wasm    # CleanModelsEE WebAssembly binary
 │
 ├── scripts/
-│   ├── generate_wasm_b64.sh # Regenerates js/cleanmodels_wasm.js from wasm/cleanmodels.wasm
+│   ├── generate_wasm_b64.sh # Local alternative to the update-wasm workflow
 │   └── README.md
 │
 ├── testfiles/              # Sample MDL files for testing
 ├── docs/
 │   ├── FORMAT.md           # NWN MDL format reference
 │   ├── DECOMPILE.md        # Step-by-step decompilation guide
-│   └── THREEJS_UPGRADE.md  # Three.js upgrade / ES-module migration plan
+│   └── THREEJS_UPGRADE.md  # Three.js ES-module migration notes
 │
 └── .github/
-    ├── ISSUE_TEMPLATE/     # Bug report + feature request templates
     └── workflows/
-        ├── pages.yml               # GitHub Pages auto-deploy (builds dist/ via build.py)
-        ├── release.yml             # On version tag (v*.*.*) or manually: standalone HTML + source ZIP as GitHub release, then Pages deploy
-        ├── update-wasm.yml         # Nightly: update WASM from CleanModelsEE releases (also callable from other workflows)
-        └── update-three-vendor.yml # Weekly (Mon): update vendored Three.js + its Base64 copy
+        ├── pages.yml               # Build with build.py and deploy dist/ to GitHub Pages
+        ├── release.yml             # On tag v*.*.*: update WASM, build, publish release, redeploy Pages
+        ├── update-wasm.yml         # Auto-update WASM from CleanModelsEE releases
+        └── update-three-vendor.yml # Update vendored Three.js (+ Base64 copy)
 ```
 
 ---
@@ -342,12 +345,12 @@ nwn-mdl-webviewer/
 1. Open the viewer in your browser
 2. **Drag & drop** one or more `.mdl` files (+ textures) onto the viewport  
    — or click the drop zone to pick files
-3. For **multi-part models** (character body parts, weapon components), drop all parts at once — the viewer assembles them automatically
+3. For **multi-part models** (character body parts, cloaks, robes, weapon components), drop all parts at once — the viewer assembles them automatically. Characters also need their base skeleton (e.g. `pmh0.mdl`) and, for animations, its supermodel (e.g. `a_ba.mdl`)
 4. Use the **sidebar** to inspect nodes and toggle visibility
 5. Click any node name to open the **Node Inspector** panel (draggable, zoomable)
-6. Use ↗ in the **Animations** or **PLT Layers** panel header to detach them from the sidebar as floating windows; ↙ docks them back
+6. Use ⇱ in the **Animations** or **PLT Layers** panel header to detach them from the sidebar as floating windows; ⇲ docks them back
 7. Drop `.wok` / `.pwk` / `.dwk` files alongside the model to visualise walkmesh geometry
-8. Use **Watch Folder** (Chrome/Edge or Tauri app) to auto-reload textures whenever you edit them externally
+8. Use **Watch Folder** (Chrome/Edge, or the desktop app) to auto-reload textures whenever you edit them externally
 9. Load a `.set` file via the **Set Browser** button to browse and load tileset tiles
 
 ---
@@ -356,11 +359,14 @@ nwn-mdl-webviewer/
 
 - Not every model variant has been tested; edge cases may still produce display artefacts
 - Supermodel references that are not dropped together with the main model are noted in the log but not loaded automatically
-- Hot-Reload and Set Browser require Chrome or Edge (File System Access API) or the Tauri desktop app; not available in Firefox
-- **WebGL 2 is required** (Three.js r163+). Browsers or computers without it show *"Viewer failed to start"* instead of the viewer — a frozen older version for such machines is linked in the [FAQ](#the-viewer-does-not-start--dropping-a-file-opens-it-in-the-browser-instead)
+- Hot-Reload and Set Browser require Chrome or Edge (File System Access API) or the [desktop app](https://github.com/dunahan/nwn_mdl_viewer_tauri); not available in Firefox
 - Export to glTF / OBJ is not yet implemented
 - Secondary UV stages (`tverts1`/`tverts2`/`tverts3`) are parsed but not rendered — lightmapped or detail-texture surfaces display using the primary UV layout only; the log panel and Node Inspector flag affected nodes
 - `reference` nodes are detected but the referenced sub-model is not loaded — the node shows as a wireframe marker instead of the actual referenced geometry; the log panel and Node Inspector flag affected nodes with the target model's name
+- Rigid robes (`robe001`/`robe002`) are skinned with weights the viewer generates from the skeleton geometry — a close approximation, not the game's own rule
+- Bezier keys other than `positionbezierkey`/`scalebezierkey` are interpolated linearly; `orientationbezierkey` is not evaluated as a curve
+- Lightning emitters are drawn as a static beam (no fractal shape, no flicker)
+- Newer Three.js builds require **WebGL 2**; browsers or GPU drivers without it cannot start the viewer
 
 ---
 
@@ -384,11 +390,10 @@ nwn-mdl-webviewer/
 - [x] Floatable sidebar panels (Animations, PLT Layers — freely positionable, state persisted in localStorage)
 - [x] Danglymesh simulation (procedural sine-wave physics, constraint-weighted per-vertex displacement, per-animation `displacement`/`period` overrides)
 - [x] `selfillumcolorkey` animation for EFFECT-class nodes (all 3 RGB channels, applied to emissiveMap)
-- [x] Three.js upgrade to r170 (ES-module loader `three-loader.js`; `file://` via Base64 + Blob URL)
-- [x] Bezier animation controllers (`positionbezierkey`, `scalebezierkey`)
-- [x] Cloak and robe assembly (skinned + auto-skinned rigid robes, `parts_robe.2da` body-part hiding)
-- [x] Point-to-point, linked-beam and lightning emitters
-- [x] [Tauri desktop app](https://github.com/dunahan/nwn_mdl_viewer_tauri) with native folder watching for Hot-Reload and Set Browser
+- [x] Three.js ES-module loading (r170, `file://` via Base64 + Blob)
+- [x] Desktop app (Tauri, separate repository)
+- [x] Cloaks and robes on character assembly
+- [x] Bezier position/scale keys (cubic Hermite)
 - [ ] Export to glTF / OBJ
 - [ ] Automatic supermodel chain loading
 - [ ] Render secondary UV stages (`tverts1`/`tverts2`/`tverts3`) for lightmapping/detail texturing
@@ -398,28 +403,9 @@ nwn-mdl-webviewer/
 
 ## ❓ FAQ
 
-### The viewer does not start — dropping a file opens it in the browser instead
+### The viewer shows "Viewer failed to start"
 
-**Symptoms:** The page looks normal, but the drop zone does not light up, nothing is rendered, and when you drop a model the browser navigates to the file itself (address bar shows `file:///Users/…`). In the newest builds the viewport shows *"Viewer failed to start"* together with the reason.
-
-**Most common cause:** the browser or graphics driver provides no **WebGL 2**. Since the switch to Three.js r170 (viewer builds after v1.9.4) WebGL 2 is required — Three.js dropped its WebGL 1 fallback in r163. Without it, creating the renderer fails and the remaining scripts (including the drag & drop handling) never start. This is a property of the computer (older GPU/driver, a VM, or disabled hardware acceleration), not of one specific browser — Chrome and Firefox usually fail together. See [issue #201](https://github.com/dunahan/nwn_mdl_webviewer/issues/201).
-
-**Check it in two minutes — no installation, no technical knowledge needed:**
-
-1. **WebGL 2 test.** Open <https://get.webgl.org/webgl2/> in the browser that fails. A **spinning cube** means WebGL 2 works; no cube (or a "not supported" message) means it does not.
-2. **Viewer self-test.** Open [`diagnose.html`](https://dunahan.github.io/nwn_mdl_webviewer/diagnose.html) on the same site as the viewer and wait ~5 seconds until the list ends with a `RESULT` line.
-   - Every line starts with `[OK]` or `[FAIL]`. The line *WebGL 2 (needed by the viewer)* is the important one.
-   - Drag any file onto the dashed box: it should turn yellow and show *"Drop received"*. If the browser opens the file instead, please mention that.
-3. **Send us the result.** Click **Copy result** and paste it into [issue #201](https://github.com/dunahan/nwn_mdl_webviewer/issues/201) (or a new issue), together with your computer model/year and operating system version.
-
-**What you can try:**
-
-- Make sure hardware acceleration is on — Chrome: *Settings → System → "Use graphics acceleration when available"*; Firefox: *Settings → General → Performance → untick "Use recommended performance settings" → tick "Use hardware acceleration when available"*. Restart the browser afterwards.
-- Update the browser and the operating system / graphics driver.
-- Chrome: open `chrome://gpu`, Firefox: open `about:support` and look for *WebGL 2* — "Hardware accelerated" or "Software only" is fine, "Disabled" or "Unavailable" is not.
-- **No WebGL 2 on your machine (typically Macs from before ~2012 with Intel HD Graphics 3000, old drivers, some VMs)?** The current viewer cannot run there, but a frozen copy of the last version that still worked without it is available: **[https://dunahan.github.io/nwn_mdl_webviewer194/](https://dunahan.github.io/nwn_mdl_webviewer194/)** (repository: [nwn_mdl_webviewer194](https://github.com/dunahan/nwn_mdl_webviewer194), state before the Three.js r170 upgrade). It receives no new features and no bug fixes; development continues here. Alternatively, use any newer computer, tablet or smartphone with the normal site.
-
-**If WebGL 2 works but the viewer still does not start:** the `[FAIL]` lines of `diagnose.html` show which loading step breaks (module/script loading from `blob:` URLs, importing Three.js, creating the renderer) — please attach them to the issue.
+The start-up error names the stage that failed. Most common cause: the browser or GPU driver provides no **WebGL 2**, which the bundled Three.js version requires. Open `diagnose.html` (next to `index.html`; included in `dist/` and on GitHub Pages) — it tests WebGL 1/2, module and script loading from `blob:` URLs, the Three.js import, and file drop, and ends with a result you can copy into a GitHub issue.
 
 ---
 
@@ -433,7 +419,7 @@ nwn-mdl-webviewer/
 
 **If the problem still occurs:** Close the browser tab completely and reopen it — a simple `F5` reload is not always sufficient to free all handles on Windows.
 
-> **Note:** Hot-Reload and Set Browser require **Chrome or Edge** (File System Access API) or the Tauri desktop app. Firefox is not supported.
+> **Note:** Hot-Reload and Set Browser require **Chrome or Edge** (File System Access API) or the desktop app. Firefox is not supported.
 
 ---
 
@@ -473,9 +459,15 @@ Multi-part character models (chest, head, legs, …) require all body parts **an
 
 ---
 
+### A robe does not hide the body parts underneath
+
+Which body parts a robe covers comes from the game's `parts_robe.2da` (row = robe number). Drop that file together with the models; the log confirms it (*parts_robe.2da loaded*). Without it, the viewer only hides the parts for which the robe ships helper nodes, which is incomplete for some robes (e.g. `robe002` has none). Cloaks and robes also need the base skeleton in the same drop.
+
+---
+
 ### Set Browser / Hot-Reload button is greyed out
 
-These features rely on the [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API), which is currently only available in **Chrome and Edge** (the Tauri desktop app uses its own native folder backend instead). Firefox supports neither. The rest of the viewer (MDL rendering, textures, animations, PLT) works in all modern browsers.
+These features rely on the [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API), which is currently only available in **Chrome and Edge**. Firefox does not support this API; the [desktop app](https://github.com/dunahan/nwn_mdl_viewer_tauri) provides the same functionality natively. The rest of the viewer (MDL rendering, textures, animations, PLT) works in all modern browsers.
 
 ---
 
@@ -499,12 +491,13 @@ Custom themes loaded via *📂 Custom…* are applied immediately but are only s
 
 | Technology | Version | Purpose |
 |-----------|---------|---------|
-| [Three.js](https://threejs.org/) | r170 | 3D rendering (WebGL 2); loaded as ES module by `js/three-loader.js` and bridged onto `window.THREE` |
-| Vanilla JS | ES2020 | MDL parser, UI logic, all modules |
+| [Three.js](https://threejs.org/) | r170 (vendored, ES module) | 3D rendering (WebGL 2); loaded by `js/three-loader.js` and exposed as `window.THREE` |
+| Vanilla JS | ES2020 | MDL parser, UI logic, all modules (no bundler) |
 | HTML / CSS | — | UI (no framework, CSS custom properties for theming) |
-| WebAssembly | — | In-browser binary MDL decompilation |
-| [Cinzel](https://fonts.google.com/specimen/Cinzel) | — | Display font (self-hosted in `vendor/fonts/`, Google Fonts only as fallback) |
-| [Share Tech Mono](https://fonts.google.com/specimen/Share+Tech+Mono) | — | Monospace UI font (self-hosted in `vendor/fonts/`, Google Fonts only as fallback) |
+| WebAssembly (Go) | — | In-browser binary MDL decompilation |
+| [Cinzel](https://fonts.google.com/specimen/Cinzel) | — | Display font (self-hosted in `vendor/fonts/`) |
+| [Share Tech Mono](https://fonts.google.com/specimen/Share+Tech+Mono) | — | Monospace UI font (self-hosted in `vendor/fonts/`) |
+| [Tauri](https://tauri.app/) | 2 | Optional desktop wrapper ([separate repository](https://github.com/dunahan/nwn_mdl_viewer_tauri)) |
 
 ---
 
@@ -517,9 +510,10 @@ MIT — see [LICENSE](LICENSE)
 ## 🙏 Credits
 
 - **Bioware / Beamdog** for the NWN MDL format
-- **plenarius** for [CleanModelsEE](https://github.com/plenarius/cleanmodels) (WASM decompiler)
+- **plenarius** for [CleanModels](https://github.com/plenarius/cleanmodels) (WASM decompiler)
+- **Community** from the Vault and Discord
 - **Three.js** contributors
-- NWN community tools: nwneetools, NWNExplorer
+- NWN community tools: nwneetools, NWNExplorer and so many more!
 
 ---
 
