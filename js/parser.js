@@ -123,8 +123,8 @@ function parseFullAnimNode(lines, start) {
     birthrate: 1, velocity: 1, randvel: 1, spread: 1,
     grav: 1, drag: 1, fps: 1, mass: 1, lifeexp: 1, particlerot: 1,
     alphastart: 1, alphamid: 1, alphaend: 1,
-    sizestart: 1, sizemid: 0, sizeend: 1,
-    colorstart: 3, colormid: 3, colorend: 3,
+    sizestart: 1, sizemid: 1, sizeend: 1,   // FIX: sizemid has 1 column (was 0)
+    color: 3, colorstart: 3, colormid: 3, colorend: 3,   // FIX: color = light colorkey (3 columns)
     selfillumcolor: 3,   // NEW — für selfillumcolorkey / selfillumcolorbezierkey
   };
 
