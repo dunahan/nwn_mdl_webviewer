@@ -510,7 +510,7 @@ MIT — see [LICENSE](LICENSE)
 ## 🙏 Credits
 
 - **Bioware / Beamdog** for the NWN MDL format
-- **plenarius** for [CleanModels](https://github.com/plenarius/cleanmodels) (WASM decompiler)
+- **plenarius** for [CleanModels](https://github.com/plenarius/cleanmodels) (WASM decompiler) and his NWN:EE model format (MDL): specification and conformance suite (https://github.com/plenarius/nwn-mdl-spec)
 - **Community** from the Vault and Discord
 - **Three.js** contributors
 - NWN community tools: nwneetools, NWNExplorer and so many more!

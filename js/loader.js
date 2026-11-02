@@ -687,8 +687,12 @@ function mergeAnimationsFromSupermodel(mainModel, superModel) {
 
   const superNameLC = superModel.name.toLowerCase();
   const animScale    = mainModel.animationScale || 1.0;
+  // FIX: a model's own animations override same-named supermodel ones (MDL-NODE-031)
+  const ownAnimNames = new Set(mainModel.animations.map(a => a.name.toLowerCase()));
+  let   merged       = 0;
 
   for (const anim of superModel.animations) {
+    if (ownAnimNames.has(anim.name.toLowerCase())) continue;
     const remapped = { name: anim.name, length: anim.length, transtime: anim.transtime, nodes: {} };
     for (const [nodeName, data] of Object.entries(anim.nodes)) {
       // Root node of the supermodel → root name of the mainModel (case-insensitive)
@@ -716,6 +720,7 @@ function mergeAnimationsFromSupermodel(mainModel, superModel) {
       }
     }
     mainModel.animations.push(remapped);
+    merged++;
   }
 
   mainModel.animCount = mainModel.animations.length;
@@ -735,7 +740,7 @@ function mergeAnimationsFromSupermodel(mainModel, superModel) {
     }
   }
 
-  logInfoI18n('super_anims_merged', { name: superModel.name, n: superModel.animations.length });
+  logInfoI18n('super_anims_merged', { name: superModel.name, n: merged });
 }
 
 // ─────────────────────────────────────────────
